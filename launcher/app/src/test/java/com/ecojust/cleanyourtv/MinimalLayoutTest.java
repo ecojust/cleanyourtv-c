@@ -80,6 +80,10 @@ public class MinimalLayoutTest {
             layout(home, 1920, 1080);
             RecyclerView grid = home.findViewById(R.id.grid);
             checkCards(grid, 4);
+            assertEquals(home.getString(R.string.home_music),
+                    ((android.widget.TextView) grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.name)).getText().toString());
+            assertEquals(home.getString(R.string.home_files),
+                    ((android.widget.TextView) grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.name)).getText().toString());
             View first = grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card);
             assertTrue("initial TV focus should be visible", first.hasFocus());
             int[] at = new int[2];
@@ -108,6 +112,10 @@ public class MinimalLayoutTest {
             layout(home, 640, 360);
             RecyclerView grid = home.findViewById(R.id.grid);
             checkCards(grid, 4);
+            assertEquals(home.getString(R.string.home_music),
+                    ((android.widget.TextView) grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.name)).getText().toString());
+            assertEquals(home.getString(R.string.home_files),
+                    ((android.widget.TextView) grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.name)).getText().toString());
             View first = grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card);
             assertTrue("initial TV focus should be visible", first.hasFocus());
             int[] at = new int[2];

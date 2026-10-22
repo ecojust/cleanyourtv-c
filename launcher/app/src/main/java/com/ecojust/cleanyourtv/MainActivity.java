@@ -594,6 +594,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FileBrowser.REQUEST_OPEN) {
+            if (resultCode == RESULT_OK && data != null) FileBrowser.openSelected(this, data.getData());
+            return;
+        }
         if (requestCode != REQ_PICK_WALLPAPER || resultCode != RESULT_OK || data == null) return;
         Uri uri = data.getData();
         if (uri == null) return;

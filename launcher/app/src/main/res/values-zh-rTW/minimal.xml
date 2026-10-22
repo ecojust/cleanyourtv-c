@@ -13,5 +13,8 @@
     <string name="bilibili_not_installed">尚未安裝嗶哩嗶哩</string>
     <string name="apps_subtitle">你的應用，集中在這裡</string>
     <string name="music_browser_unavailable">無法開啟音樂網站，請先安裝或啟用瀏覽器</string>
-    <string name="video_browser_unavailable">無法開啟影視網站，請先安裝或啟用瀏覽器</string>
+    <string name="home_files">檔案</string>
+    <string name="app_store_unavailable">沒有可用的應用商店或瀏覽器，請先安裝應用商店</string>
+    <string name="file_browser_unavailable">沒有可用的檔案管理員，請先安裝檔案管理員</string>
+    <string name="file_viewer_unavailable">沒有可開啟此檔案的應用</string>
 </resources>

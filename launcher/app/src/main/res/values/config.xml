@@ -8,8 +8,18 @@
 -->
 <resources>
 
-    <!-- Free on-demand catalogue; selection and playback depend on region. -->
-    <string name="video_website_url" translatable="false">https://watch.plex.tv/on-demand</string>
+    <string name="app_store_website_url" translatable="false">https://www.dangbei.com/</string>
+    <string-array name="app_store_packages">
+        <item>com.dangbeimarket</item>
+        <item>com.android.vending</item>
+        <item>com.xiaomi.mitv.appstore</item>
+    </string-array>
+    <string-array name="file_manager_packages">
+        <item>com.lonelycatgames.Xplore</item>
+        <item>com.estrongs.android.pop</item>
+        <item>com.google.android.apps.nbu.files</item>
+        <item>com.android.fileexplorer</item>
+    </string-array>
 
     <!-- Free, listener-supported radio; opens in an installed web browser. -->
     <string name="music_website_url" translatable="false">https://somafm.com/player/</string>

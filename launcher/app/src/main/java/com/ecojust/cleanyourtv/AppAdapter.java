@@ -25,7 +25,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onTileVerticalKey(int position, int keyCode);
     }
 
-    static final int PLACEHOLDER = 0, APPLICATIONS = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, VIDEO_WEBSITE = 4;
+    static final int PLACEHOLDER = 0, APP_STORE = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, FILES = 4;
     static final float FOCUS_SCALE = 1.03f;
     static final float DESIGN_W_DP = 190f, DESIGN_H_DP = 94f;
     static boolean reducedMotion;
@@ -50,10 +50,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     static List<Entry> homeEntries() {
         return Arrays.asList(
-                new Entry("video", R.string.home_video, R.drawable.ic_video, 0xFF503036, VIDEO_WEBSITE, 0),
                 new Entry("music", R.string.home_music, R.drawable.ic_music, 0xFF303338, MUSIC_WEBSITE, 0),
                 new Entry("bilibili", R.string.home_bilibili, R.drawable.ic_bilibili, 0xFF86515F, BILIBILI, 0),
-                new Entry("apps", R.string.home_apps, R.drawable.ic_apps_minimal, 0xFF374959, APPLICATIONS, 0));
+                new Entry("files", R.string.home_files, R.drawable.ic_folder, 0xFF3B4C46, FILES, 0),
+                new Entry("apps", R.string.home_apps, R.drawable.ic_apps_minimal, 0xFF374959, APP_STORE, 0));
     }
 
     static List<Entry> placeholderEntries() {
@@ -143,14 +143,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     private void launch(Entry entry) {
-        if (entry.action == MUSIC_WEBSITE || entry.action == VIDEO_WEBSITE) {
-            boolean music = entry.action == MUSIC_WEBSITE;
-            openWebsite(music ? R.string.music_website_url : R.string.video_website_url,
-                    music ? R.string.music_browser_unavailable : R.string.video_browser_unavailable);
+        if (entry.action == MUSIC_WEBSITE) {
+            openWebsite(R.string.music_website_url, R.string.music_browser_unavailable);
             return;
         }
-        if (entry.action == APPLICATIONS) {
-            context.startActivity(new Intent(context, AppsActivity.class));
+        if (entry.action == FILES) {
+            FileBrowser.open(context);
+            return;
+        }
+        if (entry.action == APP_STORE) {
+            AppStore.open(context);
             return;
         }
         if (entry.action == BILIBILI) {

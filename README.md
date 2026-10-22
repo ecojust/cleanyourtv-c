@@ -4,13 +4,17 @@
 
 仓库：[ecojust/cleanyourtv-c](https://github.com/ecojust/cleanyourtv-c)
 
-![已确认的桌面设计稿（非运行截图，壁纸与应用图标仅作示意）](docs/design-minimal.png)
+![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
 
 ## 功能
 
 - 极简深色桌面：左上时间与日期、右上文字导航、底部四个纯色卡片，细白框提示焦点。
-- 四个入口：影视、音乐、哔哩哔哩、应用。影视通过电视浏览器打开 [Plex 免费点播区](https://watch.plex.tv/on-demand)，采用深色海报式页面，以海外影视为主，具体片源和播放受地区限制；音乐通过电视浏览器打开 [SomaFM 免费网络电台](https://somafm.com/player/)，无需账号即可收听，未安装或未启用浏览器时显示提示；哔哩哔哩优先打开已安装的 TV 版，没有安装时明确提示。
-- 点击「应用」或在桌面按下方向键，进入独立应用列表页，当前提供 8 个占位应用；点击显示「暂未配置」，返回键回桌面。
+- 桌面顺序：音乐、哔哩哔哩、文件、应用。
+- 音乐：通过电视浏览器打开 [SomaFM 免费网络电台](https://somafm.com/player/)，无需账号即可收听。
+- 哔哩哔哩：优先打开已安装的 TV 版，没有安装时明确提示。
+- 文件：优先打开已安装的文件管理器；没有可用管理器时使用系统文件选择器，选中文件后交给支持它的应用打开。
+- 应用：优先打开当贝市场、Google Play、小米应用商店或支持 Android 商城入口的厂商应用；不可用时打开 [当贝官网](https://www.dangbei.com/)，没有商城和浏览器时明确提示。
+- 桌面按下方向键或点击底部「全部应用」，仍可进入包含 8 个占位项的独立列表页；返回键回桌面。
 - 菜单键打开快捷设置；顶栏「常用」将焦点移回底部快捷入口。
 - 桌面设置：减弱动画、本地壁纸、每日随机壁纸。桌面固定四列，应用页随屏幕宽度采用三列或四列。
 - 时钟、日期、可选时钟屏保；可选天气、城市搜索和空气质量。
@@ -21,7 +25,7 @@
 
 ## 下载
 
-[下载 v0.1.0 APK](https://github.com/ecojust/cleanyourtv-c/releases/tag/v0.1.0) · [全部版本](https://github.com/ecojust/cleanyourtv-c/releases)
+[下载最新版 APK](https://github.com/ecojust/cleanyourtv-c/releases/latest) · [全部版本](https://github.com/ecojust/cleanyourtv-c/releases)
 
 ## 构建
 

@@ -13,5 +13,8 @@
     <string name="bilibili_not_installed">尚未安装哔哩哔哩</string>
     <string name="apps_subtitle">你的应用，集中在这里</string>
     <string name="music_browser_unavailable">无法打开音乐网站，请先安装或启用浏览器</string>
-    <string name="video_browser_unavailable">无法打开影视网站，请先安装或启用浏览器</string>
+    <string name="home_files">文件</string>
+    <string name="app_store_unavailable">没有可用的应用商城或浏览器，请先安装应用商城</string>
+    <string name="file_browser_unavailable">没有可用的文件管理器，请先安装文件管理器</string>
+    <string name="file_viewer_unavailable">没有可打开此文件的应用</string>
 </resources>

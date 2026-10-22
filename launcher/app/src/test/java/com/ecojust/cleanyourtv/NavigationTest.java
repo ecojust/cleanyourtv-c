@@ -25,7 +25,7 @@ public class NavigationTest {
         shadowOf(android.os.Looper.getMainLooper()).idle();
     }
 
-    @Test public void applicationsCardOpensDedicatedPage() {
+    @Test public void applicationsCardOpensStoreWebsiteWhenNoStoreIsInstalled() {
         try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
             MainActivity home = controller.get();
             layout(home);
@@ -35,37 +35,8 @@ public class NavigationTest {
             assertNotNull(apps);
             apps.itemView.findViewById(R.id.card).performClick();
             Intent intent = shadowOf(home).getNextStartedActivity();
-            assertEquals(AppsActivity.class.getName(), intent.getComponent().getClassName());
-        }
-    }
-
-    @Test public void videoCardOpensFreeOnDemandCatalogueInBrowser() {
-        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
-            MainActivity home = controller.get();
-            layout(home);
-            RecyclerView grid = home.findViewById(R.id.grid);
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
-            Intent intent = shadowOf(home).getNextStartedActivity();
             assertEquals(Intent.ACTION_VIEW, intent.getAction());
-            assertEquals("https://watch.plex.tv/on-demand", intent.getDataString());
-            assertTrue(intent.hasCategory(Intent.CATEGORY_BROWSABLE));
-        }
-    }
-
-    @Test public void videoCardExplainsMissingBrowser() {
-        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
-            MainActivity home = controller.get();
-            android.content.Context noBrowser = new android.content.ContextWrapper(home) {
-                @Override public void startActivity(Intent intent) {
-                    throw new android.content.ActivityNotFoundException("No browser installed");
-                }
-            };
-            RecyclerView grid = home.findViewById(R.id.grid);
-            grid.setAdapter(new AppAdapter(noBrowser, home, 4, AppAdapter.homeEntries()));
-            layout(home);
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
-            assertEquals(home.getString(R.string.video_browser_unavailable), ShadowToast.getTextOfLatestToast());
-            assertNull(shadowOf(home).getNextStartedActivity());
+            assertEquals("https://www.dangbei.com/", intent.getDataString());
         }
     }
 
@@ -74,7 +45,7 @@ public class NavigationTest {
             MainActivity home = controller.get();
             layout(home);
             RecyclerView grid = home.findViewById(R.id.grid);
-            grid.findViewHolderForAdapterPosition(1).itemView.findViewById(R.id.card).performClick();
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
             Intent intent = shadowOf(home).getNextStartedActivity();
             assertEquals(Intent.ACTION_VIEW, intent.getAction());
             assertEquals("https://somafm.com/player/", intent.getDataString());
@@ -93,7 +64,7 @@ public class NavigationTest {
             RecyclerView grid = home.findViewById(R.id.grid);
             grid.setAdapter(new AppAdapter(noBrowser, home, 4, AppAdapter.homeEntries()));
             layout(home);
-            grid.findViewHolderForAdapterPosition(1).itemView.findViewById(R.id.card).performClick();
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
             assertEquals(home.getString(R.string.music_browser_unavailable), ShadowToast.getTextOfLatestToast());
             assertNull(shadowOf(home).getNextStartedActivity());
         }
