@@ -25,7 +25,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onTileVerticalKey(int position, int keyCode);
     }
 
-    static final int PLACEHOLDER = 0, APPLICATIONS = 1, BILIBILI = 2, MUSIC_WEBSITE = 3;
+    static final int PLACEHOLDER = 0, APPLICATIONS = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, VIDEO_WEBSITE = 4;
     static final float FOCUS_SCALE = 1.03f;
     static final float DESIGN_W_DP = 190f, DESIGN_H_DP = 94f;
     static boolean reducedMotion;
@@ -50,7 +50,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     static List<Entry> homeEntries() {
         return Arrays.asList(
-                new Entry("video", R.string.home_video, R.drawable.ic_video, 0xFF503036, PLACEHOLDER, 0),
+                new Entry("video", R.string.home_video, R.drawable.ic_video, 0xFF503036, VIDEO_WEBSITE, 0),
                 new Entry("music", R.string.home_music, R.drawable.ic_music, 0xFF303338, MUSIC_WEBSITE, 0),
                 new Entry("bilibili", R.string.home_bilibili, R.drawable.ic_bilibili, 0xFF86515F, BILIBILI, 0),
                 new Entry("apps", R.string.home_apps, R.drawable.ic_apps_minimal, 0xFF374959, APPLICATIONS, 0));
@@ -143,16 +143,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     private void launch(Entry entry) {
-        if (entry.action == MUSIC_WEBSITE) {
-            Intent website = new Intent(Intent.ACTION_VIEW,
-                    Uri.parse(context.getString(R.string.music_website_url)))
-                    .addCategory(Intent.CATEGORY_BROWSABLE)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                context.startActivity(website);
-            } catch (ActivityNotFoundException | SecurityException e) {
-                Toast.makeText(context, R.string.music_browser_unavailable, Toast.LENGTH_LONG).show();
-            }
+        if (entry.action == MUSIC_WEBSITE || entry.action == VIDEO_WEBSITE) {
+            boolean music = entry.action == MUSIC_WEBSITE;
+            openWebsite(music ? R.string.music_website_url : R.string.video_website_url,
+                    music ? R.string.music_browser_unavailable : R.string.video_browser_unavailable);
             return;
         }
         if (entry.action == APPLICATIONS) {
@@ -176,6 +170,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
         Toast.makeText(context, context.getString(R.string.placeholder_unconfigured,
                 entry.title(context)), Toast.LENGTH_SHORT).show();
+    }
+
+    private void openWebsite(int urlResource, int errorResource) {
+        Intent website = new Intent(Intent.ACTION_VIEW,
+                Uri.parse(context.getString(urlResource)))
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(website);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(context, errorResource, Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override public int getItemCount() { return entries.size(); }

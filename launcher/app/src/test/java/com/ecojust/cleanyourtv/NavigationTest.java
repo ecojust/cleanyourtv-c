@@ -39,6 +39,36 @@ public class NavigationTest {
         }
     }
 
+    @Test public void videoCardOpensFreeOnDemandCatalogueInBrowser() {
+        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity home = controller.get();
+            layout(home);
+            RecyclerView grid = home.findViewById(R.id.grid);
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            Intent intent = shadowOf(home).getNextStartedActivity();
+            assertEquals(Intent.ACTION_VIEW, intent.getAction());
+            assertEquals("https://watch.plex.tv/on-demand", intent.getDataString());
+            assertTrue(intent.hasCategory(Intent.CATEGORY_BROWSABLE));
+        }
+    }
+
+    @Test public void videoCardExplainsMissingBrowser() {
+        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity home = controller.get();
+            android.content.Context noBrowser = new android.content.ContextWrapper(home) {
+                @Override public void startActivity(Intent intent) {
+                    throw new android.content.ActivityNotFoundException("No browser installed");
+                }
+            };
+            RecyclerView grid = home.findViewById(R.id.grid);
+            grid.setAdapter(new AppAdapter(noBrowser, home, 4, AppAdapter.homeEntries()));
+            layout(home);
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            assertEquals(home.getString(R.string.video_browser_unavailable), ShadowToast.getTextOfLatestToast());
+            assertNull(shadowOf(home).getNextStartedActivity());
+        }
+    }
+
     @Test public void musicCardOpensFreeMusicWebsiteInBrowser() {
         try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
             MainActivity home = controller.get();
