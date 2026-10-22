@@ -1,0 +1,31 @@
+name: Publish signed APK
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag and release draft
+        required: true
+        default: v0.1.0
+      asset_ref:
+        description: Temporary branch containing the signed APK and SHA256SUMS.txt
+        required: true
+        default: release-assets/v0.1.0
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.asset_ref }}
+      - name: Verify and publish signed package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          sha256sum -c SHA256SUMS.txt
+          gh release view "$RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" ./*.apk SHA256SUMS.txt --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
