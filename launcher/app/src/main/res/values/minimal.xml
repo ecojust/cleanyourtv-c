@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="home_video">Video</string>
+    <string name="home_music">Music</string>
+    <string name="home_bilibili">Bilibili</string>
+    <string name="home_apps">Apps</string>
+    <string name="network">Network</string>
+    <string name="all_apps_hint">↓  All apps</string>
+    <string name="apps_heading">Apps</string>
+    <string name="back_home">Back</string>
+    <string name="placeholder_app">Placeholder %1$02d</string>
+    <string name="placeholder_unconfigured">%1$s is not configured yet</string>
+    <string name="bilibili_not_installed">Bilibili is not installed</string>
+    <string name="apps_subtitle">Your apps, all in one place</string>
+</resources>
