@@ -1,6 +1,8 @@
 package com.ecojust.cleanyourtv;
 
 import android.content.Context;
+import android.content.ActivityNotFoundException;
+import android.net.Uri;
 import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
 import android.view.KeyEvent;
@@ -23,7 +25,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onTileVerticalKey(int position, int keyCode);
     }
 
-    static final int PLACEHOLDER = 0, APPLICATIONS = 1, BILIBILI = 2;
+    static final int PLACEHOLDER = 0, APPLICATIONS = 1, BILIBILI = 2, MUSIC_WEBSITE = 3;
     static final float FOCUS_SCALE = 1.03f;
     static final float DESIGN_W_DP = 190f, DESIGN_H_DP = 94f;
     static boolean reducedMotion;
@@ -49,7 +51,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     static List<Entry> homeEntries() {
         return Arrays.asList(
                 new Entry("video", R.string.home_video, R.drawable.ic_video, 0xFF503036, PLACEHOLDER, 0),
-                new Entry("music", R.string.home_music, R.drawable.ic_music, 0xFF303338, PLACEHOLDER, 0),
+                new Entry("music", R.string.home_music, R.drawable.ic_music, 0xFF303338, MUSIC_WEBSITE, 0),
                 new Entry("bilibili", R.string.home_bilibili, R.drawable.ic_bilibili, 0xFF86515F, BILIBILI, 0),
                 new Entry("apps", R.string.home_apps, R.drawable.ic_apps_minimal, 0xFF374959, APPLICATIONS, 0));
     }
@@ -141,6 +143,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     private void launch(Entry entry) {
+        if (entry.action == MUSIC_WEBSITE) {
+            Intent website = new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(context.getString(R.string.music_website_url)))
+                    .addCategory(Intent.CATEGORY_BROWSABLE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                context.startActivity(website);
+            } catch (ActivityNotFoundException | SecurityException e) {
+                Toast.makeText(context, R.string.music_browser_unavailable, Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (entry.action == APPLICATIONS) {
             context.startActivity(new Intent(context, AppsActivity.class));
             return;

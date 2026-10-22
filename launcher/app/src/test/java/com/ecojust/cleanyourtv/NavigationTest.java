@@ -39,6 +39,36 @@ public class NavigationTest {
         }
     }
 
+    @Test public void musicCardOpensFreeMusicWebsiteInBrowser() {
+        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity home = controller.get();
+            layout(home);
+            RecyclerView grid = home.findViewById(R.id.grid);
+            grid.findViewHolderForAdapterPosition(1).itemView.findViewById(R.id.card).performClick();
+            Intent intent = shadowOf(home).getNextStartedActivity();
+            assertEquals(Intent.ACTION_VIEW, intent.getAction());
+            assertEquals("https://somafm.com/player/", intent.getDataString());
+            assertTrue(intent.hasCategory(Intent.CATEGORY_BROWSABLE));
+        }
+    }
+
+    @Test public void musicCardExplainsMissingBrowser() {
+        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity home = controller.get();
+            android.content.Context noBrowser = new android.content.ContextWrapper(home) {
+                @Override public void startActivity(Intent intent) {
+                    throw new android.content.ActivityNotFoundException("No browser installed");
+                }
+            };
+            RecyclerView grid = home.findViewById(R.id.grid);
+            grid.setAdapter(new AppAdapter(noBrowser, home, 4, AppAdapter.homeEntries()));
+            layout(home);
+            grid.findViewHolderForAdapterPosition(1).itemView.findViewById(R.id.card).performClick();
+            assertEquals(home.getString(R.string.music_browser_unavailable), ShadowToast.getTextOfLatestToast());
+            assertNull(shadowOf(home).getNextStartedActivity());
+        }
+    }
+
     @Test public void applicationPageShowsPlaceholdersAndBackFinishes() {
         try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
             AppsActivity page = controller.get();

@@ -12,4 +12,5 @@
     <string name="placeholder_unconfigured">%1$s is not configured yet</string>
     <string name="bilibili_not_installed">Bilibili is not installed</string>
     <string name="apps_subtitle">Your apps, all in one place</string>
+    <string name="music_browser_unavailable">Could not open the music website. Please install or enable a web browser.</string>
 </resources>

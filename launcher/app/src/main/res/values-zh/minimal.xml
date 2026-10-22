@@ -12,4 +12,5 @@
     <string name="placeholder_unconfigured">%1$s 暂未配置</string>
     <string name="bilibili_not_installed">尚未安装哔哩哔哩</string>
     <string name="apps_subtitle">你的应用，集中在这里</string>
+    <string name="music_browser_unavailable">无法打开音乐网站，请先安装或启用浏览器</string>
 </resources>
