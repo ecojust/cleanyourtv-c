@@ -40,7 +40,7 @@ jobs:
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         working-directory: launcher
-        run: ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize
+        run: ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize :webtv:verifyReleaseSize
       - uses: actions/upload-artifact@v4
         with:
           name: cleanyourtv-c-debug
@@ -57,3 +57,7 @@ jobs:
         with:
           name: shortvideo-tv
           path: apps/shortvideo/build/outputs/apk/**/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webtv
+          path: apps/webtv/build/outputs/apk/**/*.apk

@@ -19,4 +19,6 @@
     <string name="file_viewer_unavailable">沒有可開啟此檔案的應用</string>
     <string name="home_shortvideo">短影片</string>
     <string name="shortvideo_not_installed">請先安裝 ShortVideo TV 短影片應用程式</string>
+    <string name="home_webtv">WebTV 直播</string>
+    <string name="webtv_not_installed">請先安裝 WebTV 直播應用程式</string>
 </resources>

@@ -19,4 +19,6 @@
     <string name="file_viewer_unavailable">No available app can open this file.</string>
     <string name="home_shortvideo">Short videos</string>
     <string name="shortvideo_not_installed">Install ShortVideo TV to open short videos</string>
+    <string name="home_webtv">WebTV</string>
+    <string name="webtv_not_installed">Install WebTV to watch live TV</string>
 </resources>

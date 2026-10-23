@@ -123,6 +123,35 @@ public class NavigationTest {
         }
     }
 
+    @Test public void webTvEntryExplainsMissingPackage() {
+        try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
+            AppsActivity page = controller.get(); layout(page);
+            RecyclerView grid = page.findViewById(R.id.appsGrid);
+            grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.card).performClick();
+            assertEquals(page.getString(R.string.webtv_not_installed), ShadowToast.getTextOfLatestToast());
+            assertNull(shadowOf(page).getNextStartedActivity());
+        }
+    }
+
+    @Test public void webTvEntryLaunchesInstalledCompanion() {
+        try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
+            AppsActivity page = controller.get();
+            android.content.pm.ResolveInfo info = new android.content.pm.ResolveInfo();
+            info.activityInfo = new android.content.pm.ActivityInfo();
+            info.activityInfo.packageName = "com.ecojust.webtv";
+            info.activityInfo.name = "com.ecojust.webtv.MainActivity";
+            info.activityInfo.exported = true;
+            info.activityInfo.applicationInfo = new android.content.pm.ApplicationInfo();
+            info.activityInfo.applicationInfo.packageName = "com.ecojust.webtv";
+            shadowOf(page.getPackageManager()).addResolveInfoForIntent(new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.webtv"), info);
+            layout(page);
+            RecyclerView grid = page.findViewById(R.id.appsGrid);
+            grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.card).performClick();
+            assertEquals("com.ecojust.webtv", shadowOf(page).getNextStartedActivity().getComponent().getPackageName());
+        }
+    }
+
     @Test public void remoteDownOpensAppsAndUpReachesNavigation() {
         try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
             MainActivity home = controller.get();
