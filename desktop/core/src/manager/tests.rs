@@ -558,6 +558,32 @@ fn malformed_outputs_and_missing_saved_file_recover_safely() {
     assert!(read_saved(&m.data_dir).adb_path.is_some());
 }
 #[test]
+fn adb_path_change_keeps_previous_tool_when_configuration_cannot_be_saved() {
+    let (mut m, _) = fixture();
+    m.persist().unwrap();
+    let previous = m.state.adb_path.clone();
+    let next = m.data_dir.join(if cfg!(windows) {
+        "next-adb.exe"
+    } else {
+        "next-adb"
+    });
+    fs::write(&next, "fake").unwrap();
+    // A directory at the temporary filename deterministically makes writes fail,
+    // including when the test runner has administrator/root privileges.
+    fs::create_dir(m.data_dir.join("state.new")).unwrap();
+    let error = m
+        .execute(Request::SetAdbPath {
+            path: next.to_string_lossy().into_owned(),
+        })
+        .unwrap_err();
+    assert!(error.contains("无法写入"));
+    assert_eq!(m.saved.adb_path, previous);
+    assert_eq!(m.state.adb_path, previous);
+    assert_eq!(read_saved(&m.data_dir).adb_path, previous);
+    assert!(m.state.adb_available);
+    fs::remove_dir_all(&m.data_dir).unwrap();
+}
+#[test]
 fn bridge_contract_uses_camelcase_and_rejects_unknown_actions() {
     let r: Request =
         serde_json::from_str(r#"{"action":"setAdbPath","path":"/usr/bin/adb"}"#).unwrap();

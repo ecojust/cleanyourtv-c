@@ -75,7 +75,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf
       - name: Verify version metadata
         run: |
           python - <<'PYTHON'
@@ -97,6 +97,10 @@ jobs:
         run: npm run build
       - name: Test ADB core
         run: cargo test --locked --manifest-path core/Cargo.toml
+      - name: Test Platform Tools installer
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Verify official Platform Tools download and offline reuse
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml official_download_and_offline_reuse -- --ignored --nocapture
       - name: Install UI test browser
         if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium

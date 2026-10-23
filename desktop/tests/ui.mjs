@@ -21,6 +21,15 @@ async function confirmOperation(p) {
   await p.waitForFunction(n => window.__requests.length > n, before);
   await settled(p);
 }
+function withoutAdb() {
+  return {...snapshot(),adbPath:null,adbAvailable:false,device:null,packages:[],launchers:[],defaultHome:null};
+}
+async function acceptTools(p) {
+  const before = await p.evaluate(()=>window.__toolsInstalls);
+  await p.locator('#platform-tools-license').check();
+  await p.locator('#confirm-platform-tools').click();
+  await p.waitForFunction(n=>window.__toolsInstalls > n, before);
+}
 const captureDir = process.env.PURETV_CAPTURE_DIR;
 async function shot(p, name) { if (captureDir) { await mkdir(captureDir, { recursive: true }); await p.screenshot({path:`${captureDir}/${name}.png`, fullPage:true}); } }
 async function check(name, run, state = snapshot(), options = {}) {
@@ -49,8 +58,77 @@ try {
   await check('browser preview never pretends to connect', async p => {
     assert.match(await p.locator('.warning-banner').innerText(), /浏览器预览/);
     assert.equal(await act(p,'connect').isDisabled(), true);
+    assert.equal(await act(p,'download-adb').isDisabled(), true);
     await nav(p,'apps'); assert.equal(await p.locator('input[data-select-package]').count(),0);
   }, null);
+  await check('official ADB setup requires explicit license consent and configures automatically', async p => {
+    assert.equal(await act(p,'connect').isDisabled(),true);
+    assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');
+    await act(p,'download-adb').click();
+    assert.match(await p.locator('dialog').innerText(),/37\.0\.1/);
+    assert.match(await p.locator('dialog').innerText(),/macOS/);
+    assert.match(await p.locator('dialog').innerText(),/15\.4 MiB/);
+    assert.match(await p.locator('dialog').innerText(),/dl\.google\.com/);
+    assert.equal(await p.locator('#platform-tools-license').isChecked(),false);
+    assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
+    await act(p,'platform-tools-license').click();
+    assert.deepEqual(await p.evaluate(()=>window.__resources),['platformToolsLicense']);
+    await act(p,'close-dialog').click(); assert.equal(await p.evaluate(()=>window.__toolsInstalls),0);
+    await act(p,'download-adb').click(); await acceptTools(p);
+    await p.locator('.busy-bar').waitFor();
+    assert.match(await p.locator('.busy-bar').innerText(),/50%/);
+    assert.equal(await p.locator('progress').getAttribute('max'),'16110554');
+    assert.equal(await act(p,'choose-adb').isDisabled(),true);
+    await settled(p);
+    assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true}]);
+    assert.match(await p.locator('.notice.success').innerText(),/ADB 已就绪/);
+    assert.match(await p.locator('[name="adbPath"]').inputValue(),/platform-tools-37\.0\.1/);
+    assert.equal(await act(p,'connect').isEnabled(),true);
+    assert.match(await act(p,'download-adb').innerText(),/使用已下载 ADB/);
+    await shot(p,'adb-ready');
+  },withoutAdb(),{slowDownload:true});
+  await check('ADB download failure stays unconfigured and can be retried', async p => {
+    await act(p,'download-adb').click(); await acceptTools(p); await settled(p);
+    assert.match(await p.locator('.notice.error').innerText(),/下载失败/);
+    assert.equal(await act(p,'connect').isDisabled(),true);
+    assert.equal(await p.locator('[name="adbPath"]').inputValue(),'');
+    await act(p,'download-adb').click();
+    assert.equal(await p.locator('#platform-tools-license').isChecked(),false,'Consent is explicit on retry');
+    await acceptTools(p); await settled(p);
+    assert.equal(await p.evaluate(()=>window.__toolsInstalls),2);
+    assert.equal(await act(p,'connect').isEnabled(),true);
+  },withoutAdb(),{failDownloadOnce:true});
+  await check('ADB download cancellation retains setup controls and does not show success', async p => {
+    await act(p,'download-adb').click(); await acceptTools(p); await p.locator('.busy-bar').waitFor();
+    assert.equal(await act(p,'cancel').innerText(),'取消下载');
+    await act(p,'cancel').click();
+    assert.match(await p.locator('.busy-bar').innerText(),/清理临时文件/);
+    assert.doesNotMatch(await p.locator('.busy-bar').innerText(),/当前修改会完成/);
+    await settled(p);
+    assert.match(await p.locator('.notice.info').innerText(),/已取消/);
+    assert.equal(await p.locator('.notice.success').count(),0);
+    assert.equal(await act(p,'download-adb').isEnabled(),true);
+    assert.equal(await act(p,'connect').isDisabled(),true);
+    assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true},{action:'cancel'}]);
+  },withoutAdb(),{slowDownload:true});
+  await check('downloaded tools are offered for offline reuse and connected TVs prevent switching', async p => {
+    assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
+    await act(p,'disconnect').click(); await settled(p);
+    await act(p,'download-adb').click();
+    assert.match(await p.locator('dialog').innerText(),/优先验证并使用已下载工具/);
+    assert.match(await p.locator('dialog').innerText(),/校验失败时会从 Google 重新下载/);
+    assert.match(await p.locator('dialog').innerText(),/0 MiB/);
+    await acceptTools(p); await settled(p);
+    assert.equal(await act(p,'connect').isEnabled(),true);
+    assert.equal(await p.evaluate(()=>window.__toolsInstalls),1);
+  },snapshot(),{toolsInstalled:true});
+  await check('unsupported online setup keeps manual ADB selection available', async p => {
+    await p.getByText('此系统请手动配置 ADB',{exact:true}).waitFor();
+    assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.equal(await act(p,'choose-adb').isEnabled(),true);
+    assert.equal(await p.evaluate(()=>window.__toolsInstalls),0);
+  },withoutAdb(),{unsupportedTools:true});
   await check('installed/recoverable filters, search and protected components', async p => {
     await nav(p,'apps');
     assert.equal(await p.locator('input[data-select-package]').count(),6);

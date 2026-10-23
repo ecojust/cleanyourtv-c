@@ -186,12 +186,11 @@ impl Manager {
         }
         let old = self.saved.adb_path.clone();
         self.saved.adb_path = (!path.is_empty()).then(|| path.to_string());
-        if let Err(error) = self.verify_adb() {
+        if let Err(error) = self.verify_adb().and_then(|_| self.persist()) {
             self.saved.adb_path = old;
             self.locate_adb();
             return Err(error);
         }
-        self.persist()?;
         self.state.message = "ADB 已就绪".into();
         Ok(())
     }

@@ -2,6 +2,12 @@ export interface Device { serial: string; model: string; androidVersion: string;
 export interface PackageInfo { packageName: string; label: string; system: boolean; enabled: boolean; installed: boolean; protectedReason: string | null }
 export interface LauncherInfo { component: string; packageName: string; label: string; isDefault: boolean }
 export interface HistoryEntry { id: string; timestamp: number; action: string; target: string; device: string; userId: number; success: boolean; message: string }
+export interface PlatformToolsInfo {
+  version: string; platform: string; downloadBytes: number; installed: boolean; supported: boolean; message: string;
+}
+export interface DownloadProgress {
+  stage: 'downloading' | 'verifying' | 'extracting' | 'checking'; downloaded: number; total: number;
+}
 export interface Snapshot {
   adbPath: string | null; adbAvailable: boolean; device: Device | null;
   packages: PackageInfo[]; launchers: LauncherInfo[]; defaultHome: string | null;

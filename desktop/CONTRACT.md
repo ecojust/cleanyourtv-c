@@ -1,6 +1,6 @@
 # Desktop bridge contract (implementation)
 
-Tauri command `execute` receives `{ request }` and returns a `Snapshot` (camelCase JSON). Errors reject with a user-facing Chinese string. A separate `cancel` command sets an AtomicBool without taking the service lock; it cancels scanning and skips remaining batch operations; an in-flight mutation finishes and is verified before stopping (completed steps remain recorded). All work runs off the UI thread, serialized by a service Mutex. Browser-only preview uses an explicit demo adapter and never claims a device connection.
+Tauri command `execute` receives `{ request }` and returns a `Snapshot` (camelCase JSON). Errors reject with a user-facing Chinese string. A separate `cancel` command sets an AtomicBool without taking the service lock; it cancels scanning or Platform Tools preparation and skips remaining batch operations; an in-flight mutation finishes and is verified before stopping (completed steps remain recorded). All work runs off the UI thread, serialized by a service Mutex. Browser-only preview uses an explicit demo adapter and never claims a device connection.
 
 Rust core API for the shell:
 
@@ -62,7 +62,31 @@ Other Tauri commands:
 
 - `choose_apks` -> `string[]` (native file picker, .apk, multiple)
 - `choose_adb` -> `string | null` (native executable file picker)
-- `open_resource { resource: "releases" | "platformTools" }` (fixed URL allowlist)
+- `open_resource { resource: "releases" | "platformTools" | "platformToolsLicense" }` (fixed URL allowlist)
+- `platform_tools_info` -> `PlatformToolsInfo` (local metadata only, no download)
+- `install_platform_tools { acceptedLicense: boolean, onProgress: Channel<DownloadProgress> }` -> `Snapshot`
+
+```ts
+interface PlatformToolsInfo {
+  version: string;
+  platform: string; // windows / macos / linux for supported builds
+  downloadBytes: number;
+  installed: boolean; // managed copy exists; validated before use
+  supported: boolean;
+  message: string;
+}
+interface DownloadProgress {
+  stage: 'downloading' | 'verifying' | 'extracting' | 'checking';
+  downloaded: number; // bytes received, never an invented completion value
+  total: number; // pinned archive byte count
+}
+```
+
+Platform Tools setup runs under the same busy/cancel guard as device operations. It requires explicit SDK license acceptance and rejects while a television is selected, including unauthorized/offline states. The UI shows source, version, platform and download size before consent; its checkbox starts unchecked. No download occurs on startup or in ordinary browser preview; demo mode remains explicitly simulated.
+
+The shell selects Platform Tools 37.0.1 from its built-in manifest, with fixed Google HTTPS URLs, archive sizes and SHA256 values. The webview cannot supply download URLs or destination paths. Downloads stream into staging files with timeout and size bounds; checksums are verified before extracting or executing. Extraction rejects traversal, links and excessive archive contents, preserves the complete official tool set (including Windows DLLs and NOTICE), and writes to `app_data_dir/tools/platform-tools-37.0.1-<nonce>/platform-tools/`. It does not modify system PATH, require administrator access, or write into the macOS `.app`.
+
+The prepared binary is checked using `adb version` before saving it via `setAdbPath`. A valid managed copy can be reused offline. A damaged cache is downloaded to a fresh directory on retry, never overwriting tools that may still be in use; `tools/current-37.0.1.json` identifies the complete managed cache. Failure or cancellation cleans partial staging files and preserves the previously configured ADB; no device commands are sent by setup. Download progress is carried by the Tauri channel, while the existing `cancel` command requests cancellation. After success, the returned `Snapshot` supplies the selected path and ADB readiness. Version updates are tied to manager releases rather than an unverified moving `latest` archive.
 
 No generic shell/exec command is exposed to the webview. Tauri uses a restrictive local CSP and no remote scripts.
 

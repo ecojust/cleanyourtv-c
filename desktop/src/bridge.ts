@@ -1,10 +1,11 @@
-import { invoke } from '@tauri-apps/api/core';
-import { emptySnapshot, type Snapshot, type Request } from './types';
+import { Channel, invoke } from '@tauri-apps/api/core';
+import { emptySnapshot, type Snapshot, type Request, type PlatformToolsInfo, type DownloadProgress } from './types';
 
 export const demo = new URLSearchParams(location.search).get('demo') === '1';
 export const desktop = '__TAURI_INTERNALS__' in window;
 const unavailable = '浏览器预览不能连接电视，请运行 pureTV 桌面应用。';
 const sample = emptySnapshot();
+let demoDownloadCancelled = false, demoToolsInstalled = false;
 if (demo) {
   sample.adbAvailable = true;
   sample.adbPath = '演示 / platform-tools / adb';
@@ -72,7 +73,7 @@ export async function execute(request: Request): Promise<Snapshot> {
   }
   return invoke<Snapshot>('execute', { request });
 }
-export async function cancel(): Promise<void> { if (demo) return; if (!desktop) throw new Error(unavailable); await invoke('cancel'); }
+export async function cancel(): Promise<void> { if (demo) { demoDownloadCancelled = true; return; } if (!desktop) throw new Error(unavailable); await invoke('cancel'); }
 export async function chooseApks(): Promise<string[]> {
   if (demo) return ['C:\\Applications\\pureTV-0.1.5.apk'];
   if (!desktop) throw new Error(unavailable);
@@ -83,9 +84,30 @@ export async function chooseAdb(): Promise<string | null> {
   if (!desktop) throw new Error(unavailable);
   return invoke<string | null>('choose_adb');
 }
-export async function openResource(resource: 'releases' | 'platformTools'): Promise<void> {
+export async function platformToolsInfo(): Promise<PlatformToolsInfo> {
+  if (demo) return { version: '37.0.1', platform: 'demo', downloadBytes: 16110554, installed: demoToolsInstalled, supported: true, message: '演示模式，不会下载文件' };
+  if (!desktop) throw new Error(unavailable);
+  return invoke<PlatformToolsInfo>('platform_tools_info');
+}
+export async function installPlatformTools(onProgress: (progress: DownloadProgress) => void): Promise<Snapshot> {
+  if (demo) {
+    if (sample.device) throw new Error('请先断开当前电视，再配置 ADB');
+    demoDownloadCancelled = false;
+    for (const downloaded of [0, 8055277, 16110554]) {
+      onProgress({ stage: 'downloading', downloaded, total: 16110554 });
+      await new Promise(resolve => setTimeout(resolve, 250));
+      if (demoDownloadCancelled) throw new Error('演示下载已取消，未下载真实文件');
+    }
+    demoToolsInstalled = true; sample.adbAvailable = true; sample.adbPath = '演示 / 已下载工具 / adb';
+    sample.message = '演示配置完成，未下载真实文件'; return copy();
+  }
+  if (!desktop) throw new Error(unavailable);
+  const progress = new Channel<DownloadProgress>(onProgress);
+  return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress });
+}
+export async function openResource(resource: 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
   if (demo || !desktop) {
-    const url = resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases/latest' : 'https://developer.android.com/tools/releases/platform-tools';
+    const url = resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases' : resource === 'platformToolsLicense' ? 'https://developer.android.com/studio/terms' : 'https://developer.android.com/tools/releases/platform-tools';
     window.open(url, '_blank', 'noopener,noreferrer'); return;
   }
   await invoke('open_resource', { resource });
