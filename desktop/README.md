@@ -8,14 +8,14 @@
 
 ## 安装包大小
 
-| 平台／格式 | 0.1.0 安装包大小（参考） |
+| 平台／格式 | 0.1.1 安装包大小 |
 | --- | --- |
 | Windows x64 安装版 EXE | 约 1.20 MiB |
 | Windows x64 便携 EXE | 约 3.38 MiB |
-| macOS ARM64 DMG | 约 1.52 MiB |
+| macOS ARM64 DMG | 约 1.51 MiB |
 | Linux x64 DEB | 约 1.93 MiB |
 
-1 MiB = 1,048,576 字节，以上为 0.1.0 发行文件的参考大小；**0.1.1 的实际大小以发布页文件列表为准**。不包含另行准备的 ADB 和系统 WebView；安装后的占用及内存依运行环境而异。
+1 MiB = 1,048,576 字节，以上为 0.1.1 发行文件大小，完整文件及校验值见发布页。不包含另行准备的 ADB 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -100,7 +100,7 @@ npm run tauri dev
 
 前端交互测试：先执行 `npm run build`，再执行 `npm run test:ui`（需 Playwright Chromium，可先运行 `npx playwright install chromium`）。可通过 `CHROMIUM_PATH` 指定已有 Chromium，通过 `PURETV_CAPTURE_DIR` 保存控件截图。自动化测试使用模拟设备，不能替代电视实机连接和厂商兼容性测试。
 
-0.1.0 的 Windows x64、macOS ARM64、Linux x64 CI 测试和安装包构建已通过。0.1.1 新增 macOS DMG 挂载、完整应用包签名校验和原生启动检查；各次构建的实际结果见 [Desktop build 工作流](https://github.com/ecojust/pureTV/actions/workflows/desktop.yml)。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
+0.1.1 的 Windows x64、macOS ARM64、Linux x64 CI 测试和安装包构建已通过。macOS DMG 挂载、完整应用包签名校验、安装副本启动存活检查已通过；该检查不代表 Apple 公证或 Gatekeeper 批准。结果见 [0.1.1 构建记录](https://github.com/ecojust/pureTV/actions/runs/39978717283)。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
 
 本地验证：29 项 Rust 核心测试、10 项浏览器交互场景、TypeScript 检查、原生 Rust 编译检查和 Linux Release 构建通过。交互场景覆盖外部 APK 添加去重、勾选安装、确认取消、保护组件、启动器恢复、失败结果、参数校验与窄窗口布局。另在 Linux 原生窗口验证了 Rust 状态读取、ADB 路径发现、系统文件选择器和外部 APK 导入；未连接真实电视。
 

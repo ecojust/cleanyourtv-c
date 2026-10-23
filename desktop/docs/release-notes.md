@@ -6,7 +6,7 @@
 
 - 对完整 `.app` 执行 ad-hoc 签名，补齐资源签名；0.1.0 的主程序仅有链接器生成的 ad-hoc 签名，未封装整个应用包。
 - 将应用信息及构建的最低系统版本统一为 macOS 11；当前 macOS 安装包适用于 Apple Silicon（M1 及后续芯片）。
-- 为 macOS CI 增加 DMG 挂载、完整应用包签名校验和原生启动检查，具体运行结果见 [Desktop build 工作流](https://github.com/ecojust/pureTV/actions/workflows/desktop.yml)。
+- 为 macOS CI 增加 DMG 挂载、完整应用包签名校验和原生启动检查，本次均已通过，结果见 [0.1.1 构建记录](https://github.com/ecojust/pureTV/actions/runs/39978717283)。
 
 **ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证。** 首次打开仍可能被系统要求确认来源；不能仅凭「已损坏」提示判断下载文件真的损坏。
 
@@ -14,10 +14,10 @@
 
 | 电脑系统 | 文件 | 说明 |
 | --- | --- | --- |
-| Windows x64 | `pureTV-Manager-0.1.1-windows-x64-setup.exe` | 安装版，首次使用推荐 |
-| Windows x64 | `pureTV-Manager-0.1.1-windows-x64-portable.exe` | 便携版，需电脑已具备 WebView2 |
-| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.1-macos-arm64.dmg` | macOS 11 或更高版本，不适用于 Intel Mac |
-| Linux x64 | `pureTV-Manager-0.1.1-linux-x64.deb` | 需要兼容的 GTK／WebKitGTK 运行环境 |
+| Windows x64 | `pureTV-Manager-0.1.1-windows-x64-setup.exe` | 安装版，约 1.20 MiB，首次使用推荐 |
+| Windows x64 | `pureTV-Manager-0.1.1-windows-x64-portable.exe` | 便携版，约 3.38 MiB，需电脑已具备 WebView2 |
+| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.1-macos-arm64.dmg` | 约 1.51 MiB，macOS 11 或更高版本，不适用于 Intel Mac |
+| Linux x64 | `pureTV-Manager-0.1.1-linux-x64.deb` | 约 1.93 MiB，需要兼容的 GTK／WebKitGTK 运行环境 |
 
 实际文件大小见本发布页附件列表，完整性校验值见 `SHA256SUMS.txt`。本版未提供 Windows ARM64 或 Intel Mac 安装包。
 
@@ -60,7 +60,7 @@ xattr -dr com.apple.quarantine "/Applications/pureTV Manager.app"
 
 管理器仅对当前所连设备及当前 Android 用户执行操作。关键系统包和当前默认启动器受保护；切换桌面不会自动停用原厂桌面。使用详情见 [桌面工具 README](https://github.com/ecojust/pureTV/blob/master/desktop/README.md)。
 
-既有验证包含 29 项 Rust 核心测试、10 项浏览器交互场景及 Linux 原生窗口／文件导入验证。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**；厂商固件可能拒绝某些操作。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
+本次三平台构建、29 项 Rust 核心测试、10 项浏览器交互场景及 macOS 安装副本启动检查均已通过；发布文件已下载并核对 SHA256。此前已验证 Linux 原生窗口及文件导入。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**；厂商固件可能拒绝某些操作。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
 
 这是独立的 **desktop-v0.1.1** 发布。Android 最新版仍为 **[v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5)**，本发布不替换或更新四个电视 APK。
 
