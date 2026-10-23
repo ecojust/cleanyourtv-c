@@ -69,6 +69,7 @@ try {
     assert.match(await p.locator('dialog').innerText(),/macOS/);
     assert.match(await p.locator('dialog').innerText(),/15\.4 MiB/);
     assert.match(await p.locator('dialog').innerText(),/dl\.google\.com/);
+    assert.match(await p.locator('dialog').innerText(),/mirrors\.cloud\.tencent\.com/);
     assert.equal(await p.locator('#platform-tools-license').isChecked(),false);
     assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
     await act(p,'platform-tools-license').click();
@@ -117,7 +118,7 @@ try {
     await act(p,'disconnect').click(); await settled(p);
     await act(p,'download-adb').click();
     assert.match(await p.locator('dialog').innerText(),/优先验证并使用已下载工具/);
-    assert.match(await p.locator('dialog').innerText(),/校验失败时会从 Google 重新下载/);
+    assert.match(await p.locator('dialog').innerText(),/校验失败时会重新下载并修复/);
     assert.match(await p.locator('dialog').innerText(),/0 MiB/);
     await acceptTools(p); await settled(p);
     assert.equal(await act(p,'connect').isEnabled(),true);

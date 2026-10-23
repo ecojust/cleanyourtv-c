@@ -22,6 +22,8 @@ struct Manifest {
 #[derive(Clone, Deserialize)]
 struct Archive {
     url: String,
+    #[serde(default, rename = "fallbackUrls")]
+    fallback_urls: Vec<String>,
     bytes: u64,
     sha256: String,
 }
@@ -405,22 +407,67 @@ fn download(
     cancel: &AtomicBool,
     report: Report<'_>,
 ) -> Result<(), String> {
+    download_with(path, archive, cancel, report, download_one)
+}
+
+fn download_with(
+    path: &Path,
+    archive: &Archive,
+    cancel: &AtomicBool,
+    report: Report<'_>,
+    mut fetch: impl FnMut(&Path, &Archive, &AtomicBool, Report<'_>) -> Result<(), String>,
+) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for url in std::iter::once(&archive.url).chain(archive.fallback_urls.iter()) {
+        cancelled(cancel)?;
+        progress(report, "downloading", 0, archive.bytes)?;
+        let mut source = archive.clone();
+        source.url = url.clone();
+        match fetch(path, &source, cancel, report) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                cancelled(cancel)?;
+                // Every source starts from a fresh file, including after a checksum failure.
+                if path.exists() {
+                    fs::remove_file(path).map_err(|_| "无法清理下载文件，已停止重试")?;
+                }
+                errors.push(error);
+            }
+        }
+    }
+    Err(format!(
+        "Google 和备用镜像均下载失败，请检查网络或手动选择 ADB：{}",
+        errors.join("；")
+    ))
+}
+
+fn download_one(
+    path: &Path,
+    archive: &Archive,
+    cancel: &AtomicBool,
+    report: Report<'_>,
+) -> Result<(), String> {
     let url = reqwest::Url::parse(&archive.url).map_err(|_| "官方地址无效")?;
     if url.scheme() != "https"
-        || url.host_str() != Some("dl.google.com")
+        || !match url.host_str() {
+            Some("dl.google.com") => url
+                .path()
+                .starts_with("/android/repository/platform-tools_r"),
+            Some("mirrors.cloud.tencent.com") => {
+                url.path().starts_with("/AndroidSDK/platform-tools_r")
+            }
+            _ => false,
+        }
         || url.port().is_some()
         || !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
-        || !url
-            .path()
-            .starts_with("/android/repository/platform-tools_r")
         || !url.path().ends_with(".zip")
         || archive.bytes == 0
         || archive.bytes > MAX_ARCHIVE
     {
-        return Err("只允许下载清单内的 Google 官方工具".into());
+        return Err("只允许下载内置清单中的官方工具或腾讯镜像".into());
     }
     cancelled(cancel)?;
     // Blocking reqwest applies this timeout to connecting/receiving headers and each body read.
@@ -438,14 +485,14 @@ fn download(
         .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()
         .map_err(|_| {
-            cancelled(cancel).err().unwrap_or_else(|| {
-                "无法连接 Google 下载服务器，请检查网络或手动选择 ADB".to_string()
-            })
+            cancelled(cancel)
+                .err()
+                .unwrap_or_else(|| "无法连接下载服务器".to_string())
         })?;
     cancelled(cancel)?;
     if response.status() != reqwest::StatusCode::OK {
         return Err(format!(
-            "官方下载返回 HTTP {}，请稍后重试",
+            "下载服务器返回 HTTP {}，请稍后重试",
             response.status().as_u16()
         ));
     }
@@ -718,6 +765,7 @@ mod tests {
     fn test_archive(bytes: &[u8]) -> Archive {
         Archive {
             url: "https://dl.google.com/android/repository/platform-tools_r37.0.1-test.zip".into(),
+            fallback_urls: vec![],
             bytes: bytes.len() as u64,
             sha256: format!("{:x}", Sha256::digest(bytes)),
         }
@@ -740,6 +788,69 @@ mod tests {
             .filter(|entry| entry.file_type().unwrap().is_dir())
             .count()
     }
+    #[test]
+    fn fallback_discards_partial_or_corrupt_download_before_retry() {
+        let root = directory();
+        let path = root.path.join("download.zip");
+        for bad in [b"partial".as_slice(), b"tampered"] {
+            let mut archive = test_archive(b"complete");
+            archive.fallback_urls.push(
+                "https://mirrors.cloud.tencent.com/AndroidSDK/platform-tools_r37.0.1-test.zip"
+                    .into(),
+            );
+            let mut calls = Vec::new();
+            download_with(
+                &path,
+                &archive,
+                &AtomicBool::new(false),
+                &mut |_| Ok(()),
+                |path, source, cancel, report| {
+                    assert!(!path.exists(), "A retry must not reuse the previous file");
+                    calls.push(source.url.clone());
+                    let bytes = if calls.len() == 1 { bad } else { b"complete" };
+                    let mut output = File::create(path).unwrap();
+                    copy_download(&mut Cursor::new(bytes), &mut output, source, cancel, report)
+                },
+            )
+            .unwrap();
+            assert_eq!(calls, vec![archive.url, archive.fallback_urls[0].clone()]);
+            assert_eq!(fs::read(&path).unwrap(), b"complete");
+            fs::remove_file(&path).unwrap();
+        }
+    }
+
+    #[test]
+    fn fallback_stops_after_cancellation_and_reports_exhausted_sources() {
+        let root = directory();
+        let path = root.path.join("download.zip");
+        let mut archive = test_archive(b"complete");
+        archive.fallback_urls.push(
+            "https://mirrors.cloud.tencent.com/AndroidSDK/platform-tools_r37.0.1-test.zip".into(),
+        );
+        for should_cancel in [false, true] {
+            let cancel = AtomicBool::new(false);
+            let mut calls = 0;
+            let result = download_with(
+                &path,
+                &archive,
+                &cancel,
+                &mut |_| Ok(()),
+                |_, _, cancel, _| {
+                    calls += 1;
+                    cancel.store(should_cancel, Ordering::Release);
+                    Err("network unavailable".into())
+                },
+            );
+            assert!(result.is_err());
+            assert_eq!(calls, if should_cancel { 1 } else { 2 });
+            assert!(result.unwrap_err().contains(if should_cancel {
+                "取消"
+            } else {
+                "均下载失败"
+            }));
+        }
+    }
+
     #[test]
     fn download_rejects_truncation_oversize_bad_hash_and_cancellation() {
         let root = directory();
@@ -968,6 +1079,33 @@ mod tests {
                 .is_symlink());
         }
     }
+    #[test]
+    #[ignore = "Downloads the pinned Tencent mirror package and executes adb version; no device commands"]
+    fn mirror_download_and_adb_check() {
+        let root = directory();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut manager = puretv_core::Manager::new(root.path.clone(), cancel.clone());
+        let spec = manifest().unwrap();
+        let mut archive = spec.archives.get(std::env::consts::OS).unwrap().clone();
+        archive.url = archive.fallback_urls.remove(0);
+        let state = install_with(
+            &root.path,
+            &spec,
+            &archive,
+            &cancel,
+            |_| Ok(()),
+            |path| {
+                manager.execute(puretv_core::Request::SetAdbPath {
+                    path: path.to_string_lossy().into_owned(),
+                })
+            },
+            download,
+        )
+        .unwrap();
+        assert!(state.adb_available);
+        assert!(state.device.is_none());
+    }
+
     #[test]
     #[ignore = "Downloads the pinned Google package and executes adb version; no device commands"]
     fn official_download_and_offline_reuse() {
