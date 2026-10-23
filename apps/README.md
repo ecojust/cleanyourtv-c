@@ -8,7 +8,7 @@
 | [shortvideo／ShortVideo TV](shortvideo/README.md) | 短视频播放器 App | 免费免 Key 的多平台随机短视频、自动连播、遥控器上下切换和播放／暂停 | 0.1.0 | 23.6 KiB（24,160 字节） |
 | [webtv／WebTV](webtv/README.md) | 电视直播播放器 App | 卫视／央视直播、分类、收藏、全屏切台、线路切换、网络和本地 M3U 导入 | 0.1.0 | 33.4 KiB（34,204 字节） |
 
-大小来自 [v0.1.4 发布](https://github.com/ecojust/cleanyourtv-c/releases/tag/v0.1.4)，1 KiB = 1,024 字节，表示安装包文件大小，不代表安装后占用或运行内存。网络接口与直播线路的可用性及验证限制见各 App 的 README。
+大小来自 [v0.1.5 发布](https://github.com/ecojust/pureTV/releases/tag/v0.1.5)，1 KiB = 1,024 字节，表示安装包文件大小，不代表安装后占用或运行内存。网络接口与直播线路的可用性及验证限制见各 App 的 README。
 
 三个 App 按需分别安装，均可在原厂桌面打开，也可从本项目启动器的「全部应用」页打开。启动器安装包不包含这些 App。它们共用 Gradle 构建工具，没有生产环境第三方依赖。
 

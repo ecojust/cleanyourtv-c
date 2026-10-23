@@ -1,21 +1,21 @@
-# cleanyourtv-c
+# pureTV
 
 参考 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv) 实现的 Android TV / Google TV 项目，包含一个电视桌面启动器和三个独立播放器 App，支持 Android 8.0（API 26）及以上系统。
 
-仓库：[ecojust/cleanyourtv-c](https://github.com/ecojust/cleanyourtv-c)
+仓库：[ecojust/pureTV](https://github.com/ecojust/pureTV)
 
 ## 软件总览
 
 | 软件 | 类型 | 负责什么／主要功能 | 软件版本 | 已签名 APK 大小 |
 | --- | --- | --- | --- | --- |
-| cleanyourtv-c | **启动器（Launcher／电视桌面）** | 提供电视首页和应用入口；显示时间、日期，可设置壁纸、天气和屏保；通过遥控器打开播放器、文件管理器和应用商城 | 0.1.4 | **341.1 KiB**（349,264 字节） |
+| pureTV | **启动器（Launcher／电视桌面）** | 提供电视首页和应用入口；显示时间、日期，可设置壁纸、天气和屏保；通过遥控器打开播放器、文件管理器和应用商城 | 0.1.5 | **341.1 KiB**（349,264 字节） |
 | [Music TV](apps/music/README.md) | **独立 App／音乐播放器** | B 站音乐搜索／BV 输入与音轨播放、本地音频、收藏和播放队列，支持后台音频播放 | 0.1.1 | **32.7 KiB**（33,484 字节） |
 | [ShortVideo TV](apps/shortvideo/README.md) | **独立 App／短视频播放器** | 获取多平台随机短视频，打开后自动播放、连续播放，支持遥控器上下切换和播放／暂停 | 0.1.0 | **23.6 KiB**（24,160 字节） |
 | [WebTV](apps/webtv/README.md) | **独立 App／电视直播播放器** | 播放卫视／央视直播，支持频道分类、收藏、全屏切台、切换线路，以及网络／本地 M3U 频道列表导入 | 0.1.0 | **33.4 KiB**（34,204 字节） |
 
-以上大小以 [v0.1.4 发布页](https://github.com/ecojust/cleanyourtv-c/releases/tag/v0.1.4) 的签名安装包为准，1 KiB = 1,024 字节；这是 APK 文件大小，安装后的存储占用和运行内存会随系统及播放内容变化。
+以上大小以 [v0.1.5 发布页](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) 的签名安装包为准，1 KiB = 1,024 字节；这是 APK 文件大小，安装后的存储占用和运行内存会随系统及播放内容变化。
 
-四个软件分别打包、按需安装。只想换电视桌面，安装 **cleanyourtv-c** 并在系统中选择默认桌面；只想听音乐、刷短视频或看直播，安装对应 **App** 即可，也能从原厂桌面打开。安装启动器不会自动安装三个播放器；全部安装后，可从启动器的「全部应用」页进入它们。
+四个软件分别打包、按需安装。只想换电视桌面，安装 **pureTV** 并在系统中选择默认桌面；只想听音乐、刷短视频或看直播，安装对应 **App** 即可，也能从原厂桌面打开。安装启动器不会自动安装三个播放器；全部安装后，可从启动器的「全部应用」页进入它们。
 
 ![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
 
@@ -34,7 +34,7 @@
 - 简体中文、繁体中文及参考项目提供的其他语言，跟随系统语言。
 - 可选无障碍服务：Home 键回顶、在其他应用中打开快捷设置。
 
-独立包名为 `com.ecojust.cleanyourtv`，可以与参考项目同时安装。设置和壁纸各自保存。
+pureTV 启动器沿用包名 `com.ecojust.cleanyourtv` 和既有发布签名，可覆盖升级旧版 cleanyourtv-c 并保留设置。仓库及应用显示名已更名为 pureTV；三个独立播放器的包名保持各自独立。
 
 ## 配套应用
 
@@ -46,14 +46,14 @@
 
 ## 下载
 
-[下载最新版 APK](https://github.com/ecojust/cleanyourtv-c/releases/latest) · [全部版本](https://github.com/ecojust/cleanyourtv-c/releases)
+[下载最新版 APK](https://github.com/ecojust/pureTV/releases/latest) · [全部版本](https://github.com/ecojust/pureTV/releases)
 
-v0.1.4 发布包含以下四个安装包，按用途选择：
+v0.1.5 发布包含以下四个安装包，按用途选择：
 
-- [cleanyourtv-c-0.1.4.apk](https://github.com/ecojust/cleanyourtv-c/releases/download/v0.1.4/cleanyourtv-c-0.1.4.apk)：电视桌面启动器。
-- [music-tv-0.1.1.apk](https://github.com/ecojust/cleanyourtv-c/releases/download/v0.1.4/music-tv-0.1.1.apk)：音乐 App。
-- [shortvideo-tv-0.1.0.apk](https://github.com/ecojust/cleanyourtv-c/releases/download/v0.1.4/shortvideo-tv-0.1.0.apk)：短视频 App。
-- [webtv-0.1.0.apk](https://github.com/ecojust/cleanyourtv-c/releases/download/v0.1.4/webtv-0.1.0.apk)：电视直播 App。
+- [pureTV-0.1.5.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/pureTV-0.1.5.apk)：电视桌面启动器。
+- [music-tv-0.1.1.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/music-tv-0.1.1.apk)：音乐 App。
+- [shortvideo-tv-0.1.0.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/shortvideo-tv-0.1.0.apk)：短视频 App。
+- [webtv-0.1.0.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/webtv-0.1.0.apk)：电视直播 App。
 
 仓库发布版本与各 App 的版本分别管理，因此同一发布页中的版本号可能不同。
 

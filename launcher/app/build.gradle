@@ -10,8 +10,8 @@ android {
         applicationId 'com.ecojust.cleanyourtv'
         minSdk 26
         targetSdk 29
-        versionCode 5
-        versionName '0.1.4'
+        versionCode 6
+        versionName '0.1.5'
     }
 
     // Release credentials are supplied locally or through GitHub Actions secrets.

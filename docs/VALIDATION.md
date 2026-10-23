@@ -58,3 +58,12 @@ cd launcher
 - 本地 Debug、签名 Release、lint 及三个独立播放器的 5 MiB 体积门禁通过。WebTV 签名 APK 34,204 字节，零生产环境第三方依赖；只申请 INTERNET 权限。
 - 开发网络 FFprobe 和 FFmpeg 验证广东卫视 720p H.264／AAC、湖南卫视 4K HEVC／AAC 前三秒解码成功。默认优先广东。部分其他候选线路超时、403、404 或 503，不能保证内置频道全部可用。
 - 未进行电视实机安装、持续直播、4K HEVC 硬解兼容或内存峰值测量。源有效性与实际网络相关，用户可更换线路或导入自己的 M3U；无 EPG、回看、DRM 和协议扩展支持。
+
+
+## v0.1.5 / pureTV 更名（2026-10-23）
+
+- 仓库迁移为 `ecojust/pureTV`，启动器显示名、Gradle 项目名、文档链接、安装提示及 CI 产物名称同步为 pureTV。
+- 启动器版本 0.1.5（code 6）；25 份 app_name 资源及 Release APK 的语言标签均核对为 pureTV。
+- 保留包名 `com.ecojust.cleanyourtv`、Java 组件路径与既有签名，支持覆盖升级旧版及保留配置。核对了 APK 的包名、递增版本号和签名证书；未进行电视实机覆盖升级。
+- 启动器 Debug／签名 Release 构建、24 项测试及 lint 通过，lint 无错误。签名 APK 为 349,264 字节（341.1 KiB）。
+- Music 0.1.1、ShortVideo 0.1.0、WebTV 0.1.0 的发布文件复用 v0.1.4，字节一致；其功能和已记录的验证限制继续适用。

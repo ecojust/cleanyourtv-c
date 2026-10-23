@@ -5,7 +5,7 @@
   The launcher follows the TV's system language on its own, because that is how Android resource
   loading works: a values-de/strings.xml is picked up on a German TV without anything being switched
   on. This file adds the second half. It lets Android 13+ give the launcher a language of its own,
-  through Settings > Apps > cleanyourtv-c > Language, or through the "cmd locale set-app-locales" command
+  through Settings > Apps > pureTV > Language, or through the "cmd locale set-app-locales" command
   with the launcher package and a language code. That matters on TV boxes which never offer the
   language you want system-wide.
 

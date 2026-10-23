@@ -5,11 +5,11 @@ on:
       tag:
         description: Existing version tag and release draft
         required: true
-        default: v0.1.4
+        default: v0.1.5
       asset_ref:
         description: Temporary branch containing the signed APK and SHA256SUMS.txt
         required: true
-        default: release-assets/v0.1.4
+        default: release-assets/v0.1.5
 permissions:
   contents: write
 jobs:

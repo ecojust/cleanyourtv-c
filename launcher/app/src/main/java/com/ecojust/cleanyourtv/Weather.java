@@ -225,7 +225,7 @@ final class Weather {
             c.setReadTimeout(8000);
             c.setRequestProperty("Accept", "application/json");
             // ipinfo's free tier answers a bare client too, but a UA keeps proxies from being clever.
-            c.setRequestProperty("User-Agent", "cleanyourtv-c");
+            c.setRequestProperty("User-Agent", "pureTV");
             InputStream in = c.getResponseCode() == HttpURLConnection.HTTP_OK
                     ? c.getInputStream() : c.getErrorStream();
             if (in == null) throw new java.io.IOException("HTTP " + c.getResponseCode());

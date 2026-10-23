@@ -4,7 +4,7 @@
       Thai. Core launcher strings are upstream's (Gathin23/tv-vibehack, MIT); the desktop,
       favourites and wallpaper strings are this fork's additions.
     -->
-    <string name="app_name">cleanyourtv-c</string>
+    <string name="app_name">pureTV</string>
     <string name="inputs">แหล่งสัญญาณ</string>
     <string name="wifi">Wi-Fi</string>
     <string name="settings">ตั้งค่า</string>

@@ -5,7 +5,7 @@
       favourites and wallpaper strings are this fork's additions. Upstream ships no Catalan date
       format, so the English one is kept here.
     -->
-    <string name="app_name">cleanyourtv-c</string>
+    <string name="app_name">pureTV</string>
     <string name="inputs">Entrades</string>
     <string name="wifi">Wi-Fi</string>
     <string name="settings">Configuració</string>

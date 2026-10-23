@@ -29,7 +29,7 @@ jobs:
             python3 - <<'PYTHON'
           import base64, os
           from pathlib import Path
-          key = Path(os.environ['RUNNER_TEMP']) / 'cleanyourtv-c.jks'
+          key = Path(os.environ['RUNNER_TEMP']) / 'pureTV.jks'
           key.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64']))
           key.chmod(0o600)
           with open(os.environ['GITHUB_ENV'], 'a') as env:
@@ -43,11 +43,11 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize :webtv:verifyReleaseSize
       - uses: actions/upload-artifact@v4
         with:
-          name: cleanyourtv-c-debug
+          name: pureTV-debug
           path: launcher/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: cleanyourtv-c-release
+          name: pureTV-release
           path: launcher/app/build/outputs/apk/release/*.apk
       - uses: actions/upload-artifact@v4
         with:
