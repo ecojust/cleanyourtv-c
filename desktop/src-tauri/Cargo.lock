@@ -2746,7 +2746,7 @@ dependencies = [
 
 [[package]]
 name = "puretv-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -2754,7 +2754,7 @@ dependencies = [
 
 [[package]]
 name = "puretv-desktop"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "puretv-core",
  "reqwest",

@@ -2,20 +2,13 @@
 
 通过 ADB 在电脑上管理 Android TV / Google TV 的独立桌面应用。负责连接电视、查看应用、停用／恢复、为当前用户卸载、安装外部 APK 和选择默认启动器。它与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装；电视端无需额外常驻管理服务。
 
-版本 **0.1.2**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2)。缺少 ADB 时，可直接在应用内下载并配置 Google 官方 Platform Tools，无需手动解压和寻找文件。
+版本 **0.1.3**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。缺少 ADB 时，可直接在应用内下载并配置 Google 官方 Platform Tools，Google 不可达时自动尝试腾讯镜像，无需手动解压和寻找文件。
 
 ![应用管理界面（模拟电视数据）](docs/previews/applications.png)
 
 ## 安装包大小
 
-| 平台／格式 | 0.1.2 安装包大小 |
-| --- | --- |
-| Windows x64 安装版 EXE | 1,507,342 字节，约 1.44 MiB |
-| Windows x64 便携 EXE | 4,152,832 字节，约 3.96 MiB |
-| macOS ARM64 DMG | 1,864,526 字节，约 1.78 MiB |
-| Linux x64 DEB | 2,368,886 字节，约 2.26 MiB |
-
-1 MiB = 1,048,576 字节，以上为 0.1.2 实际发布文件大小，已下载并核对 SHA256，完整校验清单见发布页。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
+本版提供 Windows x64 安装版与便携版、macOS ARM64 DMG 和 Linux x64 DEB。文件大小与 SHA256 校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)，不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -36,11 +29,11 @@
 应用对整个 `.app` 执行 ad-hoc 签名，最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
 
 - 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
-- 提示「已损坏，无法打开」：先从本仓库的 [0.1.2 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+- 提示「已损坏，无法打开」：先从本仓库的 [0.1.3 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
 
   ```bash
   cd ~/Downloads
-  shasum -a 256 pureTV-Manager-0.1.2-macos-arm64.dmg
+  shasum -a 256 pureTV-Manager-0.1.3-macos-arm64.dmg
   ```
 
   将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
@@ -55,7 +48,7 @@
 
 ## 连接与使用
 
-1. 在电脑安装并打开本工具。程序会检测已有 ADB；缺少时在「ADB 工具」点击「下载并配置 ADB」，查看下载信息，阅读并勾选 Android SDK 许可后确认。程序从 Google 官方下载，校验、解压并自动配置；完成后可连接电视。已有工具也可通过「选择 ADB」手动指定，离线电脑保留此方式。
+1. 在电脑安装并打开本工具。程序会检测已有 ADB；缺少时在「ADB 工具」点击「下载并配置 ADB」，查看下载信息，阅读并勾选 Android SDK 许可后确认。程序优先从 Google 官方下载，失败时自动尝试腾讯镜像，校验、解压并自动配置；完成后可连接电视。已有工具也可通过「选择 ADB」手动指定，离线电脑保留此方式。
 2. 电视和电脑位于可互通网络，在电视开发者选项开启 ADB／网络调试。输入电视实际 IP 和端口，点击连接，在电视上接受电脑调试授权。常见端口为 5555，以设备实际配置为准。
 3. 若电视提供「无线调试 → 配对码」，先输入配对端口和配对码；配对成功后用电视显示的**调试端口**连接，两者可能不同。配对码不保存。
 4. 连接后扫描应用。选择具体目标并确认后执行；批量操作逐项记录，失败不会显示为成功。扫描可取消；批量变更可停止后续项，正在执行的安装／修改会先完成并复查，已完成项不会自动回滚。
@@ -72,11 +65,11 @@
 | macOS Apple Silicon | 16,110,554 字节，约 15.36 MiB | 约 37.02 MiB |
 | Linux x64 | 9,054,187 字节，约 8.63 MiB | 约 21.17 MiB |
 
-程序使用固定的 Google HTTPS 地址，核对预期字节数和 SHA256 后解压完整工具集，保留 Windows DLL 及许可／NOTICE 文件，再检查 `adb version` 并保存路径。校验不通过不会运行下载文件；取消或失败会清理临时文件，并保留原有 ADB 配置。
+程序使用内置的 Google 官方和腾讯镜像 HTTPS 地址，优先尝试 Google，连接、下载或校验失败时自动切换腾讯镜像；每次切换都会清除未完成的下载。所有来源均核对预期字节数和 SHA256 后解压完整工具集，保留 Windows DLL 及许可／NOTICE 文件，再检查 `adb version` 并保存路径。校验不通过不会运行下载文件；取消或失败会清理临时文件，并保留原有 ADB 配置。
 
-工具保存在本应用数据目录 `tools/` 下的独立版本目录，只占用电脑空间，不更改系统 PATH 或 macOS `.app`。下载成功后可点击「使用已下载 ADB」，勾选 SDK 许可并「验证并使用」；缓存完整时无需联网，校验发现损坏时会从 Google 重新下载到新目录，不覆盖之前在用的工具。更换 ADB 前需先断开电视；工具版本随管理器发布维护。
+工具保存在本应用数据目录 `tools/` 下的独立版本目录，只占用电脑空间，不更改系统 PATH 或 macOS `.app`。下载成功后可点击「使用已下载 ADB」，勾选 SDK 许可并「验证并使用」；缓存完整时无需联网，校验发现损坏时会从 Google 或备用腾讯镜像重新下载到新目录，不覆盖之前在用的工具。更换 ADB 前需先断开电视；工具版本随管理器发布维护。
 
-如果 Google 下载不可达，可通过 [官方 Platform Tools 页面](https://developer.android.com/tools/releases/platform-tools) 在其他电脑下载，完整解压后使用「选择 ADB」指定 `adb.exe`（Windows）或 `adb`（macOS/Linux）。Windows 的 `AdbWinApi.dll`、`AdbWinUsbApi.dll` 应与 `adb.exe` 保持在同一目录。
+如果 Google 和腾讯镜像均不可达，可通过 [官方 Platform Tools 页面](https://developer.android.com/tools/releases/platform-tools) 在其他电脑下载，完整解压后使用「选择 ADB」指定 `adb.exe`（Windows）或 `adb`（macOS/Linux）。Windows 的 `AdbWinApi.dll`、`AdbWinUsbApi.dll` 应与 `adb.exe` 保持在同一目录。
 
 自动查找仍支持已保存的路径、`PURETV_ADB`、程序旁的 `platform-tools/`、PATH、`ANDROID_HOME`／`ANDROID_SDK_ROOT` 和常见 SDK 路径。管理器安装包不捆绑 Platform Tools，按需下载的 ZIP 和解压后工具占用另计。
 
@@ -130,3 +123,5 @@ npm run tauri dev
 [已确认的设计提案](docs/design-proposal.png) · [ADB 命令调研](docs/adb-research.md)
 
 本项目参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)。本目录为电脑端管理工具实现，原作者版权和许可见仓库 [LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)。
+
+0.1.3 新增腾讯备用镜像；发布构建还会在三个系统分别验证镜像下载及 `adb version`。

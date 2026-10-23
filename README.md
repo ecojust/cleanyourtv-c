@@ -10,9 +10,9 @@
 
 | 软件 | 类型 | 负责什么／主要功能 | 软件版本 | 电脑端安装包大小 |
 | --- | --- | --- | --- | --- |
-| [pureTV Manager／电视管理器](desktop/README.md) | **电脑端桌面应用／电视管理工具** | 连接电视、扫描应用、停用／启用、为当前用户卸载／恢复、添加外部 APK 并勾选安装、选择默认启动器；在线下载并配置 ADB | 0.1.2 | Windows 安装版约 **1.44 MiB**／便携版 **3.96 MiB**；macOS **1.78 MiB**；Linux **2.26 MiB** |
+| [pureTV Manager／电视管理器](desktop/README.md) | **电脑端桌面应用／电视管理工具** | 连接电视、扫描应用、停用／启用、为当前用户卸载／恢复、添加外部 APK 并勾选安装、选择默认启动器；在线下载并配置 ADB | 0.1.3 | Windows 安装版／便携版、macOS ARM64、Linux x64；大小见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) |
 
-表内大小为桌面版 0.1.2 的实际发布文件大小，已下载并核对 SHA256。不含首次按需下载的 Platform Tools 和系统 WebView 运行时，1 MiB = 1,048,576 字节。提供 Windows x64、macOS Apple Silicon（ARM64，macOS 11 及以上）和 Linux x64 构建，使用入口见[电脑端管理工具](#电脑端管理工具)。它独立于下面四个电视 APK，不捆绑进电视端安装包，也不需要在电视上安装额外常驻管理服务，因此不会增大现有电视端 APK。
+桌面安装包大小与 SHA256 校验清单见发布页，不含首次按需下载的 Platform Tools 和系统 WebView 运行时。提供 Windows x64、macOS Apple Silicon（ARM64，macOS 11 及以上）和 Linux x64 构建，使用入口见[电脑端管理工具](#电脑端管理工具)。它独立于下面四个电视 APK，不捆绑进电视端安装包，也不需要在电视上安装额外常驻管理服务，因此不会增大现有电视端 APK。
 
 **电视端软件：分别安装在电视上，负责桌面或媒体播放。**
 
@@ -29,9 +29,9 @@
 
 ## 电脑端管理工具
 
-[pureTV Manager 0.1.2](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2) 用于从电脑管理电视，使用方式如下：
+[pureTV Manager 0.1.3](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) 用于从电脑管理电视，使用方式如下：
 
-1. 在电脑安装并打开管理器，程序会检测已有 ADB。缺少时点击「下载并配置 ADB」，阅读并勾选 Android SDK 许可后确认，从 Google 官方下载 Platform Tools 37.0.1，校验、解压并自动配置。缓存完整时可离线复用，校验发现损坏时会重新下载修复；也保留手动选择 `adb.exe`／`adb` 的方式。Windows 使用系统 WebView2，便携版需电脑已安装该运行时。
+1. 在电脑安装并打开管理器，程序会检测已有 ADB。缺少时点击「下载并配置 ADB」，阅读并勾选 Android SDK 许可后确认，优先从 Google 官方下载 Platform Tools 37.0.1，失败时自动尝试腾讯镜像，校验、解压并自动配置。缓存完整时可离线复用，校验发现损坏时会重新下载修复；也保留手动选择 `adb.exe`／`adb` 的方式。Windows 使用系统 WebView2，便携版需电脑已安装该运行时。
 2. 电视开启 ADB／网络调试，电脑与电视连接到可互通的网络。输入电视 IP 和实际调试端口，点击连接，并在电视上接受授权；支持配对码的电视可先配对再连接。
 3. 扫描当前电视用户的全部已安装应用，按包名／已知名称搜索，筛选系统应用、用户应用、已停用及可恢复项目，勾选后执行停用、启用、为当前用户卸载或恢复。
 4. 在「安装应用」点击「添加安装包」，从电脑添加自己的 APK，勾选后点击「安装所选」。添加文件不会立即安装；首版支持普通单 APK。
@@ -43,7 +43,7 @@ Platform Tools 只安装在电脑的应用数据目录，不写入电视或系�
 
 macOS 用户将 DMG 内的应用拖入「应用程序」。应用采用完整 ad-hoc 签名，最低系统版本为 macOS 11；尚未使用 Developer ID 证书或完成 Apple 公证。出现「已损坏」或开发者验证提示时，请按 [macOS 安装与首次打开](desktop/README.md#macos-安装与首次打开) 校验下载并处理。
 
-详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.2 不改变 Android 最新版本 **v0.1.5**。三平台构建、核心与工具安装测试、真实官方工具下载及离线复用均通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。当前尚未完成真实电视连接与操作验证。
+详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.3 不改变 Android 最新版本 **v0.1.5**。上一版 0.1.2 的三平台构建、核心与工具安装测试、真实官方工具下载及离线复用均通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。当前尚未完成真实电视连接与操作验证。
 
 ![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
 
@@ -74,7 +74,7 @@ pureTV 启动器沿用包名 `com.ecojust.cleanyourtv` 和既有发布签名，�
 
 ## 下载
 
-[电脑端管理器 0.1.2](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2) · [Android 最新版 APK v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) · [全部版本](https://github.com/ecojust/pureTV/releases)
+[电脑端管理器 0.1.3](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) · [Android 最新版 APK v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) · [全部版本](https://github.com/ecojust/pureTV/releases)
 
 电脑端管理器提供 Windows x64 安装版／便携版、macOS ARM64 DMG 和 Linux x64 DEB；请安装到电脑。Android v0.1.5 包含以下四个电视安装包，按用途选择：
 
