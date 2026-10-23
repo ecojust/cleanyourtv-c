@@ -144,6 +144,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     private void launch(Entry entry) {
         if (entry.action == MUSIC_WEBSITE) {
+            Intent nativeMusic = context.getPackageManager().getLeanbackLaunchIntentForPackage("com.ecojust.music");
+            if (nativeMusic == null) nativeMusic = context.getPackageManager().getLaunchIntentForPackage("com.ecojust.music");
+            if (nativeMusic != null) {
+                try { context.startActivity(nativeMusic.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return; }
+                catch (ActivityNotFoundException | SecurityException ignored) { }
+            }
             openWebsite(R.string.music_website_url, R.string.music_browser_unavailable);
             return;
         }

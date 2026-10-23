@@ -53,6 +53,25 @@ public class NavigationTest {
         }
     }
 
+    @Test public void musicCardPrefersInstalledNativePlayer() {
+        try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity home = controller.get();
+            android.content.pm.ResolveInfo info = new android.content.pm.ResolveInfo();
+            info.activityInfo = new android.content.pm.ActivityInfo();
+            info.activityInfo.packageName = "com.ecojust.music";
+            info.activityInfo.name = "com.ecojust.music.MainActivity";
+            info.activityInfo.exported = true;
+            info.activityInfo.applicationInfo = new android.content.pm.ApplicationInfo();
+            info.activityInfo.applicationInfo.packageName = "com.ecojust.music";
+            shadowOf(home.getPackageManager()).addResolveInfoForIntent(new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.music"), info);
+            layout(home);
+            RecyclerView grid = home.findViewById(R.id.grid);
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            assertEquals("com.ecojust.music", shadowOf(home).getNextStartedActivity().getComponent().getPackageName());
+        }
+    }
+
     @Test public void musicCardExplainsMissingBrowser() {
         try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
             MainActivity home = controller.get();
