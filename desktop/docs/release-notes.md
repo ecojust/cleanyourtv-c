@@ -6,7 +6,7 @@
 
 - 下载当前电脑对应的 **Platform Tools 37.0.1**，显示进度及校验／解压／检查阶段，支持取消和失败后重试。
 - 使用固定的 Google HTTPS 下载地址，核对预期字节数和 SHA256，解压完整官方工具集，保留 Windows DLL 及许可／NOTICE 文件，再验证 `adb version` 并自动保存路径。
-- 工具保存在电脑应用数据目录 `tools/` 下的独立版本目录，可「使用已下载 ADB」离线复用；缓存损坏重试会下载到新目录，不覆盖在用工具。复用也需勾选 SDK 许可，不修改系统 PATH 或 macOS 应用包。
+- 工具保存在电脑应用数据目录 `tools/` 下的独立版本目录，选择「使用已下载 ADB」后会先校验缓存，完整时离线复用，损坏时从 Google 重新下载到新目录，不覆盖在用工具。复用也需勾选 SDK 许可，不修改系统 PATH 或 macOS 应用包。
 - 保留自动检测和「选择 ADB」手动指定路径，下载不可达时仍可离线配置。更换工具前需先断开当前电视；取消或失败保留原有配置，清理临时文件。
 
 | 电脑平台 | 首次 ZIP 下载量 | 解压后工具文件大小 |
@@ -21,12 +21,12 @@
 
 | 电脑系统 | 文件 | 说明 |
 | --- | --- | --- |
-| Windows x64 | `pureTV-Manager-0.1.2-windows-x64-setup.exe` | 安装版，首次使用推荐 |
-| Windows x64 | `pureTV-Manager-0.1.2-windows-x64-portable.exe` | 便携版，需电脑已具备 WebView2 |
-| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.2-macos-arm64.dmg` | macOS 11 或更高版本，不适用于 Intel Mac |
-| Linux x64 | `pureTV-Manager-0.1.2-linux-x64.deb` | 需要兼容的 GTK／WebKitGTK 运行环境 |
+| Windows x64 | `pureTV-Manager-0.1.2-windows-x64-setup.exe` | 安装版，约 1.44 MiB，首次使用推荐 |
+| Windows x64 | `pureTV-Manager-0.1.2-windows-x64-portable.exe` | 便携版，约 3.96 MiB，需电脑已具备 WebView2 |
+| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.2-macos-arm64.dmg` | 约 1.78 MiB，macOS 11 或更高版本，不适用于 Intel Mac |
+| Linux x64 | `pureTV-Manager-0.1.2-linux-x64.deb` | 约 2.26 MiB，需要兼容的 GTK／WebKitGTK 运行环境 |
 
-实际文件大小见本发布页附件列表，完整性校验值见 `SHA256SUMS.txt`。本版未提供 Windows ARM64 或 Intel Mac 安装包。管理器与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装，不增加电视 APK 大小，也不需要电视额外运行管理服务。
+以上为实际发布文件大小，全部附件已下载并核对 SHA256，完整性校验值见 `SHA256SUMS.txt`。本版未提供 Windows ARM64 或 Intel Mac 安装包。管理器与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装，不增加电视 APK 大小，也不需要电视额外运行管理服务。
 
 ## macOS 安装与「已损坏」提示
 
@@ -53,7 +53,6 @@ xattr -dr com.apple.quarantine "/Applications/pureTV Manager.app"
 
 此命令只移除这份可信应用的下载隔离属性，不使用 `sudo`，不关闭全局 Gatekeeper。**不适用于「将损坏电脑」或其他恶意软件警报。** 若仍无法打开，请提供完整提示和 macOS 版本，不要扩大命令作用范围。
 
-
 ## 主要功能
 
 - **连接与扫描电视**：通过 IP／主机名和调试端口连接，支持无线配对；列出当前电视用户的已安装应用，区分系统、用户、停用及可恢复应用。
@@ -68,7 +67,7 @@ xattr -dr com.apple.quarantine "/Applications/pureTV Manager.app"
 
 管理器仅对当前所连设备及当前 Android 用户执行操作。关键系统包和当前默认启动器受保护；切换桌面不会自动停用原厂桌面。使用详情见 [桌面工具 README](https://github.com/ecojust/pureTV/blob/master/desktop/README.md)。
 
-0.1.2 增加下载、校验、解压、取消及界面准备流程的验证，沿用 macOS DMG、完整签名和安装副本启动检查；实际运行结果见 [Desktop build 工作流](https://github.com/ecojust/pureTV/actions/workflows/desktop.yml)。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
+三平台构建、核心测试、各 8 项工具安装测试，以及真实官方工具下载／`adb version`／配置持久化／离线复用检查均已通过。Linux 的 15 项界面交互测试、macOS DMG／完整签名／安装副本启动检查也已通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。本地 Linux 原生窗口已验证许可确认、真实下载进度、自动配置和连接按钮启用的首次使用流程。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
 
 这是独立的 **desktop-v0.1.2** 发布。Android 最新版仍为 **[v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5)**，本发布不替换或更新四个电视 APK。
 

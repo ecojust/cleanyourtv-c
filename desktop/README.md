@@ -8,14 +8,14 @@
 
 ## 安装包大小
 
-| 平台／格式 | 0.1.1 安装包大小（参考） |
+| 平台／格式 | 0.1.2 安装包大小 |
 | --- | --- |
-| Windows x64 安装版 EXE | 约 1.20 MiB |
-| Windows x64 便携 EXE | 约 3.38 MiB |
-| macOS ARM64 DMG | 约 1.51 MiB |
-| Linux x64 DEB | 约 1.93 MiB |
+| Windows x64 安装版 EXE | 1,507,342 字节，约 1.44 MiB |
+| Windows x64 便携 EXE | 4,152,832 字节，约 3.96 MiB |
+| macOS ARM64 DMG | 1,864,526 字节，约 1.78 MiB |
+| Linux x64 DEB | 2,368,886 字节，约 2.26 MiB |
 
-1 MiB = 1,048,576 字节，以上为 0.1.1 发行文件的参考大小；**0.1.2 实际大小以发布页文件列表为准**。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
+1 MiB = 1,048,576 字节，以上为 0.1.2 实际发布文件大小，已下载并核对 SHA256，完整校验清单见发布页。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -74,11 +74,13 @@
 
 程序使用固定的 Google HTTPS 地址，核对预期字节数和 SHA256 后解压完整工具集，保留 Windows DLL 及许可／NOTICE 文件，再检查 `adb version` 并保存路径。校验不通过不会运行下载文件；取消或失败会清理临时文件，并保留原有 ADB 配置。
 
-工具保存在本应用数据目录 `tools/` 下的独立版本目录，只占用电脑空间，不更改系统 PATH 或 macOS `.app`。下载成功后可点击「使用已下载 ADB」，勾选 SDK 许可并「验证并使用」，无需联网。缓存损坏时重试会下载到新目录，不覆盖之前在用的工具。更换 ADB 前需先断开电视；工具版本随管理器发布维护。
+工具保存在本应用数据目录 `tools/` 下的独立版本目录，只占用电脑空间，不更改系统 PATH 或 macOS `.app`。下载成功后可点击「使用已下载 ADB」，勾选 SDK 许可并「验证并使用」；缓存完整时无需联网，校验发现损坏时会从 Google 重新下载到新目录，不覆盖之前在用的工具。更换 ADB 前需先断开电视；工具版本随管理器发布维护。
 
 如果 Google 下载不可达，可通过 [官方 Platform Tools 页面](https://developer.android.com/tools/releases/platform-tools) 在其他电脑下载，完整解压后使用「选择 ADB」指定 `adb.exe`（Windows）或 `adb`（macOS/Linux）。Windows 的 `AdbWinApi.dll`、`AdbWinUsbApi.dll` 应与 `adb.exe` 保持在同一目录。
 
 自动查找仍支持已保存的路径、`PURETV_ADB`、程序旁的 `platform-tools/`、PATH、`ANDROID_HOME`／`ANDROID_SDK_ROOT` 和常见 SDK 路径。管理器安装包不捆绑 Platform Tools，按需下载的 ZIP 和解压后工具占用另计。
+
+![在线下载后自动配置 ADB（Linux 原生窗口，未连接电视）](docs/previews/adb-setup.png)
 
 ## 操作范围和恢复
 
@@ -119,9 +121,9 @@ npm run tauri dev
 
 官方工具集成验证：`cargo test --manifest-path src-tauri/Cargo.toml --locked official_download_and_offline_reuse -- --ignored --nocapture`。此项会下载当前平台的官方包，运行 `adb version`，检查配置持久化和离线复用，不连接电视。
 
-0.1.2 增加下载、校验、解压、取消及准备流程的验证，实际结果见 [Desktop build 工作流](https://github.com/ecojust/pureTV/actions/workflows/desktop.yml)。沿用 macOS DMG 挂载、完整应用包签名校验和安装副本启动存活检查；这些检查不代表 Apple 公证或 Gatekeeper 批准。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
+0.1.2 三平台构建、核心测试、各 8 项工具安装测试，以及真实官方工具下载／`adb version`／配置持久化／离线复用检查均已通过。Linux 的 15 项界面交互测试、macOS 的 DMG 挂载／完整签名／安装副本启动检查也已通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。macOS 检查不代表 Apple 公证或 Gatekeeper 批准。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
 
-本次本地验证已通过 30 项 Rust 核心测试、8 项工具安装测试、15 项浏览器交互场景及真实 Linux 官方工具下载／配置／离线复用检查。交互场景覆盖 SDK 许可确认、下载取消与重试、外部 APK 添加去重、勾选安装、保护组件、启动器恢复、失败结果和窄窗口布局。此前另在 Linux 原生窗口验证了系统文件选择器和外部 APK 导入；未连接真实电视。
+本次本地验证已通过 30 项 Rust 核心测试、8 项工具安装测试、15 项浏览器交互场景及真实 Linux 官方工具下载／配置／离线复用检查。交互场景覆盖 SDK 许可确认、下载取消与重试、外部 APK 添加去重、勾选安装、保护组件、启动器恢复、失败结果和窄窗口布局。Linux 原生窗口已完成首次启动、许可确认、真实下载进度、自动配置和连接按钮启用的完整流程验证；此前已验证系统文件选择器和外部 APK 导入。未连接真实电视。
 
 ![外部 APK 导入（Linux 原生窗口，未连接电视）](docs/previews/import-apks.png)
 
