@@ -8,7 +8,14 @@
 
 ## 安装包大小
 
-本版提供 Windows x64 安装版与便携版、macOS ARM64 DMG 和 Linux x64 DEB。文件大小与 SHA256 校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)，不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
+| 平台／格式 | 0.1.3 安装包大小 |
+| --- | --- |
+| Windows x64 安装版 EXE | 1,508,749 字节，约 1.44 MiB |
+| Windows x64 便携 EXE | 4,156,416 字节，约 3.96 MiB |
+| macOS ARM64 DMG | 1,866,652 字节，约 1.78 MiB |
+| Linux x64 DEB | 2,370,708 字节，约 2.26 MiB |
+
+1 MiB = 1,048,576 字节。以上为本版实际发布文件大小，已下载并核对 SHA256，完整校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -116,7 +123,7 @@ npm run tauri dev
 
 0.1.2 三平台构建、核心测试、各 8 项工具安装测试，以及真实官方工具下载／`adb version`／配置持久化／离线复用检查均已通过。Linux 的 15 项界面交互测试、macOS 的 DMG 挂载／完整签名／安装副本启动检查也已通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。macOS 检查不代表 Apple 公证或 Gatekeeper 批准。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
 
-本次本地验证已通过 30 项 Rust 核心测试、8 项工具安装测试、15 项浏览器交互场景及真实 Linux 官方工具下载／配置／离线复用检查。交互场景覆盖 SDK 许可确认、下载取消与重试、外部 APK 添加去重、勾选安装、保护组件、启动器恢复、失败结果和窄窗口布局。Linux 原生窗口已完成首次启动、许可确认、真实下载进度、自动配置和连接按钮启用的完整流程验证；此前已验证系统文件选择器和外部 APK 导入。未连接真实电视。
+0.1.2 发布前的本地验证已通过 30 项 Rust 核心测试、8 项工具安装测试、15 项浏览器交互场景及真实 Linux 官方工具下载／配置／离线复用检查。交互场景覆盖 SDK 许可确认、下载取消与重试、外部 APK 添加去重、勾选安装、保护组件、启动器恢复、失败结果和窄窗口布局。Linux 原生窗口已完成首次启动、许可确认、真实下载进度、自动配置和连接按钮启用的完整流程验证；此前已验证系统文件选择器和外部 APK 导入。未连接真实电视。
 
 ![外部 APK 导入（Linux 原生窗口，未连接电视）](docs/previews/import-apks.png)
 
@@ -124,4 +131,4 @@ npm run tauri dev
 
 本项目参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)。本目录为电脑端管理工具实现，原作者版权和许可见仓库 [LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)。
 
-0.1.3 新增腾讯备用镜像；发布构建还会在三个系统分别验证镜像下载及 `adb version`。
+0.1.3 三平台构建、核心与工具安装测试、真实官方工具下载及离线复用、腾讯镜像下载及 ADB 运行检查均已通过；Linux 的 15 项界面测试、macOS DMG／完整签名／安装副本启动检查也已通过，见 [0.1.3 构建记录](https://github.com/ecojust/pureTV/actions/runs/39989740541)。四个发布附件均已下载并核对 SHA256。

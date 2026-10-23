@@ -69,7 +69,7 @@ xattr -dr com.apple.quarantine "/Applications/pureTV Manager.app"
 
 管理器仅对当前所连设备及当前 Android 用户执行操作。关键系统包和当前默认启动器受保护；切换桌面不会自动停用原厂桌面。使用详情见 [桌面工具 README](https://github.com/ecojust/pureTV/blob/master/desktop/README.md)。
 
-发布流程要求 Windows、macOS、Linux 三平台构建和核心测试、工具安装测试通过，同时检查官方工具下载及离线复用、腾讯镜像下载及 `adb version`。Linux 执行 15 项界面交互测试，macOS 检查 DMG、完整签名和安装副本启动。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
+0.1.3 三平台构建、核心与工具安装测试、真实官方工具下载及离线复用、腾讯镜像下载及 ADB 运行检查均已通过；Linux 的 15 项界面测试、macOS DMG／完整签名／安装副本启动检查也已通过，见 [0.1.3 构建记录](https://github.com/ecojust/pureTV/actions/runs/39989740541)。四个发布附件均已下载并核对 SHA256。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**。Windows 安装器未使用商业代码签名证书；macOS 未使用 Developer ID 证书、未完成 Apple 公证。
 
 这是独立的 **desktop-v0.1.3** 发布。Android 最新版仍为 **[v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5)**，本发布不替换或更新四个电视 APK。
 

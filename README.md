@@ -43,7 +43,7 @@ Platform Tools 只安装在电脑的应用数据目录，不写入电视或系�
 
 macOS 用户将 DMG 内的应用拖入「应用程序」。应用采用完整 ad-hoc 签名，最低系统版本为 macOS 11；尚未使用 Developer ID 证书或完成 Apple 公证。出现「已损坏」或开发者验证提示时，请按 [macOS 安装与首次打开](desktop/README.md#macos-安装与首次打开) 校验下载并处理。
 
-详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.3 不改变 Android 最新版本 **v0.1.5**。上一版 0.1.2 的三平台构建、核心与工具安装测试、真实官方工具下载及离线复用均通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。当前尚未完成真实电视连接与操作验证。
+详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.3 不改变 Android 最新版本 **v0.1.5**。0.1.3 三平台构建、核心与工具安装测试、真实官方工具下载及离线复用、腾讯镜像下载及 ADB 运行检查均已通过；Linux 的 15 项界面测试、macOS DMG／完整签名／安装副本启动检查也已通过，见 [0.1.3 构建记录](https://github.com/ecojust/pureTV/actions/runs/39989740541)。四个发布附件均已下载并核对 SHA256。当前尚未完成真实电视连接与操作验证。
 
 ![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
 
