@@ -105,6 +105,9 @@ jobs:
         run: npm run test:ui
       - name: Build native desktop and installer
         run: npm run tauri -- build --ci --target "$BUILD_TARGET" --bundles "$BUNDLE_FORMAT" -- --locked
+      - name: Verify macOS DMG, bundle signature and installed startup
+        if: runner.os == 'macOS'
+        run: python scripts/verify-macos-bundle.py --target "$BUILD_TARGET"
       - name: Collect release files
         run: |
           python - <<'PYTHON'

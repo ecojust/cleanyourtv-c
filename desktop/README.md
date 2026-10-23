@@ -2,20 +2,20 @@
 
 通过 ADB 在电脑上管理 Android TV / Google TV 的独立桌面应用。负责连接电视、查看应用、停用／恢复、为当前用户卸载、安装外部 APK 和选择默认启动器。它与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装；电视端无需额外常驻管理服务。
 
-版本 **0.1.0**。Windows x64 优先，提供 macOS Apple Silicon 和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.0)。
+版本 **0.1.1**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.1)。本次修复 macOS 应用包签名和最低系统版本配置，安装说明见下文。
 
 ![应用管理界面（模拟电视数据）](docs/previews/applications.png)
 
 ## 安装包大小
 
-| 平台／格式 | 0.1.0 安装包大小 |
+| 平台／格式 | 0.1.0 安装包大小（参考） |
 | --- | --- |
 | Windows x64 安装版 EXE | 约 1.20 MiB |
 | Windows x64 便携 EXE | 约 3.38 MiB |
 | macOS ARM64 DMG | 约 1.52 MiB |
 | Linux x64 DEB | 约 1.93 MiB |
 
-1 MiB = 1,048,576 字节，以上为发行文件大小，不包含另行准备的 ADB 和系统 WebView；安装后的占用及内存依运行环境而异。
+1 MiB = 1,048,576 字节，以上为 0.1.0 发行文件的参考大小；**0.1.1 的实际大小以发布页文件列表为准**。不包含另行准备的 ADB 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -28,6 +28,30 @@
 | 操作记录 | 保存最近 200 项修改结果，显示具体电视、用户、目标、成功／失败及原因 |
 
 先使用真实包名完成清单，不为扫描批量下载电视上的 APK。已知 pureTV／常见系统包显示友好名称，其他包以包名展示；首版不保证全部应用的本地化名称和图标。
+
+## macOS 安装与首次打开
+
+当前 DMG 适用于 **Apple Silicon（M1 及后续芯片）、macOS 11 或更高版本**，不支持 Intel Mac。打开 DMG，将 `pureTV Manager.app` 拖入 `Applications`，再从「应用程序」打开。
+
+0.1.1 对整个 `.app` 执行 ad-hoc 签名，补齐应用包的资源签名，并统一最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
+
+- 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
+- 提示「已损坏，无法打开」：先从本仓库的 [0.1.1 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.1) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+
+  ```bash
+  cd ~/Downloads
+  shasum -a 256 pureTV-Manager-0.1.1-macos-arm64.dmg
+  ```
+
+  将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
+
+  如果校验一致、确认文件来自本仓库，重新安装后仍因下载隔离属性被拦截，可在终端对这一份可信应用解除隔离，然后再打开：
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/pureTV Manager.app"
+  ```
+
+  此命令仅移除上述应用的下载隔离属性，不使用 `sudo`，不关闭全局 Gatekeeper。如果仍打不开，请提供完整提示和 macOS 版本；不要扩大命令作用范围。**此方法不适用于「将损坏电脑」或其他恶意软件警报。**
 
 ## 连接与使用
 
@@ -54,7 +78,7 @@ ADB 可从手动配置、`PURETV_ADB`、程序旁的 `platform-tools/`、PATH、
 
 ## 精简实现
 
-Tauri 2、Rust、原生 TypeScript/CSS，使用系统 WebView，无前端框架、数据库、遥测或网络后端。发行包未使用商业代码签名证书，macOS 未完成 Apple 公证。Windows 使用系统 WebView2；安装程序可在需要时安装 WebView2，便携 EXE 需要电脑已具备该运行时。Linux 依赖 WebKitGTK，macOS 使用系统 WebView。
+Tauri 2、Rust、原生 TypeScript/CSS，使用系统 WebView，无前端框架、数据库、遥测或网络后端。Windows 发行包未使用商业代码签名证书；macOS 使用 ad-hoc 应用包签名，未使用 Developer ID 证书、未完成 Apple 公证。Windows 使用系统 WebView2；安装程序可在需要时安装 WebView2，便携 EXE 需要电脑已具备该运行时。Linux 依赖 WebKitGTK，macOS 使用系统 WebView。
 
 后台核心只开放明确的 ADB 操作，不向网页开放任意 shell。参数经过校验，进程有超时、输出上限和取消机制；修改操作串行，批量逐项复查。前端构建后的 HTML、CSS、JavaScript 合计约 49 kB，不下载网页字体或第三方界面资源。实际电脑端安装包大小与内存以各平台构建和测试为准，不能与电视 APK 的体积直接比较。
 
@@ -76,7 +100,7 @@ npm run tauri dev
 
 前端交互测试：先执行 `npm run build`，再执行 `npm run test:ui`（需 Playwright Chromium，可先运行 `npx playwright install chromium`）。可通过 `CHROMIUM_PATH` 指定已有 Chromium，通过 `PURETV_CAPTURE_DIR` 保存控件截图。自动化测试使用模拟设备，不能替代电视实机连接和厂商兼容性测试。
 
-Windows x64、macOS ARM64、Linux x64 的 CI 测试和安装包构建均已通过；`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
+0.1.0 的 Windows x64、macOS ARM64、Linux x64 CI 测试和安装包构建已通过。0.1.1 新增 macOS DMG 挂载、完整应用包签名校验和原生启动检查；各次构建的实际结果见 [Desktop build 工作流](https://github.com/ecojust/pureTV/actions/workflows/desktop.yml)。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
 
 本地验证：29 项 Rust 核心测试、10 项浏览器交互场景、TypeScript 检查、原生 Rust 编译检查和 Linux Release 构建通过。交互场景覆盖外部 APK 添加去重、勾选安装、确认取消、保护组件、启动器恢复、失败结果、参数校验与窄窗口布局。另在 Linux 原生窗口验证了 Rust 状态读取、ADB 路径发现、系统文件选择器和外部 APK 导入；未连接真实电视。
 

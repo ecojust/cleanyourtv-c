@@ -10,9 +10,9 @@
 
 | 软件 | 类型 | 负责什么／主要功能 | 软件版本 | 电脑端安装包大小 |
 | --- | --- | --- | --- | --- |
-| [pureTV Manager／电视管理器](desktop/README.md) | **电脑端桌面应用／电视管理工具** | 连接电视、扫描应用、停用／启用、为当前用户卸载／恢复、添加外部 APK 并勾选安装、选择默认启动器 | 0.1.0 | Windows 安装版约 **1.20 MiB**／便携版 **3.38 MiB**；macOS **1.52 MiB**；Linux **1.93 MiB** |
+| [pureTV Manager／电视管理器](desktop/README.md) | **电脑端桌面应用／电视管理工具** | 连接电视、扫描应用、停用／启用、为当前用户卸载／恢复、添加外部 APK 并勾选安装、选择默认启动器 | 0.1.1 | Windows 安装版约 **1.20 MiB**／便携版 **3.38 MiB**；macOS **1.52 MiB**；Linux **1.93 MiB** |
 
-大小为桌面版 0.1.0 构建产物，不含需单独准备的 ADB 和系统 WebView 运行时，1 MiB = 1,048,576 字节。提供 Windows x64、macOS Apple Silicon（ARM64）和 Linux x64 构建，使用入口见[电脑端管理工具](#电脑端管理工具)。它独立于下面四个电视 APK，不捆绑进电视端安装包，也不需要在电视上安装额外常驻管理服务，因此不会增大现有电视端 APK。
+表内大小为桌面版 0.1.0 构建产物的参考值，0.1.1 实际大小见发布页。不含需单独准备的 ADB 和系统 WebView 运行时，1 MiB = 1,048,576 字节。提供 Windows x64、macOS Apple Silicon（ARM64，macOS 11 及以上）和 Linux x64 构建，使用入口见[电脑端管理工具](#电脑端管理工具)。它独立于下面四个电视 APK，不捆绑进电视端安装包，也不需要在电视上安装额外常驻管理服务，因此不会增大现有电视端 APK。
 
 **电视端软件：分别安装在电视上，负责桌面或媒体播放。**
 
@@ -29,7 +29,7 @@
 
 ## 电脑端管理工具
 
-[pureTV Manager 0.1.0](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.0) 用于从电脑管理电视，使用方式如下：
+[pureTV Manager 0.1.1](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.1) 用于从电脑管理电视，使用方式如下：
 
 1. 在电脑安装并打开管理器，准备 [Google Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)，自动检测或手动选择其中的 `adb.exe`／`adb`。电脑端发行包不包含 ADB，首次需准备一次；Windows 使用系统 WebView2，便携版需电脑已安装该运行时。
 2. 电视开启 ADB／网络调试，电脑与电视连接到可互通的网络。输入电视 IP 和实际调试端口，点击连接，并在电视上接受授权；支持配对码的电视可先配对再连接。
@@ -39,7 +39,9 @@
 
 系统应用的「为当前用户卸载」保留数据且不删除系统分区 APK；恢复要求设备仍保有该安装包。应用清单以真实包名为准，首版仅为已知应用提供友好名称，不保证所有应用的本地化名称和图标。实际操作结果和厂商限制会显示在界面与操作记录中。
 
-详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.0 不改变 Android 最新版本 **v0.1.5**。当前尚未完成真实电视连接与操作验证。
+macOS 用户将 DMG 内的应用拖入「应用程序」。0.1.1 补齐整个应用包的 ad-hoc 签名，并统一最低系统版本为 macOS 11；尚未使用 Developer ID 证书或完成 Apple 公证。出现「已损坏」或开发者验证提示时，请按 [macOS 安装与首次打开](desktop/README.md#macos-安装与首次打开) 校验下载并处理。
+
+详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.1 不改变 Android 最新版本 **v0.1.5**。当前尚未完成真实电视连接与操作验证。
 
 ![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
 
@@ -70,7 +72,7 @@ pureTV 启动器沿用包名 `com.ecojust.cleanyourtv` 和既有发布签名，�
 
 ## 下载
 
-[电脑端管理器 0.1.0](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.0) · [Android 最新版 APK v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) · [全部版本](https://github.com/ecojust/pureTV/releases)
+[电脑端管理器 0.1.1](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.1) · [Android 最新版 APK v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) · [全部版本](https://github.com/ecojust/pureTV/releases)
 
 电脑端管理器提供 Windows x64 安装版／便携版、macOS ARM64 DMG 和 Linux x64 DEB；请安装到电脑。Android v0.1.5 包含以下四个电视安装包，按用途选择：
 
