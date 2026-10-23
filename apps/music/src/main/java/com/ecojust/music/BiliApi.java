@@ -25,6 +25,10 @@ final class BiliApi {
     private String key = "";
     private volatile String cookies = "";
     private long keyTime;
+    interface Responses { JSONObject get(String url) throws IOException; }
+    private final Responses responses;
+    BiliApi() { this(null); }
+    BiliApi(Responses responses) { this.responses = responses; }
     static BiliApi get() { return INSTANCE; }
 
     List<Track> search(String input) throws IOException {
@@ -39,22 +43,48 @@ final class BiliApi {
 
     Track view(String bv) throws IOException {
         try {
-            JSONObject data = checked(request("https://api.bilibili.com/x/web-interface/view?bvid=" + encode(bv)));
-            return new Track(bv, data.optString("title", bv), data.optJSONObject("owner") == null ? "" : data.getJSONObject("owner").optString("name"),
-                    data.optString("pic"), "", data.optLong("duration"));
+            return parseView(bv, request("https://api.bilibili.com/x/web-interface/view?bvid=" + encode(bv)));
         } catch (JSONException e) { throw new IOException("视频信息无法解析", e); }
     }
 
     String audio(Track track) throws IOException {
         try {
             JSONObject info = checked(request("https://api.bilibili.com/x/web-interface/view?bvid=" + encode(track.id)));
-            long cid = info.optLong("cid");
-            if (cid <= 0) throw new IOException("没有可播放的音频分段");
-            Map<String, String> params = new TreeMap<>();
-            params.put("bvid", track.id); params.put("cid", String.valueOf(cid));
-            params.put("fnval", "16"); params.put("qn", "16"); params.put("fourk", "0");
-            return parseAudio(request("https://api.bilibili.com/x/player/wbi/playurl?" + signed(params)));
+            Map<String, String> params = playParams(track.id, videoCid(info));
+            // Same public DASH request flow used by BiliMusic; keep our native low-bandwidth player.
+            JSONObject response = request("https://api.bilibili.com/x/player/playurl?" + query(params));
+            // Try the signed variant once for a parameter error, never for login/verification failures.
+            if (response.optInt("code") == -400)
+                response = request("https://api.bilibili.com/x/player/wbi/playurl?" + signed(params));
+            return parseAudio(response);
         } catch (JSONException e) { throw new IOException("音频信息无法解析", e); }
+    }
+
+    static Track parseView(String bv, JSONObject response) throws IOException, JSONException {
+        JSONObject data = checked(response);
+        return new Track(bv, data.optString("title", bv), data.optJSONObject("owner") == null ? "" : data.getJSONObject("owner").optString("name"),
+                data.optString("pic"), "", data.optLong("duration"));
+    }
+    static long videoCid(JSONObject data) throws IOException {
+        long cid = data.optLong("cid");
+        JSONArray pages = data.optJSONArray("pages");
+        if (cid <= 0 && pages != null && pages.optJSONObject(0) != null) cid = pages.optJSONObject(0).optLong("cid");
+        if (cid <= 0) throw new IOException("没有可播放的音频分段");
+        return cid;
+    }
+    static Map<String,String> playParams(String bv, long cid) {
+        Map<String,String> params = new TreeMap<>();
+        params.put("bvid", bv); params.put("cid", String.valueOf(cid));
+        params.put("qn", "0"); params.put("fnver", "0"); params.put("fnval", "16"); params.put("fourk", "1");
+        return params;
+    }
+    private static String query(Map<String,String> params) {
+        StringBuilder result = new StringBuilder();
+        for (Map.Entry<String,String> entry : params.entrySet()) {
+            if (result.length() > 0) result.append('&');
+            result.append(encode(entry.getKey())).append('=').append(encode(entry.getValue()));
+        }
+        return result.toString();
     }
 
     static List<Track> parseSearch(JSONObject response) throws JSONException, IOException {
@@ -77,23 +107,45 @@ final class BiliApi {
     static String parseAudio(JSONObject response) throws JSONException, IOException {
         JSONObject data = checked(response);
         JSONObject dash = data.optJSONObject("dash");
-        JSONArray audio = dash == null ? null : dash.optJSONArray("audio");
+        Object raw = dash == null ? null : dash.opt("audio");
+        JSONArray audio = raw instanceof JSONArray ? (JSONArray) raw : raw instanceof JSONObject ? new JSONArray().put(raw) : null;
         String chosen = null;
         long smallest = Long.MAX_VALUE;
         if (audio != null) for (int i = 0; i < audio.length(); i++) {
             JSONObject item = audio.optJSONObject(i);
-            if (item == null || !item.optString("codecs").startsWith("mp4a")) continue;
-            String url = item.optString("baseUrl", item.optString("base_url"));
-            if (url.startsWith("http://")) url = "https://" + url.substring(7);
+            if (item == null) continue;
+            String codec = item.optString("codecs");
+            int id = item.optInt("id");
+            boolean knownAac = codec.startsWith("mp4a") || codec.isEmpty()
+                    && "audio/mp4".equals(item.optString("mimeType", item.optString("mime_type")))
+                    && (id == 30216 || id == 30232 || id == 30280);
+            if (!knownAac) continue;
+            String url = audioUrl(item.optString("baseUrl"));
+            if (url == null) url = audioUrl(item.optString("base_url"));
+            if (url == null) {
+                JSONArray backups = item.optJSONArray("backupUrl");
+                if (backups == null) backups = item.optJSONArray("backup_url");
+                if (backups != null) for (int j = 0; j < backups.length() && url == null; j++) url = audioUrl(backups.optString(j));
+            }
             long bandwidth = item.optLong("bandwidth", Long.MAX_VALUE);
-            if (url.startsWith("https://") && bandwidth < smallest) { chosen = url; smallest = bandwidth; }
+            if (bandwidth <= 0) bandwidth = Long.MAX_VALUE;
+            if (url != null && (chosen == null || bandwidth < smallest)) { chosen = url; smallest = bandwidth; }
         }
         if (chosen == null) throw new IOException("此内容没有可直接播放的 AAC 音轨，可能需要登录或授权");
         return chosen;
     }
 
+    private static String audioUrl(String value) {
+        if (value.startsWith("http://")) value = "https://" + value.substring(7);
+        try {
+            java.net.URI uri = new java.net.URI(value);
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getUserInfo() == null ? uri.toASCIIString() : null;
+        } catch (java.net.URISyntaxException e) { return null; }
+    }
+
     static JSONObject checked(JSONObject response) throws IOException, JSONException {
         int code = response.optInt("code", -1);
+        if (code == -400) throw new IOException("B 站拒绝请求（-400：请求错误），请重试或换用其他内容");
         if (code != 0) throw new IOException(code == -412 || code == -352 ? "B 站要求验证，请稍后或换用本地音频" : "B 站返回 " + code + "：" + response.optString("message", "内容不可用"));
         JSONObject data = response.optJSONObject("data");
         if (data == null) throw new IOException("B 站没有返回内容");
@@ -141,6 +193,7 @@ final class BiliApi {
     private static String encode(String value) { try { return URLEncoder.encode(value, "UTF-8").replace("+", "%20"); } catch (java.io.UnsupportedEncodingException e) { throw new AssertionError(e); } }
 
     private JSONObject request(String url) throws IOException {
+        if (responses != null) return responses.get(url);
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setConnectTimeout(8000); connection.setReadTimeout(8000);
         connection.setRequestProperty("User-Agent", AGENT);
@@ -149,7 +202,9 @@ final class BiliApi {
         try {
             int status = connection.getResponseCode();
             if (status != 200) throw new IOException(status == 412 || status == 403 ? "B 站暂时拒绝访问，请稍后或换用本地音频（HTTP " + status + "）" : "网络请求失败（HTTP " + status + "）");
-            List<String> set = connection.getHeaderFields().get("Set-Cookie");
+            List<String> set = null;
+            for (Map.Entry<String,List<String>> header : connection.getHeaderFields().entrySet())
+                if ("Set-Cookie".equalsIgnoreCase(header.getKey())) { set = header.getValue(); break; }
             if (set != null) {
                 StringBuilder value = new StringBuilder();
                 for (String cookie : set) { if (value.length() > 0) value.append("; "); value.append(cookie.split(";", 2)[0]); }

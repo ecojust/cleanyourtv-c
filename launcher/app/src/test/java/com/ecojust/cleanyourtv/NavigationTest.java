@@ -89,17 +89,37 @@ public class NavigationTest {
         }
     }
 
-    @Test public void applicationPageShowsPlaceholdersAndBackFinishes() {
+    @Test public void applicationPageExplainsMissingShortVideoAndBackFinishes() {
         try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
             AppsActivity page = controller.get();
             layout(page);
             RecyclerView grid = page.findViewById(R.id.appsGrid);
             assertEquals(8, grid.getAdapter().getItemCount());
             grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
-            assertNotNull(ShadowToast.getTextOfLatestToast());
+            assertEquals(page.getString(R.string.shortvideo_not_installed), ShadowToast.getTextOfLatestToast());
             assertNull(shadowOf(page).getNextStartedActivity());
             page.findViewById(R.id.backHome).performClick();
             assertTrue(page.isFinishing());
+        }
+    }
+
+    @Test public void shortVideoEntryLaunchesInstalledCompanion() {
+        try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
+            AppsActivity page = controller.get();
+            android.content.pm.ResolveInfo info = new android.content.pm.ResolveInfo();
+            info.activityInfo = new android.content.pm.ActivityInfo();
+            info.activityInfo.packageName = "com.ecojust.shortvideo";
+            info.activityInfo.name = "com.ecojust.shortvideo.MainActivity";
+            info.activityInfo.exported = true;
+            info.activityInfo.applicationInfo = new android.content.pm.ApplicationInfo();
+            info.activityInfo.applicationInfo.packageName = "com.ecojust.shortvideo";
+            shadowOf(page.getPackageManager()).addResolveInfoForIntent(new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.shortvideo"), info);
+            layout(page);
+            RecyclerView grid = page.findViewById(R.id.appsGrid);
+            assertEquals(page.getString(R.string.home_shortvideo), ((android.widget.TextView)grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.name)).getText().toString());
+            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            assertEquals("com.ecojust.shortvideo", shadowOf(page).getNextStartedActivity().getComponent().getPackageName());
         }
     }
 

@@ -14,6 +14,7 @@
     <!-- Android 11+ hides other packages from us unless we name them; the Settings/Wi-Fi fallback
          in MainActivity needs to see Xiaomi's own settings app. -->
     <queries>
+        <package android:name="com.ecojust.shortvideo" />
         <package android:name="com.ecojust.music" />
         <package android:name="com.xiaomi.mitv.settings" />
         <package android:name="com.xiaodianshi.tv.yst" />

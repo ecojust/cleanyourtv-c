@@ -17,4 +17,6 @@
     <string name="app_store_unavailable">沒有可用的應用商店或瀏覽器，請先安裝應用商店</string>
     <string name="file_browser_unavailable">沒有可用的檔案管理員，請先安裝檔案管理員</string>
     <string name="file_viewer_unavailable">沒有可開啟此檔案的應用</string>
+    <string name="home_shortvideo">短影片</string>
+    <string name="shortvideo_not_installed">請先安裝 ShortVideo TV 短影片應用程式</string>
 </resources>

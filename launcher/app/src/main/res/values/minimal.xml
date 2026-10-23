@@ -17,4 +17,6 @@
     <string name="app_store_unavailable">No app store or browser available. Please install an app store.</string>
     <string name="file_browser_unavailable">No file manager available. Please install a file manager.</string>
     <string name="file_viewer_unavailable">No available app can open this file.</string>
+    <string name="home_shortvideo">Short videos</string>
+    <string name="shortvideo_not_installed">Install ShortVideo TV to open short videos</string>
 </resources>

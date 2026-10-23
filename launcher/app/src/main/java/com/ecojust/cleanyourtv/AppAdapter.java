@@ -25,7 +25,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onTileVerticalKey(int position, int keyCode);
     }
 
-    static final int PLACEHOLDER = 0, APP_STORE = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, FILES = 4;
+    static final int PLACEHOLDER = 0, APP_STORE = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, FILES = 4, SHORTVIDEO = 5;
     static final float FOCUS_SCALE = 1.03f;
     static final float DESIGN_W_DP = 190f, DESIGN_H_DP = 94f;
     static boolean reducedMotion;
@@ -56,13 +56,15 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 new Entry("apps", R.string.home_apps, R.drawable.ic_apps_minimal, 0xFF374959, APP_STORE, 0));
     }
 
-    static List<Entry> placeholderEntries() {
+    static List<Entry> applicationEntries() {
         List<Entry> entries = new ArrayList<>();
+        entries.add(new Entry("shortvideo", R.string.home_shortvideo, R.drawable.ic_video, 0xFF503036, SHORTVIDEO, 0));
+        entries.add(new Entry("music", R.string.home_music, R.drawable.ic_music, 0xFF303338, MUSIC_WEBSITE, 0));
         int[] icons = {R.drawable.ic_video, R.drawable.ic_music, R.drawable.ic_apps_minimal,
                 R.drawable.ic_livetv, R.drawable.ic_picture, R.drawable.ic_wifi,
                 R.drawable.ic_input, R.drawable.ic_settings};
         int[] colors = {0xFF503036, 0xFF303338, 0xFF374959, 0xFF3B4C46};
-        for (int i = 0; i < icons.length; i++) {
+        for (int i = 2; i < icons.length; i++) {
             entries.add(new Entry("placeholder-" + i, R.string.placeholder_app, icons[i],
                     colors[i % colors.length], PLACEHOLDER, i + 1));
         }
@@ -144,13 +146,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     private void launch(Entry entry) {
         if (entry.action == MUSIC_WEBSITE) {
-            Intent nativeMusic = context.getPackageManager().getLeanbackLaunchIntentForPackage("com.ecojust.music");
-            if (nativeMusic == null) nativeMusic = context.getPackageManager().getLaunchIntentForPackage("com.ecojust.music");
-            if (nativeMusic != null) {
-                try { context.startActivity(nativeMusic.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return; }
-                catch (ActivityNotFoundException | SecurityException ignored) { }
-            }
+            if (openNative("com.ecojust.music")) return;
             openWebsite(R.string.music_website_url, R.string.music_browser_unavailable);
+            return;
+        }
+        if (entry.action == SHORTVIDEO) {
+            if (!openNative("com.ecojust.shortvideo")) Toast.makeText(context, R.string.shortvideo_not_installed, Toast.LENGTH_LONG).show();
             return;
         }
         if (entry.action == FILES) {
@@ -178,6 +179,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
         Toast.makeText(context, context.getString(R.string.placeholder_unconfigured,
                 entry.title(context)), Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean openNative(String pkg) {
+        Intent intent = context.getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+        if (intent == null) intent = context.getPackageManager().getLaunchIntentForPackage(pkg);
+        if (intent == null) return false;
+        try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true; }
+        catch (ActivityNotFoundException | SecurityException e) { return false; }
     }
 
     private void openWebsite(int urlResource, int errorResource) {

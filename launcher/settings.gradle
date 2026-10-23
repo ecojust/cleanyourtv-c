@@ -16,3 +16,5 @@ rootProject.name = "cleanyourtv-c"
 include ':app'
 include ':music'
 project(':music').projectDir = file('../apps/music')
+include ':shortvideo'
+project(':shortvideo').projectDir = file('../apps/shortvideo')

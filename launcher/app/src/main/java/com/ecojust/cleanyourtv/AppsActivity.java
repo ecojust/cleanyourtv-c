@@ -7,7 +7,7 @@ import android.view.View;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-/** A dedicated application page. Entries are intentionally placeholders for now. */
+/** Companion app shortcuts followed by a small set of placeholders. */
 public class AppsActivity extends Activity implements AppAdapter.TileListener {
     private RecyclerView grid;
     private AppAdapter adapter;
@@ -24,7 +24,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
         grid.setItemAnimator(null);
         AppAdapter.setReducedMotion(getSharedPreferences("layout", MODE_PRIVATE)
                 .getBoolean("reduced_motion", false));
-        adapter = new AppAdapter(this, this, columns, AppAdapter.placeholderEntries());
+        adapter = new AppAdapter(this, this, columns, AppAdapter.applicationEntries());
         grid.setAdapter(adapter);
         findViewById(R.id.backHome).setOnClickListener(v -> finish());
         findViewById(R.id.backHome).setOnKeyListener((v, key, event) -> {
