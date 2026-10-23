@@ -2,20 +2,13 @@
 
 通过 ADB 在电脑上管理 Android TV / Google TV 的独立桌面应用。负责连接电视、查看应用、停用／恢复、为当前用户卸载、安装外部 APK 和选择默认启动器。它与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装；电视端无需额外常驻管理服务。
 
-版本 **0.1.2**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2)。缺少 ADB 时，可直接在应用内下载并配置 Google 官方 Platform Tools，无需手动解压和寻找文件。
+版本 **0.1.3**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。缺少 ADB 时，可直接在应用内下载并配置 Google 官方 Platform Tools，Google 不可达时自动尝试腾讯镜像，无需手动解压和寻找文件。
 
 ![应用管理界面（模拟电视数据）](docs/previews/applications.png)
 
 ## 安装包大小
 
-| 平台／格式 | 0.1.2 安装包大小 |
-| --- | --- |
-| Windows x64 安装版 EXE | 1,507,342 字节，约 1.44 MiB |
-| Windows x64 便携 EXE | 4,152,832 字节，约 3.96 MiB |
-| macOS ARM64 DMG | 1,864,526 字节，约 1.78 MiB |
-| Linux x64 DEB | 2,368,886 字节，约 2.26 MiB |
-
-1 MiB = 1,048,576 字节，以上为 0.1.2 实际发布文件大小，已下载并核对 SHA256，完整校验清单见发布页。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
+本版提供 Windows x64 安装版与便携版、macOS ARM64 DMG 和 Linux x64 DEB。文件大小与 SHA256 校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)，不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
 
 ## 功能
 
@@ -36,11 +29,11 @@
 应用对整个 `.app` 执行 ad-hoc 签名，最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
 
 - 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
-- 提示「已损坏，无法打开」：先从本仓库的 [0.1.2 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.2) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+- 提示「已损坏，无法打开」：先从本仓库的 [0.1.3 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
 
   ```bash
   cd ~/Downloads
-  shasum -a 256 pureTV-Manager-0.1.2-macos-arm64.dmg
+  shasum -a 256 pureTV-Manager-0.1.3-macos-arm64.dmg
   ```
 
   将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
@@ -130,3 +123,5 @@ npm run tauri dev
 [已确认的设计提案](docs/design-proposal.png) · [ADB 命令调研](docs/adb-research.md)
 
 本项目参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)。本目录为电脑端管理工具实现，原作者版权和许可见仓库 [LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)。
+
+0.1.3 新增腾讯备用镜像；发布构建还会在三个系统分别验证镜像下载及 `adb version`。
