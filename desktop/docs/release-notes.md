@@ -15,10 +15,10 @@
 
 | 电脑系统 | 文件 | 说明 |
 | --- | --- | --- |
-| Windows x64 | `pureTV-Manager-0.1.0-windows-x64-setup.exe` | 安装版，首次使用推荐 |
-| Windows x64 | `pureTV-Manager-0.1.0-windows-x64-portable.exe` | 便携版，需电脑已具备 WebView2 |
-| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.0-macos-arm64.dmg` | 适用于 Apple Silicon Mac |
-| Linux x64 | `pureTV-Manager-0.1.0-linux-x64.deb` | DEB 安装包，需要兼容的 GTK／WebKitGTK 运行环境 |
+| Windows x64 | `pureTV-Manager-0.1.0-windows-x64-setup.exe` | 安装版，约 1.20 MiB，首次使用推荐 |
+| Windows x64 | `pureTV-Manager-0.1.0-windows-x64-portable.exe` | 便携版，约 3.38 MiB，需电脑已具备 WebView2 |
+| macOS Apple Silicon（ARM64） | `pureTV-Manager-0.1.0-macos-arm64.dmg` | 约 1.52 MiB，适用于 Apple Silicon Mac |
+| Linux x64 | `pureTV-Manager-0.1.0-linux-x64.deb` | 约 1.93 MiB，需要兼容的 GTK／WebKitGTK 运行环境 |
 
 安装包的实际大小见本发布页文件列表，完整性校验值见 `SHA256SUMS.txt`。本版未提供 Windows ARM64 或 Intel Mac 安装包。
 
@@ -33,7 +33,7 @@
 
 ## 验证范围与版本关系
 
-自动化测试使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**；厂商固件可能拒绝某些操作，结果以界面反馈为准。安装器尚未使用商业代码签名证书，macOS 版本尚未完成 Apple 公证，系统可能显示来源或开发者验证提示。
+三平台安装包均构建成功，已通过 29 项 Rust 核心测试与 10 项浏览器交互测试，Linux 原生窗口及外部文件选择导入已验证。自动化设备操作使用模拟设备，**尚未进行真实电视连接、系统应用变更或启动器切换验证**；厂商固件可能拒绝某些操作，结果以界面反馈为准。安装器尚未使用商业代码签名证书，macOS 版本尚未完成 Apple 公证，系统可能显示来源或开发者验证提示。
 
 这是独立的 **desktop-v0.1.0** 发布。Android 最新版仍为 **[v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5)**，本发布不替换或更新四个电视 APK。
 

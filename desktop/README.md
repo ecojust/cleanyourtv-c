@@ -6,6 +6,17 @@
 
 ![应用管理界面（模拟电视数据）](docs/previews/applications.png)
 
+## 安装包大小
+
+| 平台／格式 | 0.1.0 安装包大小 |
+| --- | --- |
+| Windows x64 安装版 EXE | 约 1.20 MiB |
+| Windows x64 便携 EXE | 约 3.38 MiB |
+| macOS ARM64 DMG | 约 1.52 MiB |
+| Linux x64 DEB | 约 1.93 MiB |
+
+1 MiB = 1,048,576 字节，以上为发行文件大小，不包含另行准备的 ADB 和系统 WebView；安装后的占用及内存依运行环境而异。
+
 ## 功能
 
 | 页面 | 能做什么 |
@@ -43,7 +54,7 @@ ADB 可从手动配置、`PURETV_ADB`、程序旁的 `platform-tools/`、PATH、
 
 ## 精简实现
 
-Tauri 2、Rust、原生 TypeScript/CSS，使用系统 WebView，无前端框架、数据库、遥测或网络后端。Windows 使用系统 WebView2；安装程序可在需要时安装 WebView2，便携 EXE 需要电脑已具备该运行时。Linux 依赖 WebKitGTK，macOS 使用系统 WebView。
+Tauri 2、Rust、原生 TypeScript/CSS，使用系统 WebView，无前端框架、数据库、遥测或网络后端。发行包未使用商业代码签名证书，macOS 未完成 Apple 公证。Windows 使用系统 WebView2；安装程序可在需要时安装 WebView2，便携 EXE 需要电脑已具备该运行时。Linux 依赖 WebKitGTK，macOS 使用系统 WebView。
 
 后台核心只开放明确的 ADB 操作，不向网页开放任意 shell。参数经过校验，进程有超时、输出上限和取消机制；修改操作串行，批量逐项复查。前端构建后的 HTML、CSS、JavaScript 合计约 49 kB，不下载网页字体或第三方界面资源。实际电脑端安装包大小与内存以各平台构建和测试为准，不能与电视 APK 的体积直接比较。
 
@@ -65,11 +76,11 @@ npm run tauri dev
 
 前端交互测试：先执行 `npm run build`，再执行 `npm run test:ui`（需 Playwright Chromium，可先运行 `npx playwright install chromium`）。可通过 `CHROMIUM_PATH` 指定已有 Chromium，通过 `PURETV_CAPTURE_DIR` 保存控件截图。自动化测试使用模拟设备，不能替代电视实机连接和厂商兼容性测试。
 
-CI 分别在 Windows x64、macOS ARM64、Linux x64 测试并构建；`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
+Windows x64、macOS ARM64、Linux x64 的 CI 测试和安装包构建均已通过；`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
 
-本地验证：29 项 Rust 核心测试、10 项浏览器交互场景、TypeScript 检查和原生 Rust 编译检查通过。交互场景覆盖外部 APK 添加去重、勾选安装、确认取消、保护组件、启动器恢复、失败结果、参数校验与窄窗口布局；未连接真实电视。
+本地验证：29 项 Rust 核心测试、10 项浏览器交互场景、TypeScript 检查、原生 Rust 编译检查和 Linux Release 构建通过。交互场景覆盖外部 APK 添加去重、勾选安装、确认取消、保护组件、启动器恢复、失败结果、参数校验与窄窗口布局。另在 Linux 原生窗口验证了 Rust 状态读取、ADB 路径发现、系统文件选择器和外部 APK 导入；未连接真实电视。
 
-![外部 APK 导入与选择（模拟电视数据）](docs/previews/import-apks.png)
+![外部 APK 导入（Linux 原生窗口，未连接电视）](docs/previews/import-apks.png)
 
 [已确认的设计提案](docs/design-proposal.png) · [ADB 命令调研](docs/adb-research.md)
 
