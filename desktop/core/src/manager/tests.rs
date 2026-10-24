@@ -85,10 +85,10 @@ impl Runner for FakeRunner {
                             if !tv.layout_provider {return Ok(Output{code:1,text:"No content provider".into()})}
                             use base64::Engine;
                             let method=&a[a.iter().position(|arg|arg=="--method").unwrap()+1];
-                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/apps.json")).unwrap();
+                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/layout.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
-                            let value=serde_json::json!({"supported":true,"version":1,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
+                            let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
                         "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},
@@ -941,7 +941,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         false
     );
     let layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../launcher/app/src/main/assets/apps.json"
+        "../../../../launcher/app/src/main/assets/layout.json"
     ))
     .unwrap();
     assert!(manager
@@ -962,7 +962,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         .unwrap();
     assert_eq!(status["supported"], true);
     let mut draft = layout;
-    draft["columns"] = serde_json::json!(3);
+    draft["home"]["columns"] = serde_json::json!(3);
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::ApplyLayout {
@@ -974,7 +974,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::GetLayout)
-            .unwrap()["layout"]["columns"],
+            .unwrap()["layout"]["home"]["columns"],
         3
     );
     assert_eq!(
@@ -986,32 +986,6 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     assert_eq!(manager.snapshot().history[0].action, "启动器布局");
 }
 #[test]
-fn launcher_preview_returns_png_and_removes_temporary_files() {
-    let (mut manager, tv) = fixture();
-    connect(&mut manager);
-    let preview = manager
-        .execute_launcher(crate::LauncherRequest::CapturePreview)
-        .unwrap();
-    assert!(preview["image"]
-        .as_str()
-        .unwrap()
-        .starts_with("data:image/png;base64,"));
-    assert_eq!(preview["width"], 1);
-    assert_eq!(
-        fs::read_dir(manager.data_dir.join("previews"))
-            .unwrap()
-            .count(),
-        0
-    );
-    assert!(tv
-        .lock()
-        .unwrap()
-        .calls
-        .iter()
-        .any(|args| args.iter().any(|a| a == "rm")));
-}
-
-#[test]
 fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
     let (mut manager, _) = fixture();
     connect(&mut manager);
@@ -1021,21 +995,6 @@ fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
     assert_eq!(info.manufacturer.as_deref(), Some("Test Maker"));
     manager.execute(Request::Disconnect).unwrap();
     assert!(manager.snapshot().system_info.is_none());
-}
-
-#[cfg(unix)]
-#[test]
-fn read_only_screen_capture_preserves_binary_png_and_observes_cancellation() {
-    use std::os::unix::fs::PermissionsExt;
-    let root = std::env::temp_dir().join(format!("puretv-screen-test-{}", std::process::id()));
-    fs::create_dir_all(&root).unwrap();
-    let adb = root.join("adb");
-    fs::write(&adb,"#!/usr/bin/env python3\nimport sys,base64\nassert sys.argv[1:]==['-s','tv:5555','exec-out','screencap','-p']\nsys.stdout.buffer.write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='))\n").unwrap();
-    fs::set_permissions(&adb, fs::Permissions::from_mode(0o755)).unwrap();
-    let bytes = crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(false)).unwrap();
-    assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
-    assert!(crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(true)).is_err());
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -1069,4 +1028,32 @@ fn install_results_distinguish_original_paths_even_when_basenames_match() {
     assert_eq!(state.install_results[1].path, paths[1]);
     assert!(state.install_results[0].success);
     assert!(!state.install_results[1].success);
+}
+
+#[test]
+fn layout_writes_reject_system_disabled_or_missing_user_apps() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    {
+        let mut tv = tv.lock().unwrap();
+        tv.default = "com.ecojust.puretv/.MainActivity".into();
+        tv.layout_provider = true;
+    }
+    let mut layout: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../launcher/app/src/main/assets/layout.json"
+    ))
+    .unwrap();
+    for package in ["com.vendor.ads", "com.user.app", "com.example.missing"] {
+        layout["home"]["items"] = serde_json::json!([{"packageName":package}]);
+        assert!(manager
+            .execute_launcher(crate::LauncherRequest::ApplyLayout {
+                layout: layout.clone()
+            })
+            .is_err());
+        assert!(tv.lock().unwrap().launcher_layout.is_none());
+    }
+    layout["home"]["items"] = serde_json::json!([{"packageName":"com.ecojust.puretv"}]);
+    assert!(manager
+        .execute_launcher(crate::LauncherRequest::ApplyLayout { layout })
+        .is_ok());
 }

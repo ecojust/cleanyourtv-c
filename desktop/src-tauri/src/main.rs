@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod live_view;
+mod launcher_covers;
 mod mcp;
 mod platform_tools;
 
@@ -16,7 +16,6 @@ use tauri_plugin_opener::OpenerExt;
 
 #[derive(Clone)]
 struct Bridge {
-    live: Arc<live_view::LiveView>,
     manager: Arc<Mutex<TvManager>>,
     cancel: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
@@ -49,39 +48,53 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
     result.map_err(|_| "操作任务异常结束，请重新扫描设备状态".to_string())?
 }
 
-fn live_emit(app: &tauri::AppHandle) -> live_view::Emit {
-    let app = app.clone();
-    Arc::new(move |name, value| {
-        let _ = app.emit(name, value);
-    })
-}
-fn live_call(
-    app: &tauri::AppHandle,
-    bridge: &Bridge,
-    action: &str,
-    fps: Option<u8>,
-) -> Result<Value, String> {
-    let emit = live_emit(app);
-    match action {
-        "start" => Ok(json!(bridge.live.start(fps.unwrap_or(1), emit)?)),
-        "pause" => Ok(json!(bridge.live.stop(true, &emit)?)),
-        "stop" => Ok(json!(bridge.live.stop(false, &emit)?)),
-        "status" => Ok(json!(bridge.live.status()?)),
-        "frame" => bridge.live.frame(),
-        _ => Err("实时画面操作无效".into()),
-    }
+#[tauri::command]
+fn get_launcher_covers(app: tauri::AppHandle) -> Result<Value, String> {
+    launcher_covers::covers(&app.path().app_data_dir().map_err(|_| "无法定位数据目录")?)
 }
 #[tauri::command]
-async fn live_execute(
-    action: String,
-    fps: Option<u8>,
+async fn choose_launcher_cover(
+    key: String,
+    path: Option<String>,
+    apk_path: Option<String>,
+    remove: Option<bool>,
     app: tauri::AppHandle,
-    bridge: tauri::State<'_, Bridge>,
 ) -> Result<Value, String> {
-    let bridge = bridge.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || live_call(&app, &bridge, &action, fps))
-        .await
-        .map_err(|_| "实时画面任务异常结束".to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = app.path().app_data_dir().map_err(|_| "无法定位数据目录")?;
+        if remove == Some(true) {
+            return launcher_covers::set(&directory, &key, None);
+        }
+        if let Some(apk) = apk_path {
+            let path = launcher_covers::sidecar_path(std::path::Path::new(&apk))
+                .ok_or("未找到有效的 thumb 图片")?;
+            return launcher_covers::set(&directory, &key, Some(&path));
+        }
+        let path = match path {
+            Some(path) => std::path::PathBuf::from(path),
+            None => {
+                let Some(file) = app
+                    .dialog()
+                    .file()
+                    .set_title("选择启动器背景图")
+                    .add_filter("封面图片", &["png", "jpg", "jpeg", "webp"])
+                    .blocking_pick_file()
+                else {
+                    return launcher_covers::covers(&directory);
+                };
+                file.into_path().map_err(|_| "请选择本地图片")?
+            }
+        };
+        launcher_covers::set(&directory, &key, Some(&path))
+    })
+    .await
+    .map_err(|_| "封面任务异常结束".to_string())?
+}
+#[tauri::command]
+async fn choose_launcher_apks(app: tauri::AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(json!(pick_apks(&app)?.into_iter().map(|path|json!({"cover":launcher_covers::sidecar(std::path::Path::new(&path)),"path":path})).collect::<Vec<_>>()))
+    }).await.map_err(|_|"无法读取启动器 APK".to_string())?
 }
 
 #[tauri::command]
@@ -120,7 +133,7 @@ fn pick_launcher_json(app: &tauri::AppHandle) -> Result<Option<String>, String> 
     let Some(file) = app
         .dialog()
         .file()
-        .set_title("导入 apps.json 布局")
+        .set_title("导入 layout.json 布局")
         .add_filter("JSON", &["json"])
         .blocking_pick_file()
     else {
@@ -144,9 +157,9 @@ fn read_launcher_json(path: &std::path::Path) -> Result<String, String> {
         .read_to_end(&mut data)
         .map_err(|_| "无法读取布局文件")?;
     if data.len() > 48 * 1024 {
-        return Err("apps.json 不能超过 48 KiB".into());
+        return Err("layout.json 不能超过 48 KiB".into());
     }
-    String::from_utf8(data).map_err(|_| "apps.json 应使用 UTF-8 编码".into())
+    String::from_utf8(data).map_err(|_| "layout.json 应使用 UTF-8 编码".into())
 }
 
 #[tauri::command]
@@ -285,17 +298,6 @@ fn mcp_call(
     name: &str,
     args: Value,
 ) -> Result<Value, String> {
-    let live_action = match name {
-        "start_live_view" => Some("start"),
-        "pause_live_view" => Some("pause"),
-        "stop_live_view" => Some("stop"),
-        "live_view_status" => Some("status"),
-        "get_live_frame" => Some("frame"),
-        _ => None,
-    };
-    if let Some(action) = live_action {
-        return live_call(app, bridge, action, args["fps"].as_u64().map(|v| v as u8));
-    }
     if name == "get_state" {
         return serde_json::to_value(bridge.snapshot.lock().map_err(|_| "状态不可用")?.clone())
             .map_err(|e| e.to_string());
@@ -331,6 +333,14 @@ fn mcp_call(
     let _ = app.emit("mcp-operation", json!({"running":true,"tool":name}));
     let result = (|| -> Result<Value, String> {
         match name {
+            "get_launcher_covers" => return get_launcher_covers(app.clone()),
+            "set_launcher_cover" => {
+                return launcher_covers::set(
+                    &app.path().app_data_dir().map_err(|_| "无法定位数据目录")?,
+                    args["key"].as_str().ok_or("缺少启动器标识")?,
+                    args["path"].as_str().map(std::path::Path::new),
+                )
+            }
             "choose_launcher_json" => return Ok(json!(pick_launcher_json(app)?)),
             "choose_apks" => return Ok(json!(pick_apks(app)?)),
             "choose_adb" => return Ok(json!(pick_adb(app)?)),
@@ -399,7 +409,7 @@ fn mcp_call(
     let snapshot = bridge.snapshot.lock().map_err(|_| "状态不可用")?.clone();
     let _ = app.emit(
         "mcp-operation",
-        json!({"running":false,"tool":name,"snapshot":snapshot,"error":result.as_ref().err(),"launcherResult":if ["get_launcher_layout","apply_launcher_layout","reset_launcher_layout","capture_launcher_preview"].contains(&name){result.as_ref().ok()}else{None}}),
+        json!({"running":false,"tool":name,"snapshot":snapshot,"error":result.as_ref().err(),"launcherResult":if ["get_launcher_layout","apply_launcher_layout","reset_launcher_layout"].contains(&name){result.as_ref().ok()}else{None}}),
     );
     drop(guard);
     result
@@ -438,7 +448,6 @@ fn main() {
             let snapshot = manager.snapshot();
             let snapshot = Arc::new(Mutex::new(snapshot));
             let bridge = Bridge {
-                live: live_view::LiveView::new(snapshot.clone()),
                 manager: Arc::new(Mutex::new(manager)),
                 cancel,
                 running: Arc::new(AtomicBool::new(false)),
@@ -457,7 +466,9 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             execute,
-            live_execute,
+            get_launcher_covers,
+            choose_launcher_cover,
+            choose_launcher_apks,
             launcher_execute,
             choose_launcher_json,
             cancel,
@@ -470,11 +481,5 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("无法启动 pureTV 电视管理器")
-        .run(|app, event| {
-            if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
-                if let Some(bridge) = app.try_state::<Bridge>() {
-                    let _ = bridge.live.stop(false, &live_emit(app));
-                }
-            }
-        });
+        .run(|_, _| {});
 }

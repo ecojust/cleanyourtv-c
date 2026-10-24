@@ -115,7 +115,7 @@ export async function openResource(resource: 'releases' | 'platformTools' | 'pla
 }
 
 export interface McpInfo { config: { mcpServers: Record<string, { command: string; args: string[] }> }; sessionPath: string }
-export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo | import('./types').LauncherPreview }
+export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo }
 export async function mcpInfo(): Promise<McpInfo | null> {
   if (!desktop || demo) return null;
   return invoke<McpInfo>('mcp_info');
@@ -125,21 +125,17 @@ export async function watchMcp(operation: (value: McpOperation) => void, progres
   await listen<McpOperation>('mcp-operation', event => operation(event.payload));
   await listen<DownloadProgress>('mcp-progress', event => progress(event.payload));
 }
-export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo | import('./types').LauncherPreview> {
+export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo> {
   if (!desktop || demo) throw new Error('请在真实桌面管理器中连接电视，读取启动器布局接口。');
   return invoke('launcher_execute', { request });
 }
 export async function chooseLauncherJson(): Promise<string | null> {
-  if (!desktop || demo) throw new Error('请在桌面管理器中选择 apps.json。');
+  if (!desktop || demo) throw new Error('请在桌面管理器中选择 layout.json。');
   return invoke('choose_launcher_json');
 }
 
-export async function liveExecute(action: 'start'|'pause'|'stop'|'status'|'frame', fps?: number): Promise<import('./types').LiveStatus | import('./types').LiveFrame> {
-  if (!desktop || demo) throw new Error('请运行桌面管理器并连接电视。');
-  return invoke('live_execute', { action, fps });
-}
-export async function watchLive(state: (value: import('./types').LiveStatus)=>void, frame: (value: {frame:import('./types').LiveFrame;status:import('./types').LiveStatus})=>void): Promise<void> {
-  if (!desktop || demo) return;
-  await listen<import('./types').LiveStatus>('live-state',event=>state(event.payload));
-  await listen<{frame:import('./types').LiveFrame;status:import('./types').LiveStatus}>('live-frame',event=>frame(event.payload));
-}
+export async function launcherCovers(): Promise<Record<string,string>> { if(!desktop || demo)return {}; return invoke('get_launcher_covers'); }
+export async function chooseLauncherCover(key:string, remove=false): Promise<Record<string,string>> { return invoke('choose_launcher_cover',{key,remove}); }
+export async function chooseLauncherApks(): Promise<{path:string;cover?:string|null}[]> { if(demo)return [{path:'pureTV.apk'}]; return invoke('choose_launcher_apks'); }
+
+export async function adoptLauncherCover(key:string,apkPath:string):Promise<Record<string,string>> {return invoke('choose_launcher_cover',{key,apkPath});}

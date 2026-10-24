@@ -20,17 +20,17 @@ public final class LauncherLayoutProvider extends ContentProvider {
             throw new SecurityException("Layout access requires the shell DUMP permission");
         try {
             if ("apply".equals(method)) {
-                if (arg==null || arg.length()>LauncherLayout.LIMIT*2) throw new IllegalArgumentException("Invalid apps.json payload");
+                if (arg==null || arg.length()>LauncherLayout.LIMIT*2) throw new IllegalArgumentException("Invalid layout.json payload");
                 byte[] bytes=Base64.decode(arg,Base64.NO_WRAP);
-                if (bytes.length>LauncherLayout.LIMIT) throw new IllegalArgumentException("apps.json is too large");
+                if (bytes.length>LauncherLayout.LIMIT) throw new IllegalArgumentException("layout.json is too large");
                 LauncherLayout.apply(getContext(),new JSONObject(new String(bytes,StandardCharsets.UTF_8)));
             } else if ("reset".equals(method)) LauncherLayout.reset(getContext());
             else if (!"status".equals(method)) throw new IllegalArgumentException("Unknown layout operation");
             LauncherLayout override=LauncherLayout.override(getContext());
-            JSONObject value=new JSONObject().put("supported",true).put("version",1).put("custom",override!=null)
+            JSONObject value=new JSONObject().put("supported",true).put("version",2).put("custom",override!=null)
                 .put("layout",(override==null?LauncherLayout.defaults(getContext()):override).json).put("apps",LauncherLayout.installedApps(getContext()));
             Bundle result=new Bundle();result.putString("result",Base64.encodeToString(value.toString().getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP));return result;
-        } catch(Exception error) {throw new IllegalArgumentException("Cannot read or apply apps.json: "+error.getMessage(),error);}
+        } catch(Exception error) {throw new IllegalArgumentException("Cannot read or apply layout.json: "+error.getMessage(),error);}
     }
     @Override public Cursor query(Uri uri,String[] projection,String selection,String[] args,String order){throw new UnsupportedOperationException();}
     @Override public String getType(Uri uri){return null;}
