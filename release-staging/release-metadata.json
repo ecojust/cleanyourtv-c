@@ -1,0 +1,15 @@
+{
+  "launcher": {
+    "packageName": "com.ecojust.puretv",
+    "versionCode": 10,
+    "versionName": "0.3.4",
+    "certificateSha256": null,
+    "bytes": 679916,
+    "sha256": "8aeccc693ba93c819e31b3096cb3d8a0fcc1f80b07df26c8a45d27efd126e3c1",
+    "requiresSigning": true,
+    "sourceSha": "b5ca2c99d71c2860472f15ca4efca715024d43ff",
+    "sourceTreeSha": "aa28a50eff2a60772caf5be713a08a0d1827d4e7",
+    "buildSourceSha": "b5ca2c99d71c2860472f15ca4efca715024d43ff",
+    "releaseName": "pureTV-0.3.4.apk"
+  }
+}
