@@ -40,6 +40,7 @@ with tempfile.TemporaryDirectory(prefix='puretv-app-resources-') as temporary:
         (folder/'resource.json').write_text(json.dumps(resource,ensure_ascii=False,indent=2)+'\n')
         (folder/'SHA256SUMS.txt').write_text(''.join(f'{digest(folder/n)}  {n}\n' for n in [apk.name,'thumb.png']))
         p=folder/'README.md';text=p.read_text();heading,rest=text.split('\n',1)
-        p.write_text(heading+'\n\n[下载 APK]('+apk.name+'?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)\n\n此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。\n'+rest)
+        rest=re.sub(r'\n*<!-- apk-resource:start -->.*?<!-- apk-resource:end -->\n*','\n',rest,flags=re.S)
+        p.write_text(heading+'\n\n<!-- apk-resource:start -->\n[下载 APK]('+apk.name+'?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)\n\n此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。\n<!-- apk-resource:end -->\n'+rest)
         print(json.dumps({'app':name,'apk':str(apk.relative_to(root)),'bytes':info['bytes'],'verified':True}))
 subprocess.run(['python',str(root/'tools/update-resource-index.py')],cwd=root,check=True)

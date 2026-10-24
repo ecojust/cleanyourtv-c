@@ -1,8 +1,10 @@
 # WebTV
 
+<!-- apk-resource:start -->
 [下载 APK](webtv-0.1.0.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
 
 此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+<!-- apk-resource:end -->
 
 Android TV 卫视／央视直播应用，包名 `com.ecojust.webtv`，版本 0.1.0，支持 Android 8.0 以上。原生 Java View、SurfaceView、MediaPlayer 和 MediaSession，无生产环境第三方依赖。
 
@@ -18,7 +20,7 @@ Android TV 卫视／央视直播应用，包名 `com.ecojust.webtv`，版本 0.1
 
 ## 体积与资源
 
-Release 开启 R8 和资源压缩，签名 APK 34,204 字节（约 33.4 KiB）；CI 限制不超过 5 MiB。仅申请联网权限，无存储权限、后台服务、视频磁盘缓存、台标下载或多频道并行解码。
+Release 开启 R8 和资源压缩，签名 APK 37,731 字节（约 36.8 KiB）；CI 限制不超过 5 MiB。仅申请联网权限，无存储权限、后台服务、视频磁盘缓存、台标下载或多频道并行解码。
 
 仅保留一个播放器，切台先释放旧解码器；退到后台释放播放器、音频焦点和媒体会话。频道列表复用行视图，一个有界后台任务处理元数据；空闲线程自动回收。
 
@@ -43,7 +45,7 @@ M3U 最大 512 KiB、300 个频道、每台最多 4 条线路；元数据快照�
 ./gradlew :webtv:verifyReleaseSize
 ```
 
-APK 位于 `resource/apps/webtv/build/outputs/apk/`。发布签名配置与桌面相同。
+APK 位于 `resource/apps/webtv/build/outputs/apk/`。正式签名与目录内 APK 更新见[资源维护说明](../../../docs/resource-maintenance.md)。
 
 ## 设计
 
