@@ -608,5 +608,8 @@
   "无法读取本机网络地址：{error}": "Could not read local network addresses: {error}",
   "下载 ADB 工具": "Download ADB tools",
   "已就绪": "Ready",
-  "当前 ADB 已可用，无需重复下载。": "ADB is ready; no need to download it again."
+  "当前 ADB 已可用，无需重复下载。": "ADB is ready; no need to download it again.",
+  "重新下载": "Download again",
+  "重新下载 ADB 工具": "Download ADB tools again",
+  "强制重新下载完整工具包并校验，配置成功后才切换；失败或取消保留当前 ADB。Google 不可用时自动尝试腾讯镜像。": "Download a fresh complete toolset and verify it. Switch only after successful setup; keep the current ADB if the download fails or is canceled. Try the Tencent mirror if Google is unavailable."
 }

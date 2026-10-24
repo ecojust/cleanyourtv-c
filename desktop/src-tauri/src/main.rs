@@ -213,6 +213,7 @@ fn platform_tools_info(app: tauri::AppHandle) -> Result<platform_tools::Info, St
 #[tauri::command]
 async fn install_platform_tools(
     accepted_license: bool,
+    force_download: Option<bool>,
     on_progress: tauri::ipc::Channel<platform_tools::Progress>,
     app: tauri::AppHandle,
     bridge: tauri::State<'_, Bridge>,
@@ -247,6 +248,7 @@ async fn install_platform_tools(
         let result = platform_tools::install(
             &directory,
             &cancel,
+            force_download.unwrap_or(false),
             |progress| {
                 *progress_cache.lock().map_err(|_| "进度不可用")? = Some(progress.clone());
                 on_progress
@@ -427,6 +429,7 @@ fn mcp_call(
             platform_tools::install(
                 &directory,
                 &bridge.cancel,
+                args.get("forceDownload").and_then(Value::as_bool).unwrap_or(false),
                 |progress| {
                     *bridge.progress.lock().map_err(|_| "进度不可用")? = Some(progress.clone());
                     let _ = app.emit("mcp-progress", progress);

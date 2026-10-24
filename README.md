@@ -10,7 +10,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 ## 下载
 
-[下载 pureTV Manager 0.3.1](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.1)
+[下载 pureTV Manager 0.3.2](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.2)
 
 | 系统 | 安装包 |
 | --- | --- |

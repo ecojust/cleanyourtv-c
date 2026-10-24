@@ -1151,10 +1151,15 @@ fn check_output(output: Output) -> Result<String, String> {
                 || l.starts_with("cannot connect")
         });
     if failure {
-        Err(format!(
-            "ADB 操作失败：{}",
-            parse::short(output.text.trim(), 500)
-        ))
+        let mut seen = BTreeSet::new();
+        let detail = output
+            .text
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && seen.insert(*line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Err(format!("ADB 操作失败：{}", parse::short(&detail, 500)))
     } else {
         Ok(output.text)
     }

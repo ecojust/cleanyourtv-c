@@ -91,7 +91,7 @@ export async function platformToolsInfo(): Promise<PlatformToolsInfo> {
   if (!desktop) throw new Error(unavailable);
   return invoke<PlatformToolsInfo>('platform_tools_info');
 }
-export async function installPlatformTools(onProgress: (progress: DownloadProgress) => void): Promise<Snapshot> {
+export async function installPlatformTools(onProgress: (progress: DownloadProgress) => void, forceDownload=false): Promise<Snapshot> {
   if (demo) {
     if (sample.device) throw new Error('请先断开当前电视，再配置 ADB');
     demoDownloadCancelled = false;
@@ -105,7 +105,7 @@ export async function installPlatformTools(onProgress: (progress: DownloadProgre
   }
   if (!desktop) throw new Error(unavailable);
   const progress = new Channel<DownloadProgress>(onProgress);
-  return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress });
+  return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress, ...(forceDownload?{forceDownload:true}:{}) });
 }
 export async function openResource(resource: 'catalog' | 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
   if (demo || !desktop) {

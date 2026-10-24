@@ -65,16 +65,16 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
         if (command === 'install_platform_tools') {
           if (args.acceptedLicense !== true) throw new Error('必须先同意 Android SDK 许可协议');
           if (state.device) throw new Error('请先断开电视');
-          window.__toolsInstalls++; window.__requests.push({action:'installPlatformTools',acceptedLicense:args.acceptedLicense});
+          window.__toolsInstalls++; window.__requests.push({action:'installPlatformTools',acceptedLicense:args.acceptedLicense,...(args.forceDownload?{forceDownload:true}:{})});
           downloadCancelled = false; let index = 0;
           const emit = (stage,downloaded) => callbacks.get(args.onProgress.id)?.({index:index++,message:{stage,downloaded,total:16110554}});
           try {
-            emit(toolsInstalled ? 'checking' : 'downloading', 8055277);
+            emit(toolsInstalled && !args.forceDownload ? 'checking' : 'downloading', 8055277);
             await new Promise(resolve => setTimeout(resolve, options.slowDownload ? 900 : 180));
             if (downloadCancelled) throw new Error('下载已取消，临时文件已清理');
             if (options.failDownloadOnce && window.__toolsInstalls === 1) throw new Error('下载失败，请检查网络后重试');
             emit('verifying',16110554); emit('extracting',16110554); emit('checking',16110554);
-            state.adbPath = '/Users/test/Library/Application Support/com.ecojust.puretv.manager/tools/platform-tools-37.0.1/platform-tools/adb';
+            state.adbPath = args.forceDownload?'/Users/test/Library/Application Support/com.ecojust.puretv.manager/tools/platform-tools-37.0.1-fresh-'+window.__toolsInstalls+'/platform-tools/adb':'/Users/test/Library/Application Support/com.ecojust.puretv.manager/tools/platform-tools-37.0.1/platform-tools/adb';
             state.adbAvailable = true; toolsInstalled = true; state.message = 'ADB 已就绪，可以连接电视';
             return structuredClone(state);
           } finally { callbacks.get(args.onProgress.id)?.({index,end:true}); }

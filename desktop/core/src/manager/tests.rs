@@ -1182,3 +1182,24 @@ fn local_network_refresh_needs_no_adb_and_does_not_change_tv_state() {
         .iter()
         .all(|address| !address.ip.starts_with("127.") && address.prefix_length <= 32));
 }
+
+#[test]
+fn duplicate_error_lines_are_shown_once_without_changing_successful_data() {
+    let line = "failed to connect to '192.168.0.191:5555': No route to host";
+    let error = check_output(Output {
+        code: 1,
+        text: format!("{line}\n{line}\nMore information"),
+    })
+    .unwrap_err();
+    assert_eq!(error.matches("No route to host").count(), 1);
+    assert!(error.contains("More information"));
+    let data = "1024\n1024\n";
+    assert_eq!(
+        check_output(Output {
+            code: 0,
+            text: data.into()
+        })
+        .unwrap(),
+        data
+    );
+}
