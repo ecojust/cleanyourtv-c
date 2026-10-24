@@ -79,6 +79,10 @@ impl Manager {
         manager.locate_adb();
         manager
     }
+    pub fn snapshot(&self) -> Snapshot {
+        self.state.clone()
+    }
+
     pub fn execute(&mut self, request: Request) -> Result<Snapshot, String> {
         // The caller resets cancellation once, before dispatching the task.
         // Resetting here could swallow an immediate cancel queued before lock acquisition.

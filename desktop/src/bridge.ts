@@ -1,4 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { emptySnapshot, type Snapshot, type Request, type PlatformToolsInfo, type DownloadProgress } from './types';
 
 export const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -111,4 +112,16 @@ export async function openResource(resource: 'releases' | 'platformTools' | 'pla
     window.open(url, '_blank', 'noopener,noreferrer'); return;
   }
   await invoke('open_resource', { resource });
+}
+
+export interface McpInfo { config: { mcpServers: Record<string, { command: string; args: string[] }> }; sessionPath: string }
+export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string }
+export async function mcpInfo(): Promise<McpInfo | null> {
+  if (!desktop || demo) return null;
+  return invoke<McpInfo>('mcp_info');
+}
+export async function watchMcp(operation: (value: McpOperation) => void, progress: (value: DownloadProgress) => void): Promise<void> {
+  if (!desktop || demo) return;
+  await listen<McpOperation>('mcp-operation', event => operation(event.payload));
+  await listen<DownloadProgress>('mcp-progress', event => progress(event.payload));
 }

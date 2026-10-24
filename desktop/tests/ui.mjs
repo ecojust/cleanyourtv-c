@@ -61,6 +61,23 @@ try {
     assert.equal(await act(p,'download-adb').isDisabled(), true);
     await nav(p,'apps'); assert.equal(await p.locator('input[data-select-package]').count(),0);
   }, null);
+  await check('MCP configuration and agent operations synchronize with the window', async p => {
+    await p.locator('.mcp-config').waitFor();
+    assert.match(await p.locator('.mcp-config').innerText(), /--mcp/);
+    await p.evaluate(() => window.__emitMcp('mcp-operation',{running:true,tool:'scan'}));
+    await p.locator('.busy-bar').waitFor();
+    assert.equal(await act(p,'connect').isDisabled(),true);
+    const updated = snapshot(); updated.device.model = 'Agent TV'; updated.message = 'Agent 扫描完成';
+    await p.evaluate(value => window.__emitMcp('mcp-operation',{running:false,tool:'scan',snapshot:value}),updated);
+    await settled(p);
+    assert.match(await p.locator('.device-badge').innerText(), /Agent TV/);
+    assert.match(await p.locator('.notice').innerText(), /Agent 扫描完成/);
+    await p.evaluate(() => window.__emitMcp('mcp-operation',{running:true,tool:'install_platform_tools'}));
+    await p.evaluate(() => window.__emitMcp('mcp-progress',{stage:'downloading',downloaded:50,total:100}));
+    assert.match(await p.locator('.busy-bar').innerText(),/50%/);
+    await p.evaluate(value => window.__emitMcp('mcp-operation',{running:false,tool:'install_platform_tools',snapshot:value,error:'下载已取消'}),updated);
+    assert.match(await p.locator('.notice.error').innerText(),/下载已取消/);
+  },withoutAdb());
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');

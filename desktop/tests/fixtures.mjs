@@ -23,11 +23,16 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
   await page.addInitScript(({initial, options}) => {
     const state = structuredClone(initial);
     const callbacks = new Map(); let nextCallback = 1, downloadCancelled = false, toolsInstalled = !!options.toolsInstalled;
+    window.__emitMcp = (event, payload) => { for (const callback of (window.__eventListeners?.[event] || [])) callbacks.get(callback)?.({event, payload, id:callback}); };
+    window.__eventListeners = {};
     window.__requests = []; window.__pickerCalls = 0; window.__xss = false; window.__toolsInstalls = 0; window.__resources = [];
     window.__TAURI_INTERNALS__ = {
       transformCallback: callback => { const id = nextCallback++; callbacks.set(id, callback); return id; },
       unregisterCallback: id => { callbacks.delete(id); },
       invoke: async (command, args = {}) => {
+        if (command === 'plugin:event|listen') { (window.__eventListeners[args.event] ||= []).push(args.handler); return args.handler; }
+        if (command === 'plugin:event|unlisten') return;
+        if (command === 'mcp_info') return {config:{mcpServers:{puretv:{command:'/Applications/pureTV Manager.app/Contents/MacOS/puretv-desktop',args:['--mcp','/Users/test/mcp-session.json']}}},sessionPath:'/Users/test/mcp-session.json'};
         if (command === 'choose_apks') {
           window.__pickerCalls++;
           return window.__pickerCalls === 1 ? ['C:\\我的安装包\\custom music.apk'] : ['C:\\我的安装包\\custom music.apk','C:\\Downloads\\second.apk'];

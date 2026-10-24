@@ -95,3 +95,7 @@ The backend owns validation and protection. On connect, verify devices state and
 Batches are bounded, serial and independently recorded; no success claims from exit status alone. Remote shell arguments must be strictly validated. Paths to local APKs are passed as process arguments. Use explicit `-s SERIAL`, process timeout/output limit, and recheck the connected user's identity before mutation. Persist configured ADB path, original HOME per device/user and bounded history; do not persist pairing codes or APK contents.
 
 The Tauri dispatcher resets the cancellation flag once before enqueueing a task. `Manager::execute` never resets it, so cancellation queued before acquiring the manager lock is preserved.
+
+## MCP bridge
+
+The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 20 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.

@@ -17,6 +17,10 @@
 
 1 MiB = 1,048,576 字节。以上为本版实际发布文件大小，已下载并核对 SHA256，完整校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
 
+## MCP / Agent 调试（开发中）
+
+源码已加入控制当前窗口的 MCP 接口，覆盖全部电视管理功能；在「设备连接 → MCP · Agent 调试」复制配置。接入方式、20 个工具及验证说明见 [MCP 文档](docs/mcp.md)。此功能尚未包含在已发布的 0.1.3 安装包中。
+
 ## 功能
 
 | 页面 | 能做什么 |

@@ -12,6 +12,7 @@ const pages: Record<Page, [string, string, string]> = {
   history: ['操作记录', '逐项查看操作结果，确认电视上的实际变化', 'list'],
 };
 let snapshot = emptySnapshot();
+let mcpInfo: api.McpInfo | null = null, mcpError = "";
 let page: Page = api.demo ? 'apps' : 'connect';
 let filter: Filter = 'all', query = '', busy = false, busyLabel = '', cancelling = false;
 let notice = '', noticeKind: 'info' | 'success' | 'error' = 'info';
@@ -74,6 +75,10 @@ function downloadMeter(): string {
   const value = Math.min(Math.max(0, toolsProgress.downloaded), toolsProgress.total);
   return `<progress class="download-meter" max="${toolsProgress.total}" value="${value}" aria-label="Platform Tools 下载进度"></progress>`;
 }
+function mcpPanel(): string {
+  if (!api.desktop || api.demo) return '';
+  return `<section class="panel"><h2>MCP · Agent 调试</h2><p>Agent 可操作当前窗口的全部电视管理功能，状态和结果同步显示。</p>${mcpInfo ? `<p class="hint">保持管理器打开，将以下配置加入 Agent 的 MCP 设置：</p><pre class="mcp-config" tabindex="0">${esc(JSON.stringify(mcpInfo.config, null, 2))}</pre><p class="hint">仅本机连接；关闭管理器后停止服务。操作沿用设备保护规则，批量结果请查看操作记录。</p>` : `<p class="hint">${esc(mcpError || '正在读取 MCP 配置…')}</p>`}</section>`;
+}
 function adbPanel(): string {
   const unavailable = busy || toolsPreparing || (!api.desktop && !api.demo), connected = !!snapshot.device;
   const installLabel = toolsPreparing ? '读取工具信息…' : toolsInfo?.installed ? '使用已下载 ADB' : '下载并配置 ADB';
@@ -87,7 +92,7 @@ function shell(): string {
 function render(): void { root.innerHTML = shell(); updateSelectAll(); }
 function content(): string {
   switch (page) {
-    case 'connect': return connectionPage();
+    case 'connect': return connectionPage() + mcpPanel();
     case 'apps': return appsPage();
     case 'launchers': return launchersPage();
     case 'install': return installPage();
@@ -370,3 +375,20 @@ void api.execute({ action: 'getState' }).then(value => {
   render();
   void refreshToolsInfo().then(render);
 }).catch(e => showNotice(e instanceof Error ? e.message : String(e), 'error'));
+
+void api.mcpInfo().then(value => { mcpInfo = value; render(); }).catch(error => { mcpError = String(error); render(); });
+void api.watchMcp(value => {
+  busy = value.running; cancelling = false;
+  busyLabel = `Agent 正在执行 ${value.tool}…`;
+  downloadingTools = value.running && value.tool === 'install_platform_tools';
+  if (value.running) { notice = ''; toolsProgress = null; }
+  if (value.snapshot) {
+    const previous = snapshot.device?.serial;
+    snapshot = value.snapshot; adbPath = snapshot.adbPath || '';
+    if (previous !== snapshot.device?.serial) selected.clear();
+    cleanSelection();
+    notice = value.error || snapshot.message; noticeKind = value.error ? 'error' : 'info';
+  }
+  if (!value.running) { toolsProgress = null; void refreshToolsInfo().then(render); }
+  render();
+}, updateToolsProgress).catch(error => { mcpError = `无法订阅 Agent 状态：${String(error)}`; render(); });
