@@ -112,7 +112,7 @@ jobs:
             git checkout -b "build-assets/android-${RELEASE_TAG}-${GITHUB_RUN_ID}"
             git config user.name github-actions[bot]
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add release-staging
+            git add -f release-staging
             git commit -m "Stage verified unsigned launcher for release signing"
             git push origin HEAD
           else
