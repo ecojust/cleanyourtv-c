@@ -82,6 +82,7 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
         const r = args.request;
         if (r.action === 'getState') return structuredClone(state);
         window.__requests.push(structuredClone(r));
+        if(r.action==='connect') {state.lastConnection={host:r.host,port:r.port};if(options.connectError){state.device=null;state.message=options.connectError;throw new Error(options.connectError);}}
         if (options.failAction === r.action) throw new Error('电视拒绝了操作，请检查授权');
         if (r.action === 'scan' && options.slowScan) await new Promise(resolve => setTimeout(resolve,600));
         if (options.partialFailure && r.action === 'setEnabled') {

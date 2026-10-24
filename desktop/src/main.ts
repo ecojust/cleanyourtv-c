@@ -18,11 +18,13 @@ let localBusy = false, agentOperation: api.McpOperation | null = null, agentProg
 function applySnapshot(value: Snapshot): boolean {
   if ((value.revision ?? 0) < (snapshot.revision ?? 0)) return false;
   if(snapshot.device?.serial!==value.device?.serial || snapshot.device?.userId!==value.device?.userId || snapshot.defaultHome!==value.defaultHome)layoutDirty=true;
+  if (!connectionEdited && value.lastConnection) { host=value.lastConnection.host;port=String(value.lastConnection.port); }
   snapshot = value; return true;
 }
 let page: Page = api.demo ? 'apps' : 'connect';
 let filter: Filter = 'all', query = '', busy = false, busyLabel = '', cancelling = false;
 let notice = '', noticeKind: 'info' | 'success' | 'error' = 'info';
+let connectionEdited=false;
 let host = api.demo ? '192.168.1.50' : '', port = '5555', adbPath = '';
 let selected = new Set<string>();
 let apkPaths: string[] = [], selectedApks = new Set<string>();
@@ -409,7 +411,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
     case 'go-install': page = 'install'; render(); break;
     case 'dismiss': notice = ''; render(); break;
     case 'close-dialog': dialog.close(); break;
-    case 'connect': await run({ action: 'connect', ...validAddress(host, port) }, t('连接电视并读取设备信息…')); break;
+    case 'connect': { const address=validAddress(host,port);host=address.host;port=String(address.port);connectionEdited=false;await run({ action: 'connect', ...address }, t('连接电视并读取设备信息…'));break; }
     case 'disconnect': await run({ action: 'disconnect' }, t('断开当前电视…')); break;
     case 'choose-adb': { const path = await api.chooseAdb(); if (path) { adbPath = path; await run({ action: 'setAdbPath', path }, t('验证 ADB 工具…')); } break; }
     case 'save-adb': await run({ action: 'setAdbPath', path: adbPath.trim() }, t('验证 ADB 工具…')); break;
@@ -498,8 +500,8 @@ document.addEventListener('input', event => {
 
   const input = event.target as HTMLInputElement;
   switch (input.name) {
-    case 'host': host = input.value; break;
-    case 'port': port = input.value; break;
+    case 'host': host = input.value; connectionEdited=true; break;
+    case 'port': port = input.value; connectionEdited=true; break;
     case 'adbPath': adbPath = input.value; break;
     case 'search': query = input.value; updateList(); break;
   }

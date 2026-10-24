@@ -14,6 +14,7 @@ export interface SystemInfo {
   storageTotalBytes: number | null; storageAvailableBytes: number | null; displayResolution: string | null; uptimeSeconds: number | null; queriedAt: number;
 }
 export interface Snapshot {
+  lastConnection?: {host:string;port:number} | null;
   installResults?: {path: string; success: boolean; message: string}[];
   systemInfo?: SystemInfo | null;
   revision: number;

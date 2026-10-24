@@ -19,6 +19,8 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 | macOS Apple Intel | x86_64 DMG，macOS 11+ |
 | Linux x64 | DEB |
 
+电视 IP／主机名和端口会在点击连接后自动记住，失败时也保留，下次打开自动填入。连接失败排查见[连接指南](desktop/README.md#连接失败排查)。
+
 管理器安装在**电脑**上。电视开启 ADB／网络调试并接受授权后，即可使用应用管理，不需要安装电视端常驻服务。自定义桌面需另行安装[配套 pureTV Launcher 0.3.0](resource/launcher/)。电视端 APK 直接在资源目录下载，包大小与 SHA256 见各目录；管理器校验值见发布附件；macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
 
 ## 连接与应用管理

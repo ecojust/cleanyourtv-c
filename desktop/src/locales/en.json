@@ -593,5 +593,8 @@
   "无法保存界面偏好": "Could not save interface preferences",
   "启动器和第三方电视应用可从公共资源目录下载。": "Download launchers and third-party TV apps from the public resource catalog.",
   "电视应用资源": "TV app resources",
-  "打开资源目录 ↗": "Open resource catalog ↗"
+  "打开资源目录 ↗": "Open resource catalog ↗",
+  "无法通过局域网到达 {serial}。请确认电视在线、IP 正确、电脑与电视在同一网络，并检查 VPN、防火墙和访客网络隔离。macOS 请在系统设置 → 隐私与安全性 → 本地网络中允许 pureTV。原始错误：{error}": "Cannot reach {serial} over the local network. Check that the TV is online, the IP is correct, and both devices are on the same network. Check VPN, firewall and guest-network isolation settings. On macOS, allow pureTV in System Settings → Privacy & Security → Local Network. Original error: {error}",
+  "{serial} 拒绝了 ADB 连接。请开启电视的网络调试，并使用电视显示的调试端口（不一定是 5555）。原始错误：{error}": "{serial} refused the ADB connection. Enable network debugging on the TV and use its displayed debugging port (which may not be 5555). Original error: {error}",
+  "连接 {serial} 超时。请确认电视在线、地址和端口正确，并检查局域网、防火墙或网络隔离设置。原始错误：{error}": "Connection to {serial} timed out. Check that the TV is online, the address and port are correct, and local network, firewall or network isolation settings allow the connection. Original error: {error}"
 }
