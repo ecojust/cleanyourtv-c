@@ -1,0 +1,19 @@
+{
+  "kind": "app",
+  "name": "ShortVideo TV",
+  "author": "ecojust / 桔子桑",
+  "description": "遥控器短视频播放器",
+  "version": "0.1.0",
+  "packageName": "com.ecojust.shortvideo",
+  "versionCode": 1,
+  "apk": "shortvideo-0.1.0.apk",
+  "apkBytes": 29427,
+  "sha256": "298b83ff69166ec5245c21a25215cf65c16fcf81804dcf529a07ec36048b60cf",
+  "certificateSha256": "e250cd5c734ca2e84f7f64e8f92d0728d3f42fdfd4891ce02916814ae5a62ef7",
+  "supportsLayoutJson": false,
+  "cover": "thumb.png",
+  "coverSource": "Existing Android UI rendering preview; not a physical TV capture",
+  "license": "MIT",
+  "sourceCommit": "43efae2c5280e8442b28553fb072148f42140fde",
+  "buildRun": "https://github.com/ecojust/pureTV/actions/runs/40085337878"
+}

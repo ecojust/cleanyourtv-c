@@ -1,5 +1,9 @@
 # WebTV
 
+[下载 APK](webtv-0.1.0.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
+
+此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+
 Android TV 卫视／央视直播应用，包名 `com.ecojust.webtv`，版本 0.1.0，支持 Android 8.0 以上。原生 Java View、SurfaceView、MediaPlayer 和 MediaSession，无生产环境第三方依赖。
 
 ## 使用

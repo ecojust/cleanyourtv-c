@@ -1,0 +1,19 @@
+{
+  "kind": "app",
+  "name": "Music TV",
+  "author": "ecojust / 桔子桑",
+  "description": "原生电视音乐播放器",
+  "version": "0.1.1",
+  "packageName": "com.ecojust.music",
+  "versionCode": 2,
+  "apk": "music-0.1.1.apk",
+  "apkBytes": 37675,
+  "sha256": "3200fa38667cb52241b8e1b884d93406a1cacfbd3ec6fac22100b71fd40984da",
+  "certificateSha256": "e250cd5c734ca2e84f7f64e8f92d0728d3f42fdfd4891ce02916814ae5a62ef7",
+  "supportsLayoutJson": false,
+  "cover": "thumb.png",
+  "coverSource": "Existing Android UI rendering preview; not a physical TV capture",
+  "license": "MIT",
+  "sourceCommit": "43efae2c5280e8442b28553fb072148f42140fde",
+  "buildRun": "https://github.com/ecojust/pureTV/actions/runs/40085337878"
+}

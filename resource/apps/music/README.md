@@ -1,5 +1,9 @@
 # Music TV
 
+[下载 APK](music-0.1.1.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
+
+此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+
 面向 Android TV 遥控器的独立原生音乐播放器。Android 8.0（API 26）及以上，包名 `com.ecojust.music`，当前版本 `0.1.1`。
 
 ![原生 TV 界面渲染预览，曲目为测试示例，非线上搜索结果或电视实机截图](docs/music-tv.png)

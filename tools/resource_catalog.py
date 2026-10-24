@@ -26,6 +26,7 @@ def launcher_source_tree(root,ref='HEAD'):
     return subprocess.check_output(['git','mktree'],cwd=root,input=selected).decode().strip()
 
 def catalog_directories(root):
+    assert {p.name for p in (root/'resource').iterdir() if p.is_dir()}=={'launcher','apps'},'Classify software under resource/launcher or resource/apps'
     launcher=root/'resource/launcher'
     assert launcher.is_dir() and (root/'resource/apps').is_dir(),'Expected resource/launcher and resource/apps'
     yield launcher
@@ -33,12 +34,9 @@ def catalog_directories(root):
         if directory.is_dir() and not directory.name.startswith('.'):
             yield directory
 
-def verify_catalog(root,tools,prepare_apps=False):
+def verify_catalog(root,tools):
     entries=[]
     for directory in catalog_directories(root):
-        if prepare_apps and directory.name in ('music','shortvideo','webtv') and not (directory/'resource.json').exists():
-            assert (directory/'src').is_dir() and not list(directory.glob('*.apk'))
-            continue
         info=json.loads(child(directory,'resource.json').read_text())
         assert info['kind']==('launcher' if directory.name=='launcher' else 'app') and info['name'] and info['author']
         assert isinstance(info['supportsLayoutJson'],bool)
@@ -51,8 +49,9 @@ def verify_catalog(root,tools,prepare_apps=False):
         else:assert (directory/'src').is_dir(),'Provide corresponding source or an archive'
         child(directory,'LICENSE');child(directory,'README.md')
         if info.get('cover'):child(directory,info['cover'])
-        if actual['packageName']=='com.ecojust.puretv':
+        if actual['packageName'] in ('com.ecojust.puretv','com.ecojust.music','com.ecojust.shortvideo','com.ecojust.webtv'):
             assert actual['certificateSha256']==(root/'tools/puretv-release-certificate.sha256').read_text().strip()
+        if actual['packageName']=='com.ecojust.puretv':
             assert info.get('sourceTreeSha') and info.get('sourceCommit')
         info['path']=str(apk.relative_to(root));entries.append(info)
     assert entries,'No APK resources found'

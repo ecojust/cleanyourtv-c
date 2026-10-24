@@ -69,7 +69,6 @@ jobs:
           PYTHON
       - name: Verify launcher identity and signing status
         env:
-          PURETV_PREPARE_APPS: ${{ github.event_name == 'workflow_dispatch' && inputs.stage_resources }}
           PURETV_KEYSTORE_PASSWORD: ${{ secrets.PURETV_KEYSTORE_PASSWORD }}
         run: python tools/verify-release-apks.py
       - uses: actions/upload-artifact@v4

@@ -21,7 +21,7 @@ if key_path:
     certificate=subprocess.check_output(['keytool','-exportcert','-alias','puretv','-keystore',key_path,'-storepass:env','PURETV_KEYSTORE_PASSWORD'])
     assert built['certificateSha256']==hashlib.sha256(certificate).hexdigest()
 else:assert built['certificateSha256'] is None,'Unexpected build signing certificate'
-entries=verify_catalog(root,tools,prepare_apps=os.environ.get('PURETV_PREPARE_APPS')=='true')
+entries=verify_catalog(root,tools)
 source_tree=launcher_source_tree(root)
 resource=next((entry for entry in entries if entry['packageName']==built['packageName'] and entry['version']==built['versionName'] and entry['sourceTreeSha']==source_tree),None)
 selected=root/resource['path'] if resource else paths[0]

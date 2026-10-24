@@ -7,10 +7,12 @@ on:
     paths:
       - 'desktop/**'
       - '.github/workflows/desktop.yml'
+      - 'resource/launcher/app/src/main/assets/layout.json'
   pull_request:
     paths:
       - 'desktop/**'
       - '.github/workflows/desktop.yml'
+      - 'resource/launcher/app/src/main/assets/layout.json'
   workflow_dispatch:
 
 permissions:
@@ -214,7 +216,7 @@ jobs:
           else:
               body = '''pureTV 电视管理器：在电脑上通过 ADB 连接 Android TV / Google TV，扫描应用，停用／启用、为当前用户卸载／恢复、安装 APK 和切换启动器。
 
-          分别提供 Windows x64 安装版与便携版、macOS Apple Silicon（ARM64）DMG、Linux x64 DEB。电脑需要可用的 Android Platform Tools；Windows 使用系统 WebView2。安装包尚未进行商业代码签名／Apple 公证，构建通过不代表电视实机兼容性已验证。
+          分别提供 Windows x64 安装版与便携版、macOS Apple Silicon（ARM64）与 Intel（x86_64）DMG、Linux x64 DEB。电脑需要可用的 Android Platform Tools；Windows 使用系统 WebView2。安装包尚未进行商业代码签名／Apple 公证，构建通过不代表电视实机兼容性已验证。
 
           电视端 APK 从仓库 resource/launcher 和 resource/apps 下载；系统应用卸载仅针对当前用户，不删除系统分区 APK。校验值见 SHA256SUMS.txt。'''
           Path('release-notes.txt').write_text(body)

@@ -6,3 +6,5 @@
 - 以后 Release 仅发布管理器；电视端 APK 从仓库对应资源文件夹下载。Android CI 保留构建、测试、签名与资源校验，取消独立 APK Release。
 
 提供 Windows x64 安装版与便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG、Linux x64 DEB。校验值见 SHA256SUMS.txt。macOS 使用 ad-hoc 签名，未进行 Apple 公证；Windows 尚未使用商业代码签名。尚未进行电视实机测试。
+
+电视端下载：[启动器 APK 与源码](https://github.com/ecojust/pureTV/tree/master/resource/launcher) · [应用 APK 与源码](https://github.com/ecojust/pureTV/tree/master/resource/apps)。

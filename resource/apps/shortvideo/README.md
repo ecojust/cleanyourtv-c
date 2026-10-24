@@ -1,5 +1,9 @@
 # ShortVideo TV
 
+[下载 APK](shortvideo-0.1.0.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
+
+此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+
 面向遥控器的轻量原生 Android TV 短视频播放器。Android 8.0（API 26）以上，包名 `com.ecojust.shortvideo`，版本 `0.1.0`。不需要账号或 API Key。
 
 ![原生控件渲染预览，SurfaceView 视频层不包含在此截图中，非电视实机截图](docs/controls-preview.png)
