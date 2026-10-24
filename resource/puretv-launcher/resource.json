@@ -1,0 +1,22 @@
+{
+  "kind": "launcher",
+  "name": "pureTV Launcher",
+  "author": "ecojust / 桔子桑",
+  "version": "0.2.0",
+  "packageName": "com.ecojust.puretv",
+  "versionCode": 7,
+  "apk": "pureTV-0.2.0.apk",
+  "apkBytes": 363989,
+  "sha256": "729990b088141684ef39bb7dac658094306046290648dfb977071bc02bb968e2",
+  "certificateSha256": "e250cd5c734ca2e84f7f64e8f92d0728d3f42fdfd4891ce02916814ae5a62ef7",
+  "supportsLayoutJson": false,
+  "layoutJsonVersion": 1,
+  "cover": null,
+  "license": "MIT; see NOTICE for upstream credits",
+  "upstream": "https://github.com/ecojust/pureTV",
+  "upstreamRelease": "https://github.com/ecojust/pureTV/releases/tag/v0.2.0",
+  "sourceArchive": "source.tar.gz",
+  "sourceArchiveSha256": "a36b9cd8c234e25521851ae93eb992b03070c6a7a76763c7434a7f8ac50fa9c8",
+  "sourceCommit": "2640bf060d653ca9eadacce3f47168f5b7b0d1c1",
+  "sourceTreeSha": "6aee5c850893535225391de7dca91c9bddd1d5c7"
+}

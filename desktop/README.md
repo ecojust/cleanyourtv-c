@@ -1,8 +1,8 @@
 # pureTV 电视系统管理器
 
-**pureTV Manager 0.2.1** 是电脑端电视系统管理工具，通过 ADB 管理 Android TV / Google TV 的设备信息、应用和默认启动器，并提供完整 MCP 接口。
+**pureTV Manager 0.3.0** 是电脑端电视系统管理工具，通过 ADB 管理 Android TV / Google TV 的设备信息、应用和默认启动器，并提供完整 MCP 接口。
 
-下载：[0.2.1 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.1)。提供 Windows x64 安装版／便携版、macOS Apple Silicon DMG（macOS 11+）和 Linux x64 DEB。文件大小与 SHA256 校验清单见发布页。管理器安装在电脑，电视开启并授权 ADB 即可管理应用。
+下载：[0.3.0 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.0)。提供 Windows x64 安装版／便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG（macOS 11+）和 Linux x64 DEB。文件大小与 SHA256 校验清单见发布页。管理器安装在电脑，电视开启并授权 ADB 即可管理应用。
 
 ## 功能
 
@@ -18,17 +18,19 @@
 
 ## macOS 安装与首次打开
 
-当前 DMG 适用于 **Apple Silicon（M1 及后续芯片）、macOS 11 或更高版本**，不支持 Intel Mac。打开 DMG，将 `pureTV Manager.app` 拖入 `Applications`，再从「应用程序」打开。
+提供 **Apple Silicon ARM64** 和 **Intel x86_64** 两种 DMG，最低系统均为 **macOS 11**，请按电脑芯片选择。打开 DMG，将 `pureTV Manager.app` 拖入 `Applications`，再从「应用程序」打开。
 
 应用对整个 `.app` 执行 ad-hoc 签名，最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
 
 - 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
-- 提示「已损坏，无法打开」：先从本仓库的 [0.2.1 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.1) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+- 提示「已损坏，无法打开」：先从本仓库的 [0.3.0 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.0) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
 
   ```bash
   cd ~/Downloads
-  shasum -a 256 pureTV-Manager-0.2.1-macos-arm64.dmg
+  shasum -a 256 pureTV-Manager-0.3.0-macos-arm64.dmg
   ```
+
+  Intel Mac 将上述文件名换为 `pureTV-Manager-0.3.0-macos-x64.dmg`。
 
   将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
 
@@ -62,16 +64,22 @@
 
 ## 当前启动器的自定义布局
 
-只有当前默认启动器成功返回已适配的布局接口时才显示编辑器。当前适配电视端 **pureTV 0.2.1，包名 `com.ecojust.puretv`**；旧版 `com.ecojust.cleanyourtv` 及未适配的其他启动器不可直接写入。包名变化需要安装新 APK 并重新选择默认桌面。
+只有当前默认启动器成功返回已适配的布局接口时才显示编辑器。当前适配电视端 **pureTV 0.3.0，包名 `com.ecojust.puretv`**；旧版 `com.ecojust.cleanyourtv` 及未适配的其他启动器不可直接写入。包名变化需要安装新 APK 并重新选择默认桌面。
 
 在当前默认启动器卡片点击「调整布局」，打开电视画布弹窗。Home 与 Apps 分别定义列数和卡片顺序，支持拖动、名称、图标、颜色及 layout.json 导入。只能添加已安装可启动的用户应用，应用后读回复查。旧版 apps.json 不兼容。详情：[启动器布局文档](docs/launcher-layout.md)。
 
+
+## 语言、主题与资源
+
+左下角支持简体中文、繁體中文、English，以及青绿、深蓝、石墨三套主题；窗口和 Agent 的偏好修改实时同步并保存。
+
+根目录 [resource](../resource/README.md) 提供带实际 APK、作者、许可、源码和校验记录的资源。完整 layout.json 规范与文件／画面对照见[根 README](../README.md#layoutjson-规范与画面对照)。
 
 ## MCP / Agent
 
 保持管理器打开，在首页「MCP · Agent 调试」复制 JSON 到客户端。标准 stdio 代理连接同一窗口，共享当前电视、Android 用户、ADB、操作锁和记录；状态、错误、布局与画面同步显示。
 
-**26 个工具**覆盖界面现有设备管理功能，包括系统信息、连接、应用安装／卸载／启停、启动器切换／布局、ADB 下载配置、用户背景图、原生文件选择器、取消和历史。详见 [MCP 接入及工具](docs/mcp.md)。
+**28 个工具**覆盖界面现有设备管理功能，包括系统信息、连接、应用安装／卸载／启停、启动器切换／布局、ADB 下载配置、用户背景图、原生文件选择器、取消和历史。详见 [MCP 接入及工具](docs/mcp.md)。
 
 ## 操作范围与恢复
 

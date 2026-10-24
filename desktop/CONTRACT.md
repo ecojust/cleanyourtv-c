@@ -100,7 +100,7 @@ The Tauri dispatcher resets the cancellation flag once before enqueueing a task.
 
 ## MCP bridge
 
-The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 26 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
+The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 28 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
 
 Installed application and launcher APK sizes are measured during scans (and refreshed after APK installation) using validated `pm path --user` paths and bounded marker-delimited `stat` batches; normal batch catalogue checks reuse the measured values. Unavailable, unsupported or incomplete results are null, never invented zeroes. Metadata collection has a 30-second scheduling budget, 12-second batch command timeouts and shares cancellation. Uninstalled recovery entries have null sizes; installed system packages are measured too.
 
@@ -115,3 +115,7 @@ Installed application and launcher APK sizes are measured during scans (and refr
 `Snapshot.systemInfo` holds nullable manufacturer/brand/SDK/security patch/CPU/ABI, RAM total/available bytes, `/data` total/available bytes, display resolution, uptime and query timestamp. Connection/scans refresh it; `refreshSystemInfo` refreshes it explicitly. Values come from fixed getprop/proc/df/wm commands; unavailable readings remain null.
 
 `Snapshot.installResults` holds the current batch's `{path,success,message}` using the original full request paths. It is not persisted into history. The UI removes only confirmed successful paths from its pending queue; failures and skipped files remain.
+
+## Interface preferences
+
+get_interface_preferences / set_interface_preferences expose the same locale and theme controls as the window. Values are limited to zh-CN/zh-TW/en and emerald/ocean/graphite, persisted separately as interface-preferences.json and emitted through interface-preferences events. Initialization only fills unset values, preserving agent changes during startup. Native file-picker titles follow the selected locale. Browser storage contains only the scoped puretv.preferences object, never device hosts, pairing codes or APK paths.

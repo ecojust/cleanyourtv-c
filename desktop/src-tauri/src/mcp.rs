@@ -42,6 +42,8 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
+        tool("get_interface_preferences","Get the open manager's interface language and theme preferences.",json!({}),&[],true),
+        tool("set_interface_preferences","Change and persist the open manager's interface language and theme. Device state is unchanged.",json!({"locale":{"type":"string","enum":["zh-CN","zh-TW","en"]},"theme":{"type":"string","enum":["emerald","ocean","graphite"]}}),&[],false),
         tool("refresh_system_info","Refresh connected TV manufacturer, Android SDK/security patch, CPU/ABI, RAM, /data storage, resolution and uptime. Unavailable values remain null.",json!({}),&[],true),
         tool("get_launcher_covers","Read locally saved, user-provided launcher background images. No TV screenshots.",json!({}),&[],true),
         tool("set_launcher_cover","Set a launcher card background from a local PNG/JPEG/WebP image (max 4 MiB), or remove it when path is omitted. Key is the launcher component.",json!({"key":{"type":"string"},"path":{"type":"string"}}),&["key"],false),
@@ -67,7 +69,7 @@ pub fn tools() -> Vec<Value> {
         tool("install_platform_tools","Download/verify/configure ADB or reuse verified offline cache. Google with Tencent fallback. Requires explicit Android SDK license acceptance; disconnect TV first.",json!({"acceptedLicense":{"type":"boolean","const":true,"description":"Set true only after the user accepts https://developer.android.com/studio/terms"}}),&["acceptedLicense"],false),
         tool("choose_apks","Open the manager's native multi-APK picker. Returns paths; does not install.",json!({}),&[],true),
         tool("choose_adb","Open the manager's native executable picker. Returns path; does not configure it.",json!({}),&[],true),
-        tool("open_resource","Open an allowlisted project, Platform Tools or Android SDK license page in the user's browser.",json!({"resource":{"type":"string","enum":["releases","platformTools","platformToolsLicense"]}}),&["resource"],false),
+        tool("open_resource","Open the allowlisted APK resource catalog, project, Platform Tools or Android SDK license page in the user's browser.",json!({"resource":{"type":"string","enum":["catalog","releases","platformTools","platformToolsLicense"]}}),&["resource"],false),
     ]
 }
 fn error(id: Value, code: i64, message: &str) -> Value {
@@ -426,7 +428,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 26);
+        assert_eq!(tools().len(), 28);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {

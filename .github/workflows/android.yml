@@ -5,6 +5,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      stage_resources:
+        description: Stage the verified launcher APK and rendered TV previews for resource preparation
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -43,6 +48,7 @@ jobs:
       - name: Build and lint
         env:
           PURETV_KEYSTORE_PASSWORD: ${{ secrets.PURETV_KEYSTORE_PASSWORD }}
+          CLEAN_UI_CAPTURE_DIR: ${{ runner.temp }}/puretv-tv-previews
         working-directory: launcher
         run: |
           set -o pipefail
@@ -72,12 +78,17 @@ jobs:
           path: launcher/release-metadata.json
       - uses: actions/upload-artifact@v4
         with:
+          name: pureTV-tv-previews
+          path: ${{ runner.temp }}/puretv-tv-previews/*.png
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
           name: pureTV-debug
           path: launcher/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         with:
           name: pureTV-release
-          path: launcher/app/build/outputs/apk/release/*.apk
+          path: launcher/release-output/*.apk
       - uses: actions/upload-artifact@v4
         with:
           name: music-tv
@@ -90,6 +101,38 @@ jobs:
         with:
           name: webtv
           path: apps/webtv/build/outputs/apk/**/*.apk
+
+  stage-resources:
+    name: Stage verified launcher resource inputs
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.stage_resources
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: resource-artifacts
+      - name: Stage APK, metadata and actual rendered TV previews
+        run: |
+          python - <<'PYTHON'
+          import hashlib,json,os,shutil
+          from pathlib import Path
+          root=Path('resource-artifacts');output=Path('release-staging');output.mkdir()
+          metadata=json.loads((root/'pureTV-release-metadata/release-metadata.json').read_text());info=metadata['launcher']
+          assert info['sourceSha']==os.environ['GITHUB_SHA']
+          apk=root/'pureTV-release'/info['releaseName'];assert hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()==info['sha256']
+          shutil.copyfile(apk,output/info['releaseName']);shutil.copyfile(root/'pureTV-release-metadata/release-metadata.json',output/'release-metadata.json')
+          for name in ['home-render.png','apps-render.png']:
+              shutil.copyfile(root/'pureTV-tv-previews'/name,output/name)
+          PYTHON
+          git checkout -b "build-assets/resources-${GITHUB_RUN_ID}"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -f release-staging
+          git commit -m "Stage verified launcher resource inputs"
+          git push origin HEAD
 
   publish:
     name: Publish TV APKs

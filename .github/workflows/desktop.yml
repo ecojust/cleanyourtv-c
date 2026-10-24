@@ -35,6 +35,10 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             bundle: dmg
+          - platform: macos-x64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            bundle: dmg
           - platform: linux-x64
             runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
@@ -135,7 +139,7 @@ jobs:
               shutil.copyfile(matches[0], output / f'{prefix}-setup.exe')
               shutil.copyfile(target / 'puretv-desktop.exe', output / f'{prefix}-portable.exe')
           else:
-              extension = 'dmg' if platform == 'macos-arm64' else 'deb'
+              extension = 'dmg' if platform.startswith('macos-') else 'deb'
               matches = list((bundles / extension).glob(f'*.{extension}'))
               assert len(matches) == 1, f'Expected one {extension}, got {matches}'
               shutil.copyfile(matches[0], output / f'{prefix}.{extension}')
@@ -189,10 +193,11 @@ jobs:
               f'pureTV-Manager-{version}-windows-x64-setup.exe',
               f'pureTV-Manager-{version}-windows-x64-portable.exe',
               f'pureTV-Manager-{version}-macos-arm64.dmg',
+              f'pureTV-Manager-{version}-macos-x64.dmg',
               f'pureTV-Manager-{version}-linux-x64.deb',
           }
           verified = {}
-          for platform in ('windows-x64', 'macos-arm64', 'linux-x64'):
+          for platform in ('windows-x64', 'macos-arm64', 'macos-x64', 'linux-x64'):
               manifest = root / f'SHA256SUMS-{platform}.txt'
               for line in manifest.read_text().splitlines():
                   digest, name = line.split('  ', 1)

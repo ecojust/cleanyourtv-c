@@ -10,8 +10,8 @@ android {
         applicationId 'com.ecojust.puretv'
         minSdk 26
         targetSdk 29
-        versionCode 8
-        versionName '0.2.1'
+        versionCode 9
+        versionName '0.3.0'
     }
 
     // Release credentials are supplied locally or through GitHub Actions secrets.
@@ -41,6 +41,12 @@ android {
 
     testOptions {
         unitTests.includeAndroidResources = true
+        unitTests.all {
+            if (System.getenv('CLEAN_UI_CAPTURE_DIR')) {
+                outputs.upToDateWhen { false }
+                outputs.cacheIf { false }
+            }
+        }
     }
 
     lint {

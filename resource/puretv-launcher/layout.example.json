@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "home": {
+    "columns": 2,
+    "items": [
+      {
+        "packageName": "com.phlox.tvwebbrowser",
+        "label": "浏览器",
+        "icon": "app",
+        "color": "#285B7C"
+      },
+      {
+        "packageName": "org.jellyfin.androidtv",
+        "label": "媒体库",
+        "icon": "video",
+        "color": "#553578"
+      }
+    ]
+  },
+  "apps": {
+    "columns": 3,
+    "items": [
+      {
+        "packageName": "org.jellyfin.androidtv",
+        "label": "媒体库",
+        "icon": "video",
+        "color": "#553578"
+      },
+      {
+        "packageName": "com.phlox.tvwebbrowser",
+        "label": "浏览器",
+        "icon": "app",
+        "color": "#285B7C"
+      }
+    ]
+  }
+}

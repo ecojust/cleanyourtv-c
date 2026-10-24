@@ -136,7 +136,9 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==26,names
+                assert len(names)==28,names
+                client.call('set_interface_preferences',{'locale':'en','theme':'ocean'})
+                assert client.call('get_interface_preferences')['theme']=='ocean'
                 assert client.call('get_state')['adbAvailable']
                 client.call('set_adb_path',{'path':str(adb)})
                 state=client.call('connect',{'host':'192.168.1.50','port':5555})
