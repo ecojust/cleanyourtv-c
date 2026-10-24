@@ -96,7 +96,8 @@ impl Runner for FakeRunner {
                             let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../resource/launcher/app/src/main/assets/layout.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
-                            let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
+                            let layout=tv.launcher_layout.clone().unwrap_or(defaults);
+                            let value=serde_json::json!({"supported":true,"version":layout["version"],"custom":tv.launcher_layout.is_some(),"layout":layout,"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
                         "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},

@@ -246,6 +246,9 @@ fn provider_result(output: &str) -> Result<Value, String> {
         return Err("启动器布局接口版本不支持".into());
     }
     validate_layout(&value["layout"])?;
+    if value["version"] != value["layout"]["version"] {
+        return Err("启动器布局接口与配置版本不一致".into());
+    }
     let apps = value["apps"].as_array().ok_or("启动器应用列表无效")?;
     if apps.len() > 100 {
         return Err("启动器应用列表超过限制".into());
@@ -437,7 +440,7 @@ mod tests {
             }
             assert!(validate_layout(&bad).is_err());
         }
-        let value = json!({"supported":true,"version":2,"layout":valid,"apps":[]});
+        let value = json!({"supported":true,"version":valid["version"],"layout":valid,"apps":[]});
         assert_eq!(
             provider_result(&format!(
                 "Bundle[{{result={}}}]",
@@ -450,8 +453,7 @@ mod tests {
     }
     #[test]
     fn scene_geometry_and_fixed_control_ids_are_validated_before_writes() {
-        let valid: Value =
-            serde_json::from_str(include_str!("../../public/layout.json")).unwrap();
+        let valid: Value = serde_json::from_str(include_str!("../../public/layout.json")).unwrap();
         validate_layout(&valid).unwrap();
         for invalid in [
             json!({"x":950,"y":0,"width":200,"height":65}),
