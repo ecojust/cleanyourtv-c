@@ -33,6 +33,7 @@ final class LayoutScene extends FrameLayout {
         int[] resources=section.equals("home")?new int[]{R.id.clock,R.id.date,R.id.weatherLine,R.id.btnWallpaper,R.id.btnDock,R.id.btnInputs,R.id.btnWifi,R.id.btnSettings,R.id.allAppsHint}:new int[]{R.id.appsTitle,R.id.appsSubtitle,R.id.backHome};
         for(int i=0;i<ids.length;i++) {
             View view=activity.findViewById(resources[i]);((ViewGroup)view.getParent()).removeView(view);
+            if(ids[i].equals("allApps"))view.setFocusable(true);
             view.setNextFocusLeftId(View.NO_ID);view.setNextFocusRightId(View.NO_ID);view.setNextFocusUpId(View.NO_ID);view.setNextFocusDownId(View.NO_ID);
             FrameLayout wrapper=new FrameLayout(activity);wrapper.setTag(ids[i]);wrapper.setClipChildren(false);
             wrapper.addView(view,new FrameLayout.LayoutParams(-1,-1));nodes.add(wrapper);
