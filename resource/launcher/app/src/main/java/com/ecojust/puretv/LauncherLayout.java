@@ -71,7 +71,7 @@ final class LauncherLayout {
         if(!node.has("frame")) return;
         JSONObject f=node.getJSONObject("frame");keys(f,"x","y","width","height");
         for(String key:Arrays.asList("x","y","width","height")) if(!(f.get(key) instanceof Integer)) throw new IllegalArgumentException("Invalid frame");
-        if(f.getInt("x")<0 || f.getInt("y")<0 || f.getInt("width")<1 || f.getInt("height")<1 || f.getInt("x")+f.getInt("width")>960 || f.getInt("y")+f.getInt("height")>540) throw new IllegalArgumentException("Frame outside 960x540 canvas");
+        if(f.getInt("x")<0 || f.getInt("y")<0 || f.getInt("x")>960 || f.getInt("y")>540 || f.getInt("width")<1 || f.getInt("height")<1 || f.getInt("width")>960-f.getInt("x") || f.getInt("height")>540-f.getInt("y")) throw new IllegalArgumentException("Frame outside 960x540 canvas");
     }
     static void validateScene(JSONObject scene,String section) throws Exception {
         keys(scene,"background","elements");JSONObject bg=scene.getJSONObject("background");keys(bg,"color","image","frame","visible","zIndex");if(!bg.has("frame"))throw new IllegalArgumentException("Missing background frame");geometry(bg);

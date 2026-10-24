@@ -31,7 +31,7 @@ public class NavigationTest {
             layout(home);
             RecyclerView grid = home.findViewById(R.id.grid);
             assertEquals(4, grid.getAdapter().getItemCount());
-            RecyclerView.ViewHolder apps = grid.findViewHolderForAdapterPosition(3);
+            RecyclerView.ViewHolder apps = LayoutScene.holder(grid,3);
             assertNotNull(apps);
             apps.itemView.findViewById(R.id.card).performClick();
             Intent intent = shadowOf(home).getNextStartedActivity();
@@ -45,7 +45,7 @@ public class NavigationTest {
             MainActivity home = controller.get();
             layout(home);
             RecyclerView grid = home.findViewById(R.id.grid);
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,0).itemView.findViewById(R.id.card).performClick();
             Intent intent = shadowOf(home).getNextStartedActivity();
             assertEquals(Intent.ACTION_VIEW, intent.getAction());
             assertEquals("https://somafm.com/player/", intent.getDataString());
@@ -67,7 +67,7 @@ public class NavigationTest {
                     .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.music"), info);
             layout(home);
             RecyclerView grid = home.findViewById(R.id.grid);
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,0).itemView.findViewById(R.id.card).performClick();
             assertEquals("com.ecojust.music", shadowOf(home).getNextStartedActivity().getComponent().getPackageName());
         }
     }
@@ -83,7 +83,7 @@ public class NavigationTest {
             RecyclerView grid = home.findViewById(R.id.grid);
             grid.setAdapter(new AppAdapter(noBrowser, home, 4, AppAdapter.homeEntries()));
             layout(home);
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,0).itemView.findViewById(R.id.card).performClick();
             assertEquals(home.getString(R.string.music_browser_unavailable), ShadowToast.getTextOfLatestToast());
             assertNull(shadowOf(home).getNextStartedActivity());
         }
@@ -95,7 +95,7 @@ public class NavigationTest {
             layout(page);
             RecyclerView grid = page.findViewById(R.id.appsGrid);
             assertEquals(8, grid.getAdapter().getItemCount());
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,0).itemView.findViewById(R.id.card).performClick();
             assertEquals(page.getString(R.string.shortvideo_not_installed), ShadowToast.getTextOfLatestToast());
             assertNull(shadowOf(page).getNextStartedActivity());
             page.findViewById(R.id.backHome).performClick();
@@ -117,8 +117,8 @@ public class NavigationTest {
                     .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.shortvideo"), info);
             layout(page);
             RecyclerView grid = page.findViewById(R.id.appsGrid);
-            assertEquals(page.getString(R.string.home_shortvideo), ((android.widget.TextView)grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.name)).getText().toString());
-            grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card).performClick();
+            assertEquals(page.getString(R.string.home_shortvideo), ((android.widget.TextView)LayoutScene.holder(grid,0).itemView.findViewById(R.id.name)).getText().toString());
+            LayoutScene.holder(grid,0).itemView.findViewById(R.id.card).performClick();
             assertEquals("com.ecojust.shortvideo", shadowOf(page).getNextStartedActivity().getComponent().getPackageName());
         }
     }
@@ -127,7 +127,7 @@ public class NavigationTest {
         try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
             AppsActivity page = controller.get(); layout(page);
             RecyclerView grid = page.findViewById(R.id.appsGrid);
-            grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,2).itemView.findViewById(R.id.card).performClick();
             assertEquals(page.getString(R.string.webtv_not_installed), ShadowToast.getTextOfLatestToast());
             assertNull(shadowOf(page).getNextStartedActivity());
         }
@@ -147,7 +147,7 @@ public class NavigationTest {
                     .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage("com.ecojust.webtv"), info);
             layout(page);
             RecyclerView grid = page.findViewById(R.id.appsGrid);
-            grid.findViewHolderForAdapterPosition(2).itemView.findViewById(R.id.card).performClick();
+            LayoutScene.holder(grid,2).itemView.findViewById(R.id.card).performClick();
             assertEquals("com.ecojust.webtv", shadowOf(page).getNextStartedActivity().getComponent().getPackageName());
         }
     }

@@ -260,7 +260,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             android.widget.LinearLayout.LayoutParams params=(android.widget.LinearLayout.LayoutParams)grid.getLayoutParams();
             params.height=multipleRows?0:android.view.ViewGroup.LayoutParams.WRAP_CONTENT;params.weight=multipleRows?1:0;grid.setLayoutParams(params); */
             grid.post(()->focusTile(Math.min(lastFocused,adapter.getItemCount()-1)));
-        } else adapter.reload();
+        } else {adapter.reload();if(layoutScene!=null)layoutScene.apply(layout,"home");}
     }
 
     @Override
@@ -426,7 +426,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // found for position 0 is still the old one, and asking a view that is about to be recycled for
         // focus is how the highlight ended up nowhere at all.
         grid.post(() -> {
-            RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(0);
+            RecyclerView.ViewHolder vh = LayoutScene.holder(grid,0);
             if (vh == null) {
                 focusTile(0);           // not laid out yet: focusTile waits for the scroll to settle
                 return;

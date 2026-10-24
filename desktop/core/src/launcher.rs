@@ -448,4 +448,33 @@ mod tests {
         );
         assert!(provider_result("Permission denial").is_err());
     }
+    #[test]
+    fn scene_geometry_and_fixed_control_ids_are_validated_before_writes() {
+        let valid: Value =
+            serde_json::from_str(include_str!("../../../public/layout.json")).unwrap();
+        validate_layout(&valid).unwrap();
+        for invalid in [
+            json!({"x":950,"y":0,"width":200,"height":65}),
+            json!({"x":0,"y":-1,"width":200,"height":65}),
+            json!({"x":0,"y":0,"width":0,"height":65}),
+            json!({"x":0.5,"y":0,"width":200,"height":65}),
+            json!({"x":18446744073709551615u64,"y":0,"width":200,"height":65}),
+        ] {
+            let mut bad = valid.clone();
+            bad["home"]["scene"]["elements"][0]["frame"] = invalid;
+            assert!(validate_layout(&bad).is_err());
+        }
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["elements"][0]["id"] = json!("shell");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["background"]["image"] = json!("https://example.com/background.png");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["items"][0]["visible"] = json!("false");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["elements"][1] = bad["home"]["scene"]["elements"][0].clone();
+        assert!(validate_layout(&bad).is_err());
+    }
 }

@@ -23,6 +23,8 @@ final class LayoutScene extends FrameLayout {
     private final List<View> nodes=new ArrayList<>();
     private final List<JSONObject> specs=new ArrayList<>();
     private JSONObject page;
+    private String section;
+    private final List<AppAdapter.Holder> cards=new ArrayList<>();
     private int columns=4;
     LayoutScene(Activity activity,FrameLayout root,RecyclerView grid,String section) {
         super(activity);this.activity=activity;this.grid=grid;
@@ -37,12 +39,12 @@ final class LayoutScene extends FrameLayout {
         ((ViewGroup)grid.getParent()).removeView(grid);
         for(int i=0;i<root.getChildCount();i++) if(!(root.getChildAt(i) instanceof ImageView))root.getChildAt(i).setVisibility(GONE);
         setClipChildren(false);grid.setClipChildren(false);grid.setPadding(0,0,0,0);grid.setOverScrollMode(OVER_SCROLL_NEVER);
-        addView(grid,new FrameLayout.LayoutParams(-1,-1));
+        addView(grid,new FrameLayout.LayoutParams(-1,-1));grid.setVisibility(INVISIBLE);
         for(View node:nodes)addView(node);
         root.addView(this,new FrameLayout.LayoutParams(-1,-1));
     }
     void apply(LauncherLayout layout,String section) {
-        page=layout.page(section);columns=layout.columns(section);specs.clear();
+        this.section=section;page=layout.page(section);columns=layout.columns(section);specs.clear();
         JSONArray elements=page.optJSONObject("scene").optJSONArray("elements");
         for(View node:nodes){JSONObject match=null;for(int i=0;i<elements.length();i++)if(node.getTag().equals(elements.optJSONObject(i).optString("id")))match=elements.optJSONObject(i);specs.add(match);}
         // Background belongs to the scene, including its color, optional embedded image and bounds.
@@ -51,7 +53,11 @@ final class LayoutScene extends FrameLayout {
         ImageView background=new ImageView(activity);background.setTag("scene-background");background.setBackgroundColor(Color.parseColor(bg.optString("color")));background.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if(bg.has("image")){String image=bg.optString("image");byte[] bytes=Base64.decode(image.substring(image.indexOf(',')+1),Base64.NO_WRAP);background.setImageBitmap(BitmapFactory.decodeByteArray(bytes,0,bytes.length));}
         addView(background,0,new FrameLayout.LayoutParams(-1,-1));
-        grid.setLayoutManager(new PositionedGrid(activity,columns,page.optJSONArray("items"),section));
+        grid.setLayoutManager(new GridLayoutManager(activity,columns));
+        for(AppAdapter.Holder holder:cards)removeView(holder.itemView);cards.clear();
+        AppAdapter adapter=(AppAdapter)grid.getAdapter();
+        if(adapter!=null)for(int i=0;i<adapter.getItemCount();i++){AppAdapter.Holder holder=adapter.sceneHolder(this,i);cards.add(holder);addView(holder.itemView);}
+
         requestLayout();
     }
     private void place(View view,JSONObject spec,float scale,int left,int top) {
@@ -65,6 +71,7 @@ final class LayoutScene extends FrameLayout {
         if(page==null){super.onLayout(changed,l,t,r,b);return;}
         float scale=Math.min(getWidth()/960f,getHeight()/540f);int left=Math.round((getWidth()-960*scale)/2),top=Math.round((getHeight()-540*scale)/2);
         grid.layout(0,0,getWidth(),getHeight());
+        layoutCards(scale,left,top);
         JSONObject bg=page.optJSONObject("scene").optJSONObject("background");place(findViewWithTag("scene-background"),bg,scale,left,top);
         for(int i=0;i<nodes.size();i++){
             View wrapper=nodes.get(i);place(wrapper,specs.get(i),scale,left,top);
@@ -78,24 +85,22 @@ final class LayoutScene extends FrameLayout {
         int width=(864/columns)-16,rows=Math.max(1,(int)Math.ceil((double)count/columns)),start=section.equals("home") && rows==1?326:128,step=(int)Math.min(174,348/rows);
         try{return new JSONObject().put("x",48+(index%columns)*(864/columns)).put("y",start+(index/columns)*step).put("width",width).put("height",Math.max(1,Math.min(150,step-16))) ;}catch(Exception impossible){throw new IllegalStateException(impossible);}
     }
-    static final class PositionedGrid extends GridLayoutManager {
-        private final JSONArray items;private final String section;
-        PositionedGrid(Activity activity,int columns,JSONArray items,String section){super(activity,columns);this.items=items;this.section=section;}
-        @Override public boolean canScrollVertically(){return false;}
-        @Override public void onLayoutChildren(RecyclerView.Recycler recycler,RecyclerView.State state) {
-            detachAndScrapAttachedViews(recycler);if(state.isPreLayout())return;
-            float scale=Math.min(getWidth()/960f,getHeight()/540f);int left=Math.round((getWidth()-960*scale)/2),top=Math.round((getHeight()-540*scale)/2);
-            for(int i=0;i<getItemCount();i++) {
-                JSONObject item=items.optJSONObject(i);View view=recycler.getViewForPosition(i);addView(view);
-                JSONObject f=frame(item,i,getSpanCount(),items.length(),section);int x=left+Math.round(f.optInt("x")*scale),y=top+Math.round(f.optInt("y")*scale),w=Math.round(f.optInt("width")*scale),h=Math.round(f.optInt("height")*scale);
-                view.setVisibility(item.optBoolean("visible",true)?VISIBLE:INVISIBLE);view.setZ(item.optInt("zIndex",1));
-                view.setPadding(0,0,0,0);
-                View card=view.findViewById(R.id.card);TextView name=view.findViewById(R.id.name);ImageView icon=view.findViewById(R.id.icon);
-                FrameLayout.LayoutParams cp=(FrameLayout.LayoutParams)card.getLayoutParams();cp.width=w;cp.height=Math.max(1,h-Math.round(40*scale));cp.gravity=android.view.Gravity.TOP;card.setLayoutParams(cp);
-                FrameLayout.LayoutParams np=(FrameLayout.LayoutParams)name.getLayoutParams();np.width=w;np.height=Math.round(26*scale);np.topMargin=h-Math.round(32*scale);name.setLayoutParams(np);name.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,14*scale);
-                ViewGroup.LayoutParams ip=icon.getLayoutParams();ip.width=ip.height=Math.max(8,Math.round(Math.min(38,h/scale*.3f)*scale));icon.setLayoutParams(ip);
-                view.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h,View.MeasureSpec.EXACTLY));layoutDecorated(view,x,y,x+w,y+h);
-            }
+    static RecyclerView.ViewHolder holder(RecyclerView grid,int position) {
+        if(grid.getParent() instanceof LayoutScene){LayoutScene scene=(LayoutScene)grid.getParent();return position>=0 && position<scene.cards.size()?scene.cards.get(position):null;}
+        return grid.findViewHolderForAdapterPosition(position);
+    }
+    private void layoutCards(float scale,int left,int top) {
+        JSONArray items=page.optJSONArray("items");
+        for(int i=0;i<cards.size();i++) {
+            JSONObject item=items.optJSONObject(i);View view=cards.get(i).itemView;
+            JSONObject frame=frame(item,i,columns,items.length(),section);
+            try{JSONObject spec=new JSONObject(item.toString());spec.put("frame",frame);place(view,spec,scale,left,top);}catch(Exception impossible){throw new IllegalStateException(impossible);}
+            int w=Math.round(frame.optInt("width")*scale),h=Math.round(frame.optInt("height")*scale);view.setPadding(0,0,0,0);
+            View card=view.findViewById(R.id.card);TextView name=view.findViewById(R.id.name);ImageView icon=view.findViewById(R.id.icon);
+            FrameLayout.LayoutParams cp=(FrameLayout.LayoutParams)card.getLayoutParams();cp.width=w;cp.height=Math.max(1,h-Math.round(40*scale));cp.gravity=android.view.Gravity.TOP;card.setLayoutParams(cp);
+            FrameLayout.LayoutParams np=(FrameLayout.LayoutParams)name.getLayoutParams();np.width=w;np.height=Math.round(26*scale);np.topMargin=h-Math.round(32*scale);name.setLayoutParams(np);name.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,14*scale);
+            ViewGroup.LayoutParams ip=icon.getLayoutParams();ip.width=ip.height=Math.max(8,Math.round(Math.min(38,h/scale*.3f)*scale));icon.setLayoutParams(ip);
+            view.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY));view.layout(view.getLeft(),view.getTop(),view.getLeft()+w,view.getTop()+h);
         }
     }
 }

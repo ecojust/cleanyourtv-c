@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { mockBridge, snapshot } from './fixtures.mjs';
@@ -479,6 +479,29 @@ try {
     assert.equal(await p.locator('.layout-inspector').evaluate(element=>getComputedStyle(element).overscrollBehaviorY),'none');
     await act(p,'close-layout').click();assert.equal(await p.evaluate(()=>window.__launcherRequests.filter(r=>r.action==='applyLayout').length),0);
   },customHome,{layoutSupported:true});
+  const sceneLayout=JSON.parse(await readFile(new URL('../public/layout.json',import.meta.url),'utf8'));
+  await check('scene JSON positions every control and tile, supports geometry, visibility, background and drag',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
+    assert.equal(await p.locator('.scene-canvas').count(),1);
+    const canvas=p.locator('.scene-canvas'),clock=p.locator('[data-scene-node="clock"]');
+    const rect=await canvas.boundingBox(),before=await clock.boundingBox();
+    assert.ok(Math.abs((before.x-rect.x)/rect.width-48/960)<.005);
+    await clock.click();
+    await p.locator('[data-scene-frame="x"]').fill('120');await p.locator('[data-scene-frame="x"]').dispatchEvent('change');
+    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='clock').frame.x,120);
+    await p.locator('[data-scene-node="settings"]').click();await p.locator('[data-scene-visible]').uncheck();
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='settings').visible,false);
+    assert.equal(await p.locator('[data-scene-node="settings"].scene-hidden').count(),1);
+    await p.locator('[name="sceneSelection"]').selectOption('background');await p.locator('[data-scene-background]').fill('#223344');await p.locator('[data-scene-background]').dispatchEvent('change');
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.background.color,'#223344');
+    const tile=p.locator('[data-layout-tile="0"]'),at=await tile.boundingBox();
+    await p.mouse.move(at.x+at.width/2,at.y+at.height/2);await p.mouse.down();await p.mouse.move(at.x+at.width/2+40,at.y+at.height/2-20,{steps:8});await p.mouse.up();
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.ok(draft.home.items[0].frame.x>sceneLayout.home.items[0].frame.x);assert.ok(draft.home.items[0].frame.y<sceneLayout.home.items[0].frame.y);
+    await shot(p,'layout-scene-home-034');
+    await act(p,'layout-apps').click();await shot(p,'layout-scene-apps-034');
+    await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await settled(p);
+    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));assert.equal(applied.layout.version,3);assert.equal(applied.layout.home.scene.background.color,'#223344');
+  },customHome,{layoutSupported:true,layout:sceneLayout});
   await check('scan disables competing actions and exposes cancellation', async p => {
     await nav(p,'apps'); await act(p,'scan').click(); await p.locator('.busy-bar').waitFor();
     assert.equal(await act(p,'scan').isDisabled(),true);
