@@ -1499,3 +1499,5 @@ input[type="checkbox"]:checked::after { border-color:var(--on-accent); }
 .scene-frame-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .scene-visible { flex-direction:row !important; align-items:center; }
 .scene-visible input { width:auto; }
+.scene-clock,.scene-title,.scene-date,.scene-weather,.scene-subtitle { justify-content:flex-start; padding-inline:0; }
+.scene-clock,.scene-title { align-items:flex-start; line-height:1.1; }

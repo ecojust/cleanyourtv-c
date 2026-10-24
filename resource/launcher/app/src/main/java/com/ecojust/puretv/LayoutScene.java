@@ -54,7 +54,7 @@ final class LayoutScene extends FrameLayout {
         ImageView background=new ImageView(activity);background.setTag("scene-background");background.setBackgroundColor(Color.parseColor(bg.optString("color")));background.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if(bg.has("image")){String image=bg.optString("image");byte[] bytes=Base64.decode(image.substring(image.indexOf(',')+1),Base64.NO_WRAP);background.setImageBitmap(BitmapFactory.decodeByteArray(bytes,0,bytes.length));}
         addView(background,0,new FrameLayout.LayoutParams(-1,-1));
-        grid.setLayoutManager(new GridLayoutManager(activity,columns));
+        grid.setLayoutManager(new CatalogueGrid(activity,columns));
         for(AppAdapter.Holder holder:cards)removeView(holder.itemView);cards.clear();
         AppAdapter adapter=(AppAdapter)grid.getAdapter();
         if(adapter!=null)for(int i=0;i<adapter.getItemCount();i++){AppAdapter.Holder holder=adapter.sceneHolder(this,i);cards.add(holder);addView(holder.itemView);}
@@ -83,6 +83,14 @@ final class LayoutScene extends FrameLayout {
             }
             if(child instanceof TextView){String id=(String)wrapper.getTag();float size=id.equals("clock")?52:id.equals("title")?28:id.equals("allApps")?11:13;((TextView)child).setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,size*scale);}
         }
+    }
+    void release() {
+        for(AppAdapter.Holder holder:cards)removeView(holder.itemView);cards.clear();
+        ImageView background=findViewWithTag("scene-background");if(background!=null)background.setImageDrawable(null);
+    }
+    private static final class CatalogueGrid extends GridLayoutManager {
+        CatalogueGrid(Activity activity,int columns){super(activity,columns);}
+        @Override public void onLayoutChildren(RecyclerView.Recycler recycler,RecyclerView.State state){detachAndScrapAttachedViews(recycler);}
     }
     static JSONObject frame(JSONObject item,int index,int columns,int count,String section) {
         JSONObject explicit=item.optJSONObject("frame");if(explicit!=null)return explicit;

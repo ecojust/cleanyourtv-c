@@ -299,6 +299,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // bitmaps they hold) would stay attached until Home comes back.
         grid.setAdapter(null);
         grid.getRecycledViewPool().clear();
+        if(layoutScene!=null)layoutScene.release();
         if (wallpaperView != null) {
             removeWallpaper();
             wallpaperReleased = true;

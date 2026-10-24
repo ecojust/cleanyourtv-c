@@ -106,7 +106,7 @@ Installed application and launcher APK sizes are measured during scans (and refr
 
 ## Current-launcher layout API
 
-`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`; it shares the busy/cancel guard. `choose_launcher_json` returns UTF-8 layout.json text (48 KiB maximum). Version 2 defines independent `{columns,items}` objects for home and apps; no apps.json compatibility. Core and Android both reject new package entries unless installed, enabled, launchable user applications. The current verified HOME alone exposes an Adjust layout button and full-window canvas; unsupported launchers stay read-only. See [docs/launcher-layout.md](docs/launcher-layout.md).
+`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`; it shares the busy/cancel guard. `choose_launcher_json` returns UTF-8 layout.json text (48 KiB maximum). Version 3 adds independent scenes for home/apps: a background and fixed controls share the same frame (960×540 design coordinates), visibility and layer fields as application cards. Android and the editor consume the same JSON; fixed controls retain their native behavior. Background images are embedded, bounded data URIs. Legacy version 2 launcher grid editing remains supported by the manager; no apps.json compatibility. Core and Android both reject new package entries unless installed, enabled, launchable user applications. The current verified HOME alone exposes an Adjust layout button and full-window canvas; unsupported launchers stay read-only. See [docs/launcher-layout.md](docs/launcher-layout.md).
 
 `get_launcher_covers`, `choose_launcher_cover` and `choose_launcher_apks` manage user-provided optional card backgrounds, never TV screenshots. PNG/JPEG/WebP imports are bounded to 4 MiB. APK sibling thumb images are discovered locally, and installed-card covers persist in the manager data directory. MCP exposes get_launcher_covers and set_launcher_cover, synchronizing local UI state.
 
@@ -119,3 +119,5 @@ Installed application and launcher APK sizes are measured during scans (and refr
 ## Interface preferences
 
 get_interface_preferences / set_interface_preferences expose the same locale and theme controls as the window. Values are limited to zh-CN/zh-TW/en and emerald/ocean/graphite, persisted separately as interface-preferences.json and emitted through interface-preferences events. Initialization only fills unset values, preserving agent changes during startup. Native file-picker titles follow the selected locale. Browser storage contains only the scoped puretv.preferences object, never device hosts, pairing codes or APK paths.
+
+Normal window close, application quit and confirmed MCP close_manager share one exit sequence: reject new device work, cancel cancellable work, wait for atomic mutations, call the configured adb kill-server with an independent cancellation token and an eight-second timeout, then exit. This stops the shared ADB daemon.
