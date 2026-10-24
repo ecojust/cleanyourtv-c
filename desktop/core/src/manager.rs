@@ -123,6 +123,7 @@ impl Manager {
             }
         };
         self.defer_cancel = false;
+        self.state.revision = self.state.revision.saturating_add(1);
         match result {
             Ok(()) => Ok(self.state.clone()),
             Err(error) => {

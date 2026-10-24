@@ -32,6 +32,7 @@ impl Manager {
 
 ```ts
 interface Snapshot {
+  revision: number; // monotonically increasing in this Manager process; UI rejects older results
   adbPath: string | null;
   adbAvailable: boolean;
   device: Device | null;

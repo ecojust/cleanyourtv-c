@@ -53,6 +53,7 @@ pub enum Request {
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    pub revision: u64,
     pub adb_path: Option<String>,
     pub adb_available: bool,
     pub device: Option<Device>,

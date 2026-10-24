@@ -1,6 +1,6 @@
 import './styles.css';
 import * as api from './bridge';
-import { emptySnapshot, type Request, type PackageInfo, type PlatformToolsInfo, type DownloadProgress } from './types';
+import { emptySnapshot, type Request, type PackageInfo, type PlatformToolsInfo, type DownloadProgress, type Snapshot } from './types';
 
 type Page = 'connect' | 'apps' | 'launchers' | 'install' | 'history';
 type Filter = 'all' | 'system' | 'user' | 'disabled' | 'recoverable';
@@ -13,6 +13,11 @@ const pages: Record<Page, [string, string, string]> = {
 };
 let snapshot = emptySnapshot();
 let mcpInfo: api.McpInfo | null = null, mcpError = "";
+let localBusy = false, agentOperation: api.McpOperation | null = null, agentProgress: DownloadProgress | null = null;
+function applySnapshot(value: Snapshot): boolean {
+  if ((value.revision ?? 0) < (snapshot.revision ?? 0)) return false;
+  snapshot = value; return true;
+}
 let page: Page = api.demo ? 'apps' : 'connect';
 let filter: Filter = 'all', query = '', busy = false, busyLabel = '', cancelling = false;
 let notice = '', noticeKind: 'info' | 'success' | 'error' = 'info';
@@ -57,23 +62,26 @@ function deviceStatus(): [string, string] {
 function showNotice(message: string, kind: typeof noticeKind = 'info'): void { notice = message; noticeKind = kind; render(); }
 const bytes = (value: number): string => `${(Math.max(0, value) / 1048576).toFixed(1)} MiB`;
 const platformName = (value: string): string => ({ windows: 'Windows', macos: 'macOS', linux: 'Linux', demo: '演示电脑' }[value] || '当前电脑');
-function progressText(): string {
-  if (!toolsProgress) return '准备官方 Platform Tools…';
+function progressText(progress = toolsProgress): string {
+  if (!progress) return '准备官方 Platform Tools…';
   const labels = { downloading: '正在下载', verifying: '校验下载文件', extracting: '解压工具', checking: '检查 ADB 并配置路径' };
-  if (toolsProgress.stage !== 'downloading') return labels[toolsProgress.stage];
-  const total = toolsProgress.total, downloaded = Math.min(Math.max(0, toolsProgress.downloaded), total);
+  if (progress.stage !== 'downloading') return labels[progress.stage];
+  const total = progress.total, downloaded = Math.min(Math.max(0, progress.downloaded), total);
   return total > 0 ? `${labels.downloading} ${Math.floor(downloaded / total * 100)}% · ${bytes(downloaded)} / ${bytes(total)}` : labels.downloading;
 }
 function busyIndicator(): string {
   if (!busy) return '';
-  const label = downloadingTools ? progressText() : busyLabel;
-  const cancellingLabel = downloadingTools ? ' · 正在取消并清理临时文件' : ' · 当前修改会完成并复查，后续项将停止';
-  return `<div class="busy-bar" role="status"><span class="spinner"></span><span data-busy-label>${esc(label)}${cancelling ? cancellingLabel : ''}</span>${downloadingTools ? downloadMeter() : ''}${actionButton('cancel', cancelling ? '正在取消' : downloadingTools ? '取消下载' : '停止后续操作', disabled(cancelling), 'small')}</div>`;
+  const external = !!agentOperation?.running;
+  const download = external ? agentOperation?.tool === 'install_platform_tools' : downloadingTools;
+  const progress = external ? agentProgress : toolsProgress;
+  const label = download ? progressText(progress) : external ? `Agent 正在执行 ${agentOperation?.tool}…` : busyLabel;
+  const cancellingLabel = download ? ' · 正在取消并清理临时文件' : ' · 当前修改会完成并复查，后续项将停止';
+  return `<div class="busy-bar" role="status"><span class="spinner"></span><span data-busy-label>${esc(label)}${cancelling ? cancellingLabel : ''}</span>${download ? downloadMeter(progress) : ''}${actionButton('cancel', cancelling ? '正在取消' : download ? '取消下载' : '停止后续操作', disabled(cancelling), 'small')}</div>`;
 }
-function downloadMeter(): string {
-  if (!toolsProgress || toolsProgress.stage !== 'downloading' || toolsProgress.total <= 0) return '';
-  const value = Math.min(Math.max(0, toolsProgress.downloaded), toolsProgress.total);
-  return `<progress class="download-meter" max="${toolsProgress.total}" value="${value}" aria-label="Platform Tools 下载进度"></progress>`;
+function downloadMeter(progress = toolsProgress): string {
+  if (!progress || progress.stage !== 'downloading' || progress.total <= 0) return '';
+  const value = Math.min(Math.max(0, progress.downloaded), progress.total);
+  return `<progress class="download-meter" max="${progress.total}" value="${value}" aria-label="Platform Tools 下载进度"></progress>`;
 }
 function mcpPanel(): string {
   if (!api.desktop || api.demo) return '';
@@ -163,11 +171,11 @@ function cleanSelection(): void {
   selected = new Set([...selected].filter(p => valid.has(p)));
 }
 async function run(request: Request, label: string): Promise<boolean> {
-  if (busy) return false; busy = true; cancelling = false; busyLabel = label; notice = ''; render();
+  if (busy) return false; localBusy = true; busy = true; cancelling = false; busyLabel = label; notice = ''; render();
   let success = false;
   try {
     const before = snapshot.device?.serial, previousEntries = new Set(snapshot.history.map(entry => entry.id));
-    snapshot = await api.execute(request);
+    applySnapshot(await api.execute(request));
     if (before !== snapshot.device?.serial) selected.clear(); cleanSelection();
     const failed = snapshot.history.some(entry => !previousEntries.has(entry.id) && !entry.success);
     const unready = request.action === 'connect' && !online();
@@ -178,8 +186,8 @@ async function run(request: Request, label: string): Promise<boolean> {
     if (request.action === 'setAdbPath') adbPath = snapshot.adbPath || '';
   } catch (e) {
     notice = e instanceof Error ? e.message : String(e); noticeKind = 'error';
-    try { const previousDevice = snapshot.device?.serial; snapshot = await api.execute({ action: 'getState' }); if (previousDevice !== snapshot.device?.serial) selected.clear(); cleanSelection(); } catch { /* Keep the last known snapshot if state refresh also fails. */ }
-  } finally { busy = false; cancelling = false; render(); }
+    try { const previousDevice = snapshot.device?.serial; applySnapshot(await api.execute({ action: 'getState' })); if (previousDevice !== snapshot.device?.serial) selected.clear(); cleanSelection(); } catch { /* Keep the last known snapshot if state refresh also fails. */ }
+  } finally { localBusy = false; busy = !!agentOperation?.running; cancelling = false; render(); }
   return success;
 }
 function confirm(title: string, description: string, targets: string[], button: string, danger = false): Promise<boolean> {
@@ -231,19 +239,19 @@ async function downloadTools(): Promise<void> {
   finally { toolsPreparing = false; render(); }
   if (!info.supported) throw new Error(info.message || '当前电脑不支持在线配置，请手动选择 ADB');
   if (!await confirmTools(info) || busy || snapshot.device) return;
-  busy = true; downloadingTools = true; cancelling = false; notice = '';
+  localBusy = true; busy = true; downloadingTools = true; cancelling = false; notice = '';
   toolsProgress = { stage: info.installed ? 'checking' : 'downloading', downloaded: 0, total: info.downloadBytes }; render();
   try {
     const value = await api.installPlatformTools(updateToolsProgress);
     if (!value.adbAvailable || !value.adbPath) throw new Error('工具尚未就绪，请重试或手动选择 ADB');
-    snapshot = value; adbPath = value.adbPath; toolsInfo = { ...info, installed: true };
+    applySnapshot(value); adbPath = snapshot.adbPath || ""; toolsInfo = { ...info, installed: true };
     notice = value.message || 'ADB 已就绪，可以连接电视'; noticeKind = cancelling ? 'info' : 'success';
   } catch (error) {
     notice = error instanceof Error ? error.message : String(error);
     noticeKind = cancelling ? 'info' : 'error';
-    try { snapshot = await api.execute({ action: 'getState' }); adbPath = snapshot.adbPath || ''; } catch { /* Retain last known state if refresh fails. */ }
+    try { applySnapshot(await api.execute({ action: 'getState' })); adbPath = snapshot.adbPath || ''; } catch { /* Retain last known state if refresh fails. */ }
   } finally {
-    downloadingTools = false; busy = false; cancelling = false; toolsProgress = null; render();
+    downloadingTools = false; localBusy = false; busy = !!agentOperation?.running; cancelling = false; toolsProgress = null; render();
   }
 }
 function details(pkg: string): void {
@@ -371,24 +379,26 @@ document.addEventListener('keydown', event => {
 });
 render();
 void api.execute({ action: 'getState' }).then(value => {
-  snapshot = value; adbPath = value.adbPath || ''; notice = value.message;
+  if (!applySnapshot(value)) return;
+  adbPath = snapshot.adbPath || ''; notice = snapshot.message;
   render();
   void refreshToolsInfo().then(render);
 }).catch(e => showNotice(e instanceof Error ? e.message : String(e), 'error'));
 
 void api.mcpInfo().then(value => { mcpInfo = value; render(); }).catch(error => { mcpError = String(error); render(); });
 void api.watchMcp(value => {
-  busy = value.running; cancelling = false;
-  busyLabel = `Agent 正在执行 ${value.tool}…`;
-  downloadingTools = value.running && value.tool === 'install_platform_tools';
-  if (value.running) { notice = ''; toolsProgress = null; }
+  agentOperation = value; busy = localBusy || value.running;
+  if (!localBusy) cancelling = false;
+  if (value.running) { notice = ''; agentProgress = null; }
   if (value.snapshot) {
     const previous = snapshot.device?.serial;
-    snapshot = value.snapshot; adbPath = snapshot.adbPath || '';
-    if (previous !== snapshot.device?.serial) selected.clear();
-    cleanSelection();
-    notice = value.error || snapshot.message; noticeKind = value.error ? 'error' : 'info';
+    if (applySnapshot(value.snapshot)) {
+      adbPath = snapshot.adbPath || '';
+      if (previous !== snapshot.device?.serial) selected.clear();
+      cleanSelection();
+      notice = value.error || snapshot.message; noticeKind = value.error ? 'error' : 'info';
+    }
   }
-  if (!value.running) { toolsProgress = null; void refreshToolsInfo().then(render); }
+  if (!value.running) { agentProgress = null; void refreshToolsInfo().then(render); }
   render();
-}, updateToolsProgress).catch(error => { mcpError = `无法订阅 Agent 状态：${String(error)}`; render(); });
+}, value => { agentProgress = value; render(); }).catch(error => { mcpError = `无法订阅 Agent 状态：${String(error)}`; render(); });

@@ -274,7 +274,12 @@ pub fn start(
 
 /// A separate stdio process attaches to the GUI; never creates another Manager.
 pub fn relay(path: &Path) -> Result<(), String> {
-    let data = fs::read(path).map_err(|_| "请先打开 pureTV 管理器，再连接 MCP")?;
+    let mut data = Vec::new();
+    fs::File::open(path)
+        .map_err(|_| "请先打开 pureTV 管理器，再连接 MCP")?
+        .take(8193)
+        .read_to_end(&mut data)
+        .map_err(|_| "无法读取 MCP 会话文件")?;
     if data.len() > 8192 {
         return Err("MCP 会话文件无效".into());
     }

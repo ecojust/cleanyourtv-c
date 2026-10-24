@@ -1,6 +1,6 @@
 export function snapshot() {
   return {
-    adbPath: 'C:\\platform-tools\\adb.exe', adbAvailable: true,
+    revision: 0, adbPath: 'C:\\platform-tools\\adb.exe', adbAvailable: true,
     device: { serial: '192.168.1.50:5555', model: '测试电视', androidVersion: '12', userId: 0, status: 'device' },
     packages: [
       { packageName: 'com.vendor.recommendations', label: '厂商推荐', system: true, enabled: true, installed: true, protectedReason: null },

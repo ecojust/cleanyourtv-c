@@ -841,3 +841,19 @@ fn home_retry_cannot_skip_failed_recovery_record_write() {
         .any(|args| args.contains(&"set-home-activity".into())));
     assert_eq!(tv.lock().unwrap().default, "com.stock.home/.Main");
 }
+
+#[test]
+fn snapshot_revisions_advance_on_success_and_failure_without_changing_old_snapshots() {
+    let (mut manager, _) = fixture();
+    let initial = manager.snapshot();
+    let state = manager.execute(Request::GetState).unwrap();
+    assert!(state.revision > initial.revision);
+    assert!(manager
+        .execute(Request::Connect {
+            host: "invalid;host".into(),
+            port: 5555
+        })
+        .is_err());
+    assert!(manager.snapshot().revision > state.revision);
+    assert_eq!(initial.revision, 0);
+}

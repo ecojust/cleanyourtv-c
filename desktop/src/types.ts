@@ -9,6 +9,7 @@ export interface DownloadProgress {
   stage: 'downloading' | 'verifying' | 'extracting' | 'checking'; downloaded: number; total: number;
 }
 export interface Snapshot {
+  revision: number;
   adbPath: string | null; adbAvailable: boolean; device: Device | null;
   packages: PackageInfo[]; launchers: LauncherInfo[]; defaultHome: string | null;
   originalHome: string | null; history: HistoryEntry[]; message: string;
@@ -22,4 +23,4 @@ export type Request =
   | { action: 'uninstall' | 'restore'; packages: string[] }
   | { action: 'install'; paths: string[] }
   | { action: 'setHome'; component: string };
-export const emptySnapshot = (): Snapshot => ({ adbPath: null, adbAvailable: false, device: null, packages: [], launchers: [], defaultHome: null, originalHome: null, history: [], message: '' });
+export const emptySnapshot = (): Snapshot => ({ revision: 0, adbPath: null, adbAvailable: false, device: null, packages: [], launchers: [], defaultHome: null, originalHome: null, history: [], message: '' });
