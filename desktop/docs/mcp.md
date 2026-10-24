@@ -25,10 +25,12 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 
 `--mcp` 是当前窗口的代理，不创建第二套电视连接或管理状态。管理器内部仅监听 `127.0.0.1` 的随机端口，每次启动生成随机凭据；代理自动读取受保护的本机会话文件，不需要把令牌放到 Agent 配置。拒绝浏览器 Origin 请求，不允许跨电脑访问。重启窗口后请重新连接 MCP；关闭窗口后调用会明确报错。
 
-## 全部工具（26 个）
+## 全部工具（28 个）
 
 | 工具 | 参数 | 行为 |
 | --- | --- | --- |
+| `get_interface_preferences` | 无 | 读取当前窗口的语言和主题偏好 |
+| `set_interface_preferences` | 可选 `locale`、`theme` | 保存偏好并立即同步窗口；语言 zh-CN / zh-TW / en，主题 emerald / ocean / graphite |
 | `get_state` | 无 | 当前设备、ADB 状态、应用、启动器、原桌面、最近 200 项记录和消息；忙碌时返回最近快照 |
 | `get_status` | 无 | 是否正在操作、是否请求取消、最近下载进度和快照 |
 | `set_adb_path` | `path` | 设置本机 ADB 可执行文件；空字符串自动寻找，需先断开电视 |
@@ -47,7 +49,7 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `install_platform_tools` | `acceptedLicense: true` | 校验离线缓存或从 Google／腾讯镜像下载安装并配置 ADB；需先断开电视，且用户已同意 SDK 许可 |
 | `choose_apks` | 无 | 在管理器打开原生多选 APK 对话框，只返回路径，不安装 |
 | `choose_adb` | 无 | 在管理器打开原生可执行文件对话框，只返回路径，不配置 |
-| `open_resource` | `resource` | 打开 `releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
+| `open_resource` | `resource` | 打开 `catalog`、`releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
 
 已安装应用及启动器的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
 

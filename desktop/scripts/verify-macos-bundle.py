@@ -24,7 +24,7 @@ def version(value):
     return parts + (0,) * (3 - len(parts))
 
 
-def verify_app(app, config):
+def verify_app(app, config, architecture):
     with (app / "Contents/Info.plist").open("rb") as file:
         info = plistlib.load(file)
     assert info["CFBundleIdentifier"] == config["identifier"], "Wrong bundle identifier"
@@ -36,7 +36,7 @@ def verify_app(app, config):
     assert name and Path(name).name == name, "Invalid executable name"
     executable = app / "Contents/MacOS" / name
     assert executable.is_file() and os.access(executable, os.X_OK)
-    assert run("lipo", "-archs", str(executable)).strip() == "arm64", "Expected ARM64"
+    assert run("lipo", "-archs", str(executable)).strip() == architecture, f"Expected {architecture}"
     load_commands = run("otool", "-l", str(executable)).split("Load command")
     minimum_versions = []
     for command in load_commands:
@@ -50,7 +50,7 @@ def verify_app(app, config):
     run("codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app))
     signature = run("codesign", "--display", "--verbose=4", str(app))
     assert f"Identifier={config['identifier']}" in signature.splitlines(), "Wrong signature identifier"
-    print(f"Verified {app.name}: ARM64, macOS {minimum}+, complete bundle signature", flush=True)
+    print(f"Verified {app.name}: {architecture}, macOS {minimum}+, complete bundle signature", flush=True)
     return executable
 
 
@@ -95,6 +95,7 @@ def main():
     args = parser.parse_args()
     if sys.platform != "darwin":
         parser.error("This verification requires a native macOS runner")
+    architecture = {"aarch64-apple-darwin":"arm64", "x86_64-apple-darwin":"x86_64"}[args.target]
     desktop = Path(__file__).resolve().parent.parent
     config = json.loads((desktop / "src-tauri/tauri.conf.json").read_text())
     bundles = desktop / "src-tauri/target" / args.target / "release/bundle"
@@ -112,11 +113,11 @@ def main():
             mounted = True
             apps = list(mount.glob("*.app"))
             assert len(apps) == 1 and apps[0].name == f"{config['productName']}.app"
-            verify_app(apps[0], config)
+            verify_app(apps[0], config, architecture)
             installed = directory / "Applications" / apps[0].name
             installed.parent.mkdir()
             run("ditto", str(apps[0]), str(installed))
-            executable = verify_app(installed, config)
+            executable = verify_app(installed, config, architecture)
             launch_copy(executable, directory, config["identifier"])
         finally:
             if mounted:

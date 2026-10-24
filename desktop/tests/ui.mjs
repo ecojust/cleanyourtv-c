@@ -33,7 +33,7 @@ async function acceptTools(p) {
 const captureDir = process.env.PURETV_CAPTURE_DIR;
 async function shot(p, name) { if (captureDir) { await mkdir(captureDir, { recursive: true }); await p.screenshot({path:`${captureDir}/${name}.png`, fullPage:true}); } }
 async function check(name, run, state = snapshot(), options = {}) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ locale:'zh-CN', viewport: { width: 1440, height: 1000 } });
   const p = await context.newPage(), errors = [];
   p.on('pageerror', e => errors.push(e.message));
   try {
@@ -61,6 +61,24 @@ try {
     assert.equal(await act(p,'download-adb').isDisabled(), true);
     await nav(p,'apps'); assert.equal(await p.locator('input[data-select-package]').count(),0);
   }, null);
+  await check('language and skins switch at runtime without translating app data',async p=>{
+    await p.locator('[name="locale"]').selectOption('en');assert.equal(await p.locator('h1').innerText(),'Connection');
+    await nav(p,'apps');assert.equal(await p.locator('h1').innerText(),'Apps');assert.match(await p.locator('.apps-table').innerText(),/厂商推荐/);
+    assert.equal(await act(p,'scan').innerText(),'Scan again');assert.match(await p.locator('.apps-table').innerText(),/APK size/);
+    await p.locator('[name="theme"]').selectOption('graphite');assert.equal(await p.locator('html').getAttribute('data-theme'),'graphite');
+    assert.equal(await p.locator('.panel').first().evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(28, 40, 36)');
+    await p.locator('[name="locale"]').selectOption('zh-TW');assert.equal(await p.locator('html').getAttribute('lang'),'zh-TW');assert.match(await p.locator('h1').innerText(),/應用/);
+    assert.deepEqual(await requests(p),[],'Appearance changes do not change the TV');await p.reload();await p.locator('.connection-strip').waitFor();
+    assert.equal(await p.locator('html').getAttribute('lang'),'zh-TW');assert.equal(await p.locator('html').getAttribute('data-theme'),'graphite');
+  });
+  await check('English diagnostics translate formatted counts and retain package data',async p=>{
+    await p.locator('[name="locale"]').selectOption('en');await p.locator('[name="host"]').fill('bad;host');await act(p,'connect').click();assert.match(await p.locator('.notice.error').innerText(),/Enter a valid TV IP/);
+    const state=snapshot();state.revision=1;state.message='安装完成：成功 1 项，失败 2 项，未执行 3 项';
+    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'install',snapshot:value}),state);
+    assert.match(await p.locator('.notice').innerText(),/Installation finished: 1 succeeded, 2 failed, 3 skipped/);
+    await p.evaluate(()=>{window.__interfacePreferences={locale:'en',theme:'ocean'};window.__emitMcp('interface-preferences',window.__interfacePreferences);});
+    assert.equal(await p.locator('html').getAttribute('data-theme'),'ocean');
+  });
   await check('MCP configuration and agent operations synchronize with the window', async p => {
     await p.locator('.mcp-config').waitFor();
     assert.match(await p.locator('.mcp-config').innerText(), /--mcp/);
@@ -375,7 +393,9 @@ try {
     await p.locator('[name="host"]').fill('192.168.1.50;reboot'); await act(p,'connect').click();
     assert.deepEqual(await requests(p),[]);
     assert.match(await p.locator('.notice.error').innerText(),/有效/);
-    assert.equal(await p.evaluate(() => localStorage.length + sessionStorage.length),0);
+    assert.deepEqual(await p.evaluate(()=>Object.keys(localStorage)),['puretv.preferences']);
+    assert.equal(await p.evaluate(()=>sessionStorage.length),0);
+    assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.1.50')),false);
   });
   await check('scan disables competing actions and exposes cancellation', async p => {
     await nav(p,'apps'); await act(p,'scan').click(); await p.locator('.busy-bar').waitFor();
@@ -386,7 +406,7 @@ try {
   },snapshot(),{slowScan:true});
   const injected = snapshot(); injected.device.model = '<img src=x onerror="window.__xss=true">'; injected.packages[0].label = injected.device.model;
   await check('device and application metadata render as text',async p => {
-    await nav(p,'apps'); assert.equal(await p.locator('img').count(),0); assert.equal(await p.evaluate(()=>window.__xss),false);
+    await nav(p,'apps'); assert.equal(await p.locator('.apps-table img, .device-badge img').count(),0); assert.equal(await p.evaluate(()=>window.__xss),false);
     assert.match(await p.locator('.apps-table').innerText(),/onerror/);
   },injected);
   console.log(`${passed} UI scenarios passed`);

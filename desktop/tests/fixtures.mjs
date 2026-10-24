@@ -23,8 +23,9 @@ export function snapshot() {
 export async function mockBridge(page, initial = snapshot(), options = {}) {
   await page.addInitScript(({initial, options}) => {
     const state = structuredClone(initial);
-    const defaultLayout={version:2,home:{columns:4,items:[{action:'music',icon:'music',color:'#303338'},{action:'files',icon:'files',color:'#3B4C46'},{action:'apps',icon:'apps',color:'#374959'}]},apps:{columns:3,items:[]}};
+    const defaultLayout=options.layout || {version:2,home:{columns:4,items:[{action:'music',icon:'music',color:'#303338'},{action:'files',icon:'files',color:'#3B4C46'},{action:'apps',icon:'apps',color:'#374959'}]},apps:{columns:3,items:[]}};
     let launcherLayout=structuredClone(defaultLayout), customLayout=false;
+    window.__interfacePreferences={};
     window.__launcherRequests=[];let covers=structuredClone(options.covers || {});
     const callbacks = new Map(); let nextCallback = 1, downloadCancelled = false, toolsInstalled = !!options.toolsInstalled;
     window.__emitMcp = (event, payload) => { for (const callback of (window.__eventListeners?.[event] || [])) callbacks.get(callback)?.({event, payload, id:callback}); };
@@ -36,6 +37,8 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
       invoke: async (command, args = {}) => {
         if (command === 'plugin:event|listen') { (window.__eventListeners[args.event] ||= []).push(args.handler); return args.handler; }
         if (command === 'plugin:event|unlisten') return;
+        if(command==='get_interface_preferences')return structuredClone(window.__interfacePreferences);
+        if(command==='set_interface_preferences'){Object.assign(window.__interfacePreferences,args.preferences);window.__emitMcp('interface-preferences',structuredClone(window.__interfacePreferences));return structuredClone(window.__interfacePreferences);}
         if (command === 'mcp_info') return {config:{mcpServers:{puretv:{command:'/Applications/pureTV Manager.app/Contents/MacOS/puretv-desktop',args:['--mcp','/Users/test/mcp-session.json']}}},sessionPath:'/Users/test/mcp-session.json'};
         if(command==='get_launcher_covers')return structuredClone(covers);
         if(command==='choose_launcher_cover'){if(args.remove)delete covers[args.key];else covers[args.key]='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII=';return structuredClone(covers);}
@@ -47,7 +50,7 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
           if (!options.layoutSupported) return {supported:false,component:state.defaultHome,message:'此启动器尚未接入可验证的布局接口，请使用它自身的设置。'};
           if (args.request.action === 'applyLayout') {launcherLayout=structuredClone(args.request.layout);customLayout=true;}
           if (args.request.action === 'resetLayout') {launcherLayout=structuredClone(defaultLayout);customLayout=false;}
-          return {supported:true,version:2,component:state.defaultHome,custom:customLayout,layout:structuredClone(launcherLayout),apps:[...(state.packages.some(p=>p.packageName==='com.imported.app')?[{packageName:'com.imported.app',label:'新安装应用'}]:[]),{packageName:'com.ecojust.webtv',label:'WebTV',iconPng:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='},{packageName:'com.vendor.home',label:'系统启动器'},{packageName:'com.not.installed',label:'未安装应用'}],message:args.request.action === 'getLayout' ? '布局已读取' : '布局已应用并复查'};
+          return {supported:true,version:2,component:state.defaultHome,custom:customLayout,layout:structuredClone(launcherLayout),apps:options.layoutApps || [...(state.packages.some(p=>p.packageName==='com.imported.app')?[{packageName:'com.imported.app',label:'新安装应用'}]:[]),{packageName:'com.ecojust.webtv',label:'WebTV',iconPng:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='},{packageName:'com.vendor.home',label:'系统启动器'},{packageName:'com.not.installed',label:'未安装应用'}],message:args.request.action === 'getLayout' ? '布局已读取' : '布局已应用并复查'};
         }
         if (command === 'choose_apks') {
           if (options.apkPaths) return options.apkPaths;

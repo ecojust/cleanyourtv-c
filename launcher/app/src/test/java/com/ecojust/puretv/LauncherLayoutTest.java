@@ -105,4 +105,22 @@ public class LauncherLayoutTest {
         }
     }
 
+    @Test public void applyingAndResettingLayoutRefreshesAlreadyOpenAppsPage() throws Exception {
+        try(ActivityController<AppsActivity> controller=Robolectric.buildActivity(AppsActivity.class).setup()) {
+            RecyclerView grid=controller.get().findViewById(R.id.appsGrid);
+            JSONObject draft=LauncherLayout.defaults(context()).json;
+            draft.getJSONObject("apps").put("columns",2).put("items",new JSONArray().put(new JSONObject().put("action","music")));
+            LauncherLayout.apply(context(),draft);org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            assertEquals(2,((GridLayoutManager)grid.getLayoutManager()).getSpanCount());assertEquals(1,grid.getAdapter().getItemCount());
+            LauncherLayout.reset(context());org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            assertEquals(4,((GridLayoutManager)grid.getLayoutManager()).getSpanCount());assertEquals(8,grid.getAdapter().getItemCount());
+        }
+    }
+
+    @Test @Config(qualifiers="en-rUS-w960dp-h540dp-land")
+    public void defaultPlaceholdersUseTheTelevisionLanguage() throws Exception {
+        AppAdapter.Entry placeholder=LauncherLayout.defaults(context()).entries(context(),"apps").get(3);
+        assertEquals(context().getString(R.string.placeholder_app,4),placeholder.title(context()));
+    }
+
 }

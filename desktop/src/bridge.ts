@@ -106,9 +106,9 @@ export async function installPlatformTools(onProgress: (progress: DownloadProgre
   const progress = new Channel<DownloadProgress>(onProgress);
   return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress });
 }
-export async function openResource(resource: 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
+export async function openResource(resource: 'catalog' | 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
   if (demo || !desktop) {
-    const url = resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases' : resource === 'platformToolsLicense' ? 'https://developer.android.com/studio/terms' : 'https://developer.android.com/tools/releases/platform-tools';
+    const url = resource === 'catalog' ? 'https://github.com/ecojust/pureTV/tree/master/resource' : resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases' : resource === 'platformToolsLicense' ? 'https://developer.android.com/studio/terms' : 'https://developer.android.com/tools/releases/platform-tools';
     window.open(url, '_blank', 'noopener,noreferrer'); return;
   }
   await invoke('open_resource', { resource });
@@ -139,3 +139,8 @@ export async function chooseLauncherCover(key:string, remove=false): Promise<Rec
 export async function chooseLauncherApks(): Promise<{path:string;cover?:string|null}[]> { if(demo)return [{path:'pureTV.apk'}]; return invoke('choose_launcher_apks'); }
 
 export async function adoptLauncherCover(key:string,apkPath:string):Promise<Record<string,string>> {return invoke('choose_launcher_cover',{key,apkPath});}
+
+export interface InterfacePreferences {locale?:string|null;theme?:string|null}
+export async function interfacePreferences():Promise<InterfacePreferences> {if(!desktop || demo)return {};return invoke('get_interface_preferences');}
+export async function setInterfacePreferences(preferences:InterfacePreferences,onlyIfUnset=false):Promise<InterfacePreferences> {if(!desktop || demo)return preferences;return invoke('set_interface_preferences',{preferences,onlyIfUnset});}
+export async function watchInterfacePreferences(callback:(value:InterfacePreferences)=>void):Promise<void> {if(!desktop || demo)return;await listen<InterfacePreferences>('interface-preferences',event=>callback(event.payload));}

@@ -103,6 +103,7 @@ final class LauncherLayout {
         try { output.write(layout.json.toString().getBytes(StandardCharsets.UTF_8)); target.finishWrite(output); }
         catch (Exception error) { target.failWrite(output); throw error; }
         MainActivity.reloadLayoutFromManager();
+        AppsActivity.reloadLayoutFromManager();
     }
     static void reset(Context ctx) {
         new AtomicFile(file(ctx)).delete();
@@ -112,6 +113,7 @@ final class LauncherLayout {
             if(external.exists() && !external.delete()) throw new IllegalStateException("Cannot remove external layout");
         }
         MainActivity.reloadLayoutFromManager();
+        AppsActivity.reloadLayoutFromManager();
     }
     List<AppAdapter.Entry> entries(Context ctx, String section) {
         List<AppAdapter.Entry> result = new ArrayList<>(); JSONArray list = json.optJSONObject(section).optJSONArray("items");

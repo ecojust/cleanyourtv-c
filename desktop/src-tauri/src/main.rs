@@ -3,6 +3,7 @@
 mod launcher_covers;
 mod mcp;
 mod platform_tools;
+mod ui_preferences;
 
 use puretv_core::{LauncherRequest, Manager as TvManager, Request, Snapshot};
 use serde_json::{json, Value};
@@ -49,6 +50,29 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
 }
 
 #[tauri::command]
+fn get_interface_preferences(app: tauri::AppHandle) -> Result<ui_preferences::Preferences, String> {
+    app.state::<ui_preferences::Settings>().get()
+}
+#[tauri::command]
+fn set_interface_preferences(
+    preferences: Value,
+    only_if_unset: Option<bool>,
+    app: tauri::AppHandle,
+) -> Result<ui_preferences::Preferences, String> {
+    let settings = app.state::<ui_preferences::Settings>();
+    let value = if only_if_unset == Some(true) {
+        settings.seed(preferences)?
+    } else {
+        settings.set(preferences)?
+    };
+    let _ = app.emit("interface-preferences", &value);
+    Ok(value)
+}
+fn dialog_text(app: &tauri::AppHandle, zh: &str, tw: &str, en: &str) -> String {
+    app.state::<ui_preferences::Settings>().text(zh, tw, en)
+}
+
+#[tauri::command]
 fn get_launcher_covers(app: tauri::AppHandle) -> Result<Value, String> {
     launcher_covers::covers(&app.path().app_data_dir().map_err(|_| "无法定位数据目录")?)
 }
@@ -76,7 +100,12 @@ async fn choose_launcher_cover(
                 let Some(file) = app
                     .dialog()
                     .file()
-                    .set_title("选择启动器背景图")
+                    .set_title(dialog_text(
+                        &app,
+                        "选择启动器背景图",
+                        "選擇啟動器背景圖",
+                        "Choose launcher background",
+                    ))
                     .add_filter("封面图片", &["png", "jpg", "jpeg", "webp"])
                     .blocking_pick_file()
                 else {
@@ -133,7 +162,12 @@ fn pick_launcher_json(app: &tauri::AppHandle) -> Result<Option<String>, String> 
     let Some(file) = app
         .dialog()
         .file()
-        .set_title("导入 layout.json 布局")
+        .set_title(dialog_text(
+            app,
+            "导入 layout.json 布局",
+            "匯入 layout.json 佈局",
+            "Import layout.json",
+        ))
         .add_filter("JSON", &["json"])
         .blocking_pick_file()
     else {
@@ -242,7 +276,12 @@ async fn choose_apks(app: tauri::AppHandle) -> Result<Vec<String>, String> {
 fn pick_apks(app: &tauri::AppHandle) -> Result<Vec<String>, String> {
     app.dialog()
         .file()
-        .set_title("选择安装到电视的 APK")
+        .set_title(dialog_text(
+            app,
+            "选择安装到电视的 APK",
+            "選擇安裝到電視的 APK",
+            "Choose APKs to install on the TV",
+        ))
         .add_filter("Android APK", &["apk"])
         .blocking_pick_files()
         .unwrap_or_default()
@@ -264,7 +303,12 @@ async fn choose_adb(app: tauri::AppHandle) -> Result<Option<String>, String> {
 fn pick_adb(app: &tauri::AppHandle) -> Result<Option<String>, String> {
     app.dialog()
         .file()
-        .set_title("选择 Android Platform Tools 中的 adb 或 adb.exe")
+        .set_title(dialog_text(
+            app,
+            "选择 Android Platform Tools 中的 adb 或 adb.exe",
+            "選擇 Android Platform Tools 中的 adb 或 adb.exe",
+            "Choose adb or adb.exe from Platform Tools",
+        ))
         .blocking_pick_file()
         .map(|file| {
             file.into_path()
@@ -277,6 +321,7 @@ fn pick_adb(app: &tauri::AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn open_resource(resource: &str, app: tauri::AppHandle) -> Result<(), String> {
     let url = match resource {
+        "catalog" => "https://github.com/ecojust/pureTV/tree/master/resource",
         "releases" => "https://github.com/ecojust/pureTV/releases",
         "platformTools" => "https://developer.android.com/tools/releases/platform-tools",
         "platformToolsLicense" => "https://developer.android.com/studio/terms",
@@ -298,6 +343,12 @@ fn mcp_call(
     name: &str,
     args: Value,
 ) -> Result<Value, String> {
+    if name == "get_interface_preferences" {
+        return Ok(json!(get_interface_preferences(app.clone())?));
+    }
+    if name == "set_interface_preferences" {
+        return Ok(json!(set_interface_preferences(args, None, app.clone())?));
+    }
     if name == "get_state" {
         return serde_json::to_value(bridge.snapshot.lock().map_err(|_| "状态不可用")?.clone())
             .map_err(|e| e.to_string());
@@ -444,6 +495,7 @@ fn main() {
             lock.try_lock()
                 .map_err(|_| "pureTV 管理器已运行，请使用已有窗口")?;
             app.manage(lock);
+            app.manage(ui_preferences::Settings::load(directory.clone()));
             let manager = TvManager::new(directory.clone(), cancel.clone());
             let snapshot = manager.snapshot();
             let snapshot = Arc::new(Mutex::new(snapshot));
@@ -466,6 +518,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             execute,
+            get_interface_preferences,
+            set_interface_preferences,
             get_launcher_covers,
             choose_launcher_cover,
             choose_launcher_apks,
