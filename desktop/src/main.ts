@@ -676,18 +676,21 @@ async function embedSceneImage(file:File):Promise<void> {
  if(busy)return;
  const expectedTarget=layoutModalTarget,section=layoutSection;
  if(!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size>16*1024*1024)throw Error(t('请选择不超过 16 MiB 的 PNG、JPEG 或 WebP 图片'));
- const image=await createImageBitmap(file);
+ const image:ImageBitmap|HTMLImageElement=typeof createImageBitmap==='function'?await createImageBitmap(file):await new Promise<HTMLImageElement>((resolve,reject)=>{
+  const reader=new FileReader();reader.onerror=()=>reject(Error(t('无法读取背景图片')));
+  reader.onload=()=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error(t('无法读取背景图片')));img.src=String(reader.result);};reader.readAsDataURL(file);
+ });
  try {
   const canvas=document.createElement('canvas');let result='';
   for(const width of [960,640,480,320]){
    const ratio=Math.min(1,width/image.width,540/image.height);canvas.width=Math.max(1,Math.round(image.width*ratio));canvas.height=Math.max(1,Math.round(image.height*ratio));
    const context=canvas.getContext('2d')!;context.drawImage(image,0,0,canvas.width,canvas.height);
-   for(const quality of [.75,.5,.3]){result=canvas.toDataURL('image/webp',quality);if(result.length<=33000)break;}if(result.length<=33000)break;
+   for(const quality of [.75,.5,.3]){result=canvas.toDataURL('image/webp',quality);if(!result.startsWith('data:image/webp;'))result=canvas.toDataURL('image/jpeg',quality);if(result.length<=33000)break;}if(result.length<=33000)break;
   }
   if(result.length>33000)throw Error(t('图片压缩后仍过大，请使用更简单的背景图'));
   if(expectedTarget!==layoutModalTarget || section!==layoutSection || !layoutDialog.open || busy)return;
   modifyLayout(draft=>{draft[section].scene!.background.image=result;});
- } finally {image.close();}
+ } finally {if('close' in image)image.close();}
 }
 let scenePointer:{pointer:number;element:HTMLElement;startX:number;startY:number;frame:import('./types').LayoutFrame;next:import('./types').LayoutFrame;node:string|null;index:number;section:'home'|'apps';target:string;moved:boolean}|null=null;
 layoutDialog.addEventListener('pointerdown',event=>{

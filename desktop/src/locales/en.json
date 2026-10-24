@@ -689,5 +689,6 @@
   "元素应为对象": "Element must be an object",
   "元素 id 无效": "Invalid element id",
   "元素 id 或字段无效": "Invalid element id or fields",
-  "旧版布局不支持 scene": "Legacy layouts do not support scenes"
+  "旧版布局不支持 scene": "Legacy layouts do not support scenes",
+  "无法读取背景图片": "Unable to read background image"
 }
