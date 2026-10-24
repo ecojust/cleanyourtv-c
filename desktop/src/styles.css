@@ -1319,7 +1319,7 @@ tr.selected {
 .mcp-config { padding: 16px; background: var(--surface, #f5f6f8); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; user-select: text; }
 
 /* List pages keep controls and surrounding content fixed; only list bodies scroll. */
-main.list-page { height: 100dvh; min-height: 0; overflow: hidden; }
+main.list-page { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
 .list-page > .page-header, .list-page > .busy-bar, .list-page > .banner, .list-page > .app-footer { flex-shrink: 0; }
 .list-page #page-content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .list-page #page-content > :not(.app-panel):not(.history-panel):not(.install-panel):not(.launcher-grid) { flex-shrink: 0; }

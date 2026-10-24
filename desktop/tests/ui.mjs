@@ -137,7 +137,7 @@ try {
       }
     }
     await nav(p,'apps');
-    await p.screenshot({path:'/tmp/puretv-list-layout.png',fullPage:true});
+    await shot(p,'scrolling-lists');
   },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
