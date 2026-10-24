@@ -1478,3 +1478,6 @@ input[type="checkbox"]:checked::after { border-color:var(--on-accent); }
 .local-network-addresses span { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
 
 .adb-ready:disabled { opacity:1; color:var(--green); background:var(--green-soft); border-color:transparent; cursor:default; }
+
+.sidebar > .brand-caption { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.app-version { white-space:nowrap; letter-spacing:0; font-size:11px; color:#bac9c2; font-variant-numeric:tabular-nums; }
