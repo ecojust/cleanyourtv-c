@@ -8,6 +8,7 @@ const unavailable = '浏览器预览不能连接电视，请运行 pureTV 桌面
 const sample = emptySnapshot();
 let demoDownloadCancelled = false, demoToolsInstalled = false;
 if (demo) {
+  sample.localNetwork={addresses:[{interfaceName:'演示 Wi-Fi',ip:'192.168.1.20',prefixLength:24}],error:null};
   sample.adbAvailable = true;
   sample.adbPath = '演示 / platform-tools / adb';
   sample.device = { serial: '192.168.1.50:5555', model: '客厅电视', androidVersion: '12', userId: 0, status: 'device' };

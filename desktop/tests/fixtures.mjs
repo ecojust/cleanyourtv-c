@@ -1,5 +1,6 @@
 export function snapshot() {
   return {
+    localNetwork:{addresses:[{interfaceName:'Wi-Fi',ip:'192.168.0.2',prefixLength:24},{interfaceName:'Ethernet',ip:'10.0.0.2',prefixLength:24}],error:null},
     systemInfo:{manufacturer:'Test Maker',brand:'Test',sdkVersion:'33',securityPatch:'2026-10-01',cpu:'test-cpu',cpuAbi:'arm64-v8a',memoryTotalBytes:4294967296,memoryAvailableBytes:1073741824,storageTotalBytes:34359738368,storageAvailableBytes:8589934592,displayResolution:'1920x1080',uptimeSeconds:3600,queriedAt:1},
     revision: 0, adbPath: 'C:\\platform-tools\\adb.exe', adbAvailable: true,
     device: { serial: '192.168.1.50:5555', model: '测试电视', androidVersion: '12', userId: 0, status: 'device' },
@@ -82,6 +83,7 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
         const r = args.request;
         if (r.action === 'getState') return structuredClone(state);
         window.__requests.push(structuredClone(r));
+        if(r.action==='refreshLocalNetwork'){state.localNetwork=options.localNetworkAfterRefresh || state.localNetwork;state.message='本机局域网地址已刷新';return structuredClone(state);}
         if(r.action==='connect') {state.lastConnection={host:r.host,port:r.port};if(options.connectError){state.device=null;state.message=options.connectError;throw new Error(options.connectError);}}
         if (options.failAction === r.action) throw new Error('电视拒绝了操作，请检查授权');
         if (r.action === 'scan' && options.slowScan) await new Promise(resolve => setTimeout(resolve,600));

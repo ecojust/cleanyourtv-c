@@ -61,6 +61,20 @@ try {
     assert.equal(await act(p,'download-adb').isDisabled(), true);
     await nav(p,'apps'); assert.equal(await p.locator('input[data-select-package]').count(),0);
   }, null);
+  await check('local computer IPs are labeled independently from TV, refresh before ADB, and stay on home',async p=>{
+    await p.locator('.local-network-addresses').waitFor();
+    assert.match(await p.locator('.local-network-panel').innerText(),/192.168.0.2\/24/);assert.match(await p.locator('.local-network-panel').innerText(),/Ethernet/);
+    assert.equal(await p.locator('[name="host"]').inputValue(),'');assert.equal(await act(p,'connect').isDisabled(),true);assert.equal(await act(p,'refresh-local-network').isEnabled(),true);
+    await act(p,'refresh-local-network').click();await settled(p);assert.match(await p.locator('.local-network-panel').innerText(),/192.168.8.2/);assert.equal(await p.locator('.local-network-panel').getByText('192.168.0.2/24').count(),0);
+    assert.deepEqual(await requests(p),[{action:'refreshLocalNetwork'}]);
+    await p.locator('[name="locale"]').selectOption('en');assert.match(await p.locator('.local-network-panel').innerText(),/LAN IP/);
+    await nav(p,'apps');assert.equal(await p.locator('.local-network-panel').count(),0);
+  },{...withoutAdb(),localNetwork:snapshot().localNetwork},{localNetworkAfterRefresh:{addresses:[{interfaceName:'Wi-Fi',ip:'192.168.8.2',prefixLength:24}],error:null}});
+  await check('missing local network addresses are explicit and never replaced with sample data',async p=>{
+    await p.waitForFunction(()=>document.querySelector('.local-network-panel').textContent.includes('未检测到'));
+    assert.equal(await p.locator('.local-network-addresses').count(),0);
+    await p.locator('[name="locale"]').selectOption('zh-TW');assert.match(await p.locator('.local-network-panel').innerText(),/未偵測到/);
+  },{...withoutAdb(),localNetwork:{addresses:[],error:null}});
   await check('language and skins switch at runtime without translating app data',async p=>{
     await p.locator('[name="locale"]').selectOption('en');assert.equal(await p.locator('h1').innerText(),'Connection');
     await nav(p,'apps');assert.equal(await p.locator('h1').innerText(),'Apps');assert.match(await p.locator('.apps-table').innerText(),/厂商推荐/);
@@ -266,7 +280,7 @@ try {
     assert.match(await p.locator('.notice.success').innerText(),/ADB 已就绪/);
     assert.match(await p.locator('[name="adbPath"]').inputValue(),/platform-tools-37\.0\.1/);
     assert.equal(await act(p,'connect').isEnabled(),true);
-    assert.match(await act(p,'download-adb').innerText(),/使用已下载 ADB/);
+    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
     await shot(p,'adb-ready');
   },withoutAdb(),{slowDownload:true});
   await check('ADB download failure stays unconfigured and can be retried', async p => {
@@ -293,18 +307,22 @@ try {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true},{action:'cancel'}]);
   },withoutAdb(),{slowDownload:true});
-  await check('downloaded tools are offered for offline reuse and connected TVs prevent switching', async p => {
-    assert.equal(await act(p,'download-adb').isDisabled(),true);
-    assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
-    await act(p,'disconnect').click(); await settled(p);
+  await check('ADB ready status prevents redundant setup and connected TVs prevent switching',async p=>{
+    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.equal(await act(p,'choose-adb').isDisabled(),true);assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
+    await act(p,'disconnect').click();await settled(p);
+    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);assert.equal(await act(p,'choose-adb').isEnabled(),true);assert.equal(await p.evaluate(()=>window.__toolsInstalls),0);
+  },snapshot(),{toolsInstalled:true});
+  await check('missing ADB offers download while a verified cache is reused offline', async p => {
+    assert.match(await act(p,'download-adb').innerText(),/下载 ADB 工具/);assert.equal(await act(p,'download-adb').isEnabled(),true);
     await act(p,'download-adb').click();
     assert.match(await p.locator('dialog.modal').innerText(),/优先验证并使用已下载工具/);
     assert.match(await p.locator('dialog.modal').innerText(),/校验失败时会重新下载并修复/);
     assert.match(await p.locator('dialog.modal').innerText(),/0 MiB/);
     await acceptTools(p); await settled(p);
-    assert.equal(await act(p,'connect').isEnabled(),true);
+    assert.equal(await act(p,'connect').isEnabled(),true);assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),1);
-  },snapshot(),{toolsInstalled:true});
+  },withoutAdb(),{toolsInstalled:true});
   await check('unsupported online setup keeps manual ADB selection available', async p => {
     await p.getByText('此系统请手动配置 ADB',{exact:true}).waitFor();
     assert.equal(await act(p,'download-adb').isDisabled(),true);

@@ -136,7 +136,10 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==28,names
+                assert len(names)==29,names
+                network=client.call('get_local_network')['localNetwork']
+                assert isinstance(network['addresses'],list)
+                for row in network['addresses']:assert row['interfaceName'] and not row['ip'].startswith('127.') and 0<=row['prefixLength']<=32
                 client.call('set_interface_preferences',{'locale':'en','theme':'ocean'})
                 assert client.call('get_interface_preferences')['theme']=='ocean'
                 assert client.call('get_state')['adbAvailable']

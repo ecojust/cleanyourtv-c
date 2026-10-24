@@ -1163,3 +1163,22 @@ fn connection_failures_explain_network_port_and_timeout_without_hiding_details()
         "操作已取消"
     );
 }
+
+#[test]
+fn local_network_refresh_needs_no_adb_and_does_not_change_tv_state() {
+    let (mut manager, tv) = fixture();
+    manager.saved.adb_path = Some("/missing/adb".into());
+    manager.state.adb_available = false;
+    let before = manager.snapshot();
+    let updated = manager.execute(Request::RefreshLocalNetwork).unwrap();
+    assert!(tv.lock().unwrap().calls.is_empty());
+    assert!(updated.device.is_none());
+    assert_eq!(updated.history.len(), before.history.len());
+    assert!(updated.local_network.error.is_none());
+    assert!(updated.revision > before.revision);
+    assert!(updated
+        .local_network
+        .addresses
+        .iter()
+        .all(|address| !address.ip.starts_with("127.") && address.prefix_length <= 32));
+}
