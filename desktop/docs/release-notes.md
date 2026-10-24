@@ -17,7 +17,7 @@ Windows x64 提供安装版与便携版；macOS 提供 Apple Silicon ARM64 DMG�
 
 ## 配套启动器的新包名
 
-自定义布局需安装本版配套 [pureTV Launcher 0.2.0](https://github.com/ecojust/pureTV/releases/tag/v0.2.0)，包名为 **`com.ecojust.puretv`**。旧包 `com.ecojust.cleanyourtv` 与新包是两个应用：先安装并选择新桌面，确认正常后再处理旧应用。签名证书保持不变；不同包名不能直接覆盖升级和继承私有设置。
+自定义布局需安装本版配套 [pureTV Launcher 0.2.0](https://github.com/ecojust/pureTV/releases/tag/v0.2.0)，包名为 **`com.ecojust.puretv`**。旧包 `com.ecojust.cleanyourtv` 与新包是两个应用：先安装并选择新桌面，确认正常后再处理旧应用。新包采用独立的 pureTV 发布证书；不同包名不能直接覆盖升级和继承私有设置。
 
 仅对已适配且成功握手的当前启动器开放布局写入；其他启动器仍可切换、截图，并使用其自身的自定义设置。
 
