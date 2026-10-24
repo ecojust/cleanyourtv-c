@@ -21,6 +21,6 @@ venv/
 !resource/**/*.apk
 
 # Generated release verification and staging output
-launcher/release-output/
-launcher/release-metadata.json
+resource/launcher/release-output/
+resource/launcher/release-metadata.json
 release-staging/

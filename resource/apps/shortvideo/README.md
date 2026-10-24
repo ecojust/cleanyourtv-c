@@ -49,7 +49,7 @@ cd launcher
 ./gradlew :shortvideo:verifyReleaseSize :shortvideo:lintDebug :shortvideo:testDebugUnitTest
 ```
 
-Debug 输出 `apps/shortvideo/build/outputs/apk/debug/shortvideo-debug.apk`。未配置签名时 Release 输出 `shortvideo-release-unsigned.apk`；设置根 README 的签名环境变量后输出 `apps/shortvideo/build/outputs/apk/release/shortvideo-release.apk`。测试依赖不打入 APK，设计图和文档也不打入 APK。
+Debug 输出 `resource/apps/shortvideo/build/outputs/apk/debug/shortvideo-debug.apk`。未配置签名时 Release 输出 `shortvideo-release-unsigned.apk`；设置根 README 的签名环境变量后输出 `resource/apps/shortvideo/build/outputs/apk/release/shortvideo-release.apk`。测试依赖不打入 APK，设计图和文档也不打入 APK。
 
 ```bash
 adb install -r apps/shortvideo/build/outputs/apk/release/shortvideo-release.apk

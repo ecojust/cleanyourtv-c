@@ -32,14 +32,14 @@ M3U 最大 512 KiB、300 个频道、每台最多 4 条线路；元数据快照�
 
 ## 构建
 
-复用根项目工具链，从 `launcher/` 运行：
+复用根项目工具链，从 `resource/launcher/` 运行：
 
 ```bash
 ./gradlew :webtv:assembleDebug :webtv:testDebugUnitTest :webtv:lintDebug
 ./gradlew :webtv:verifyReleaseSize
 ```
 
-APK 位于 `apps/webtv/build/outputs/apk/`。发布签名配置与桌面相同。
+APK 位于 `resource/apps/webtv/build/outputs/apk/`。发布签名配置与桌面相同。
 
 ## 设计
 

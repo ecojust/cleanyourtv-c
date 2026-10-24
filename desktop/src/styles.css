@@ -1463,3 +1463,8 @@ button.primary { color:var(--on-accent); }
 .nav-item.active, .nav-item.active:hover { background:var(--green); color:var(--on-accent); }
 
 input[type="checkbox"]:checked::after { border-color:var(--on-accent); }
+
+/* Anchor identity below appearance controls. */
+.sidebar > .brand { margin:20px 7px 0; font-size:28px; }
+.sidebar > .brand img { width:36px; height:36px; }
+.sidebar > .brand-caption { margin:7px 7px 0; font-size:12px; }

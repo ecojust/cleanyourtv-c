@@ -2,7 +2,7 @@
 """Prepare a signed public launcher resource from verified Android CI staging outputs."""
 import argparse,hashlib,json,os,re,shutil,subprocess,tempfile
 from pathlib import Path
-from resource_catalog import apk_info,digest
+from resource_catalog import apk_info,digest,launcher_source_tree,LAUNCHER_INPUTS
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--stage-branch',required=True)
@@ -17,7 +17,7 @@ git('fetch','origin',args.stage_branch)
 metadata=json.loads(git('show','FETCH_HEAD:release-staging/release-metadata.json'))['launcher']
 assert metadata['sourceSha']==args.source_sha and metadata['packageName']=='com.ecojust.puretv'
 assert re.fullmatch(r'\d+\.\d+\.\d+',metadata['versionName'])
-source_tree=git('rev-parse',args.source_sha+':launcher').decode().strip()
+source_tree=launcher_source_tree(root,args.source_sha)
 assert metadata['sourceTreeSha']==source_tree
 expected_cert=(root/'tools/puretv-release-certificate.sha256').read_text().strip()
 with tempfile.TemporaryDirectory(prefix='puretv-resource-') as temporary:
@@ -42,15 +42,15 @@ with tempfile.TemporaryDirectory(prefix='puretv-resource-') as temporary:
         assert data.startswith(b'\x89PNG\r\n\x1a\n') and len(data)<4*1024*1024
         previews[name]=data
     source=temporary/'source.tar.gz'
-    with source.open('wb') as output:subprocess.run(['git','-C',str(root),'archive','--format=tar.gz',args.source_sha,'launcher','apps','LICENSE','NOTICE.md'],stdout=output,check=True)
-    folder=root/'resource/puretv-launcher';folder.mkdir(parents=True,exist_ok=True)
+    with source.open('wb') as output:subprocess.run(['git','-C',str(root),'archive','--format=tar.gz',args.source_sha,*['resource/launcher/'+name for name in LAUNCHER_INPUTS],'LICENSE','NOTICE.md'],stdout=output,check=True)
+    folder=root/'resource/launcher';folder.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(signed,folder/signed.name)
     shutil.copyfile(source,folder/'source.tar.gz')
     (folder/'thumb.png').write_bytes(previews['home-render.png']);(folder/'apps.png').write_bytes(previews['apps-render.png'])
     for name in ['LICENSE','NOTICE.md']:(folder/name).write_bytes(git('show',args.source_sha+':'+name))
     for previous in folder.glob('pureTV-*.apk'):
         if previous.name!=signed.name:previous.unlink()
-    resource={'kind':'launcher','name':'pureTV Launcher','author':'ecojust / 桔子桑','version':info['versionName'],'packageName':info['packageName'],'versionCode':info['versionCode'],'apk':signed.name,'apkBytes':info['bytes'],'sha256':info['sha256'],'certificateSha256':info['certificateSha256'],'supportsLayoutJson':True,'layoutJsonVersion':2,'cover':'thumb.png','coverSource':'Actual launcher UI rendered by Robolectric; not a physical TV capture','license':'MIT; see NOTICE for upstream credits','description':'支持 layout.json 画布编辑的 Android TV 启动器','upstream':'https://github.com/ecojust/pureTV','upstreamRelease':'https://github.com/ecojust/pureTV/releases/tag/v'+info['versionName'],'sourceArchive':'source.tar.gz','sourceArchiveSha256':digest(folder/'source.tar.gz'),'sourceCommit':args.source_sha,'sourceTreeSha':source_tree,'buildRun':'https://github.com/ecojust/pureTV/actions/runs/'+args.stage_branch.rsplit('-',1)[1]}
+    resource={'kind':'launcher','name':'pureTV Launcher','author':'ecojust / 桔子桑','version':info['versionName'],'packageName':info['packageName'],'versionCode':info['versionCode'],'apk':signed.name,'apkBytes':info['bytes'],'sha256':info['sha256'],'certificateSha256':info['certificateSha256'],'supportsLayoutJson':True,'layoutJsonVersion':2,'cover':'thumb.png','coverSource':'Actual launcher UI rendered by Robolectric; not a physical TV capture','license':'MIT; see NOTICE for upstream credits','description':'支持 layout.json 画布编辑的 Android TV 启动器','upstream':'https://github.com/ecojust/pureTV','upstreamRelease':'https://github.com/ecojust/pureTV/tree/master/resource/launcher','sourceArchive':'source.tar.gz','sourceArchiveSha256':digest(folder/'source.tar.gz'),'sourceCommit':args.source_sha,'sourceTreeSha':source_tree,'buildRun':'https://github.com/ecojust/pureTV/actions/runs/'+args.stage_branch.rsplit('-',1)[1]}
     (folder/'resource.json').write_text(json.dumps(resource,ensure_ascii=False,indent=2)+'\n')
     (folder/'SHA256SUMS.txt').write_text(''.join(f'{digest(folder/name)}  {name}\n' for name in [signed.name,'source.tar.gz','thumb.png','apps.png']))
     (folder/'README.md').write_text(f'''# pureTV Launcher {info['versionName']}

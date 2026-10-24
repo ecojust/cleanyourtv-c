@@ -85,7 +85,7 @@ impl Runner for FakeRunner {
                             if !tv.layout_provider {return Ok(Output{code:1,text:"No content provider".into()})}
                             use base64::Engine;
                             let method=&a[a.iter().position(|arg|arg=="--method").unwrap()+1];
-                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/layout.json")).unwrap();
+                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../resource/launcher/app/src/main/assets/layout.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
                             let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
@@ -941,7 +941,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         false
     );
     let layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../launcher/app/src/main/assets/layout.json"
+        "../../../../resource/launcher/app/src/main/assets/layout.json"
     ))
     .unwrap();
     assert!(manager
@@ -1040,7 +1040,7 @@ fn layout_writes_reject_system_disabled_or_missing_user_apps() {
         tv.layout_provider = true;
     }
     let mut layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../launcher/app/src/main/assets/layout.json"
+        "../../../../resource/launcher/app/src/main/assets/layout.json"
     ))
     .unwrap();
     for package in ["com.vendor.ads", "com.user.app", "com.example.missing"] {

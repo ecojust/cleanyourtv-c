@@ -36,7 +36,7 @@ cd launcher
 ./gradlew :music:verifyReleaseSize :music:lintDebug :music:testDebugUnitTest
 ```
 
-Debug：`apps/music/build/outputs/apk/debug/music-debug.apk`。Release：`apps/music/build/outputs/apk/release/music-release-unsigned.apk`；设置根 README 中的签名环境变量后生成 `music-release.apk`。测试依赖只用于开发，不打进 APK。
+Debug：`resource/apps/music/build/outputs/apk/debug/music-debug.apk`。Release：`resource/apps/music/build/outputs/apk/release/music-release-unsigned.apk`；设置根 README 中的签名环境变量后生成 `music-release.apk`。测试依赖只用于开发，不打进 APK。
 
 ```bash
 adb install -r apps/music/build/outputs/apk/release/music-release.apk

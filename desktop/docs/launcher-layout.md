@@ -36,6 +36,6 @@
 
 `version` 固定为 2，home/apps 必须各含 `columns`（1–6）与 `items`。首页最多 24 项，应用页最多 100 项，均可为空。同页不允许重复包名。`label` 最多 100 字；`icon` 支持 app/music/video/files/apps/picture/settings/input；`color` 是 #RRGGBB。
 
-整个文件最多 48 KiB，不支持命令、任意 Intent 或远程图标 URL。无效写入不会覆盖有效配置。电视每次页面恢复重新加载配置。私有 `files/layout.json` 优先，其次 `Android/data/com.ecojust.puretv/files/layout.json`；默认模板在 `launcher/app/src/main/assets/layout.json`，电脑端示例在 `desktop/public/layout.json`。**不读取、不迁移旧版 apps.json**。
+整个文件最多 48 KiB，不支持命令、任意 Intent 或远程图标 URL。无效写入不会覆盖有效配置。电视每次页面恢复重新加载配置。私有 `files/layout.json` 优先，其次 `Android/data/com.ecojust.puretv/files/layout.json`；默认模板在 `resource/launcher/app/src/main/assets/layout.json`，电脑端示例在 `desktop/public/layout.json`。**不读取、不迁移旧版 apps.json**。
 
 接口由 `android.permission.DUMP` 保护，普通应用不能改写。MCP 的 get_launcher_layout、apply_launcher_layout、reset_launcher_layout 和 choose_launcher_json 使用同一格式、设备与当前 HOME 检查；背景图通过 get_launcher_covers、set_launcher_cover 管理。

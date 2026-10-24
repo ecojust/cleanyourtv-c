@@ -1,6 +1,6 @@
 # TV 应用
 
-此目录包含三个可独立安装的 Android TV 播放器 App，负责音乐、短视频和电视直播。电视桌面启动器位于 [`launcher/`](../launcher/)，负责首页与应用入口；完整对比见[根 README 的软件总览](../README.md#软件总览)。
+此目录包含三个可独立安装的 Android TV 播放器 App，负责音乐、短视频和电视直播。电视桌面启动器位于 [`resource/launcher/`](../launcher/)，负责首页与应用入口；完整对比见[根 README 的软件总览](../../README.md#启动器与电视应用资源)。
 
 | 目录／软件 | 类型与职责 | 主要功能 | 软件版本 | 已签名 APK 大小 |
 | --- | --- | --- | --- | --- |
@@ -12,4 +12,4 @@
 
 三个 App 按需分别安装，均可在原厂桌面打开，也可从本项目启动器的「全部应用」页打开。启动器安装包不包含这些 App。它们共用 Gradle 构建工具，没有生产环境第三方依赖。
 
-从 `launcher/` 运行 `./gradlew :music:assembleDebug :shortvideo:assembleDebug :webtv:assembleDebug` 可构建三个 App。新版桌面的「全部应用」页包含三个播放器入口和五个占位项。
+从 `resource/launcher/` 运行 `./gradlew :music:assembleDebug :shortvideo:assembleDebug :webtv:assembleDebug` 可构建三个 App。新版桌面的「全部应用」页包含三个播放器入口和五个占位项。

@@ -16,7 +16,7 @@
   "license": "MIT; see NOTICE for upstream credits",
   "description": "支持 layout.json 画布编辑的 Android TV 启动器",
   "upstream": "https://github.com/ecojust/pureTV",
-  "upstreamRelease": "https://github.com/ecojust/pureTV/releases/tag/v0.3.0",
+  "upstreamRelease": "https://github.com/ecojust/pureTV/tree/master/resource/launcher",
   "sourceArchive": "source.tar.gz",
   "sourceArchiveSha256": "510218d6cd3c738c032ada012109b03020c50aa6d857ca71f5e6488963fc814b",
   "sourceCommit": "b461111893e73a6c31b814b1ee2ce6f3630dad7d",
