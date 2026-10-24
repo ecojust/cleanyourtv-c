@@ -18,7 +18,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_apps);
-        LauncherLayout layout=LauncherLayout.override(this);
+        LauncherLayout layout=LauncherLayout.effective(this);
         layoutSignature=layout==null?"":layout.json.toString();
         columns = layout==null?(getResources().getConfiguration().screenWidthDp >= 800 ? 4 : 3):layout.columns("apps");
         grid = findViewById(R.id.appsGrid);
@@ -44,7 +44,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
 
     @Override protected void onResume() {
         super.onResume();
-        LauncherLayout layout=LauncherLayout.override(this);String signature=layout==null?"":layout.json.toString();
+        LauncherLayout layout=LauncherLayout.effective(this);String signature=layout==null?"":layout.json.toString();
         if(!signature.equals(layoutSignature)) {
             layoutSignature=signature;columns=layout==null?(getResources().getConfiguration().screenWidthDp>=800?4:3):layout.columns("apps");
             adapter.clear();adapter=new AppAdapter(this,this,columns,layout==null?AppAdapter.applicationEntries():layout.entries(this,"apps"));

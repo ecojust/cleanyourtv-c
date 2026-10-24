@@ -242,7 +242,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if(activity!=null) activity.runOnUiThread(activity::reloadCustomLayout);
     }
     private void reloadCustomLayout() {
-        LauncherLayout layout=LauncherLayout.override(this);
+        LauncherLayout layout=LauncherLayout.effective(this);
         String signature=layout==null?"":layout.json.toString();
         if (!signature.equals(layoutSignature)) {
             layoutSignature=signature;layoutColumns=layout==null?COLUMNS:layout.columns("home");

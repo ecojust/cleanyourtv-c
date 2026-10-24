@@ -92,4 +92,17 @@ public class LauncherLayoutTest {
         }
     }
 
+    @Test public void defaultTelevisionPagesUseTheLayoutJsonTemplate() throws Exception {
+        assertNull(LauncherLayout.override(context()));LauncherLayout template=LauncherLayout.defaults(context());
+        try(ActivityController<MainActivity> home=Robolectric.buildActivity(MainActivity.class).setup();
+            ActivityController<AppsActivity> apps=Robolectric.buildActivity(AppsActivity.class).setup()) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            RecyclerView homeGrid=home.get().findViewById(R.id.grid), appsGrid=apps.get().findViewById(R.id.appsGrid);
+            assertEquals(template.columns("home"),((GridLayoutManager)homeGrid.getLayoutManager()).getSpanCount());
+            assertEquals(template.columns("apps"),((GridLayoutManager)appsGrid.getLayoutManager()).getSpanCount());
+            assertEquals(template.json.getJSONObject("home").getJSONArray("items").length(),homeGrid.getAdapter().getItemCount());
+            assertTrue(((AppAdapter)homeGrid.getAdapter()).keyAt(0).startsWith("layout-"));
+        }
+    }
+
 }

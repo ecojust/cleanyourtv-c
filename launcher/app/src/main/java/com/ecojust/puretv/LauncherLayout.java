@@ -81,6 +81,11 @@ final class LauncherLayout {
         } catch (Exception ignored) { /* An invalid override never breaks Home. */ }
         return null;
     }
+    static LauncherLayout effective(Context ctx) {
+        LauncherLayout layout=override(ctx);
+        if(layout!=null)return layout;
+        try{return defaults(ctx);}catch(Exception ignored){return null;}
+    }
     static LauncherLayout defaults(Context ctx) throws Exception {
         return new LauncherLayout(new JSONObject(new String(read(ctx.getAssets().open("layout.json")), StandardCharsets.UTF_8)));
     }
