@@ -1052,7 +1052,13 @@ fn install_results_distinguish_original_paths_even_when_basenames_match() {
         first.to_string_lossy().into_owned(),
         second.to_string_lossy().into_owned(),
     ];
-    tv.lock().unwrap().failure = Some(paths[1].clone());
+    tv.lock().unwrap().failure = Some(
+        second
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned(),
+    );
     let state = manager
         .execute(Request::Install {
             paths: paths.clone(),

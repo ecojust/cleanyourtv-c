@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Record exact Android package IDs, versions, signing certificates and SHA256."""
-import hashlib,json,os,re,subprocess,urllib.request
+import hashlib,json,os,re,subprocess,urllib.request,sys,traceback
 from pathlib import Path
+def report_error(kind,value,tb):
+ message=''.join(traceback.format_exception(kind,value,tb))
+ print('::error::'+message.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
+ sys.__excepthook__(kind,value,tb)
+sys.excepthook=report_error
+print('Release signing configured:',bool(os.environ.get('ANDROID_KEYSTORE_PATH')),flush=True)
 root=Path(__file__).resolve().parents[1]
 tools=Path(os.environ['ANDROID_HOME'])/'build-tools/34.0.0'
 def inspect(path):
