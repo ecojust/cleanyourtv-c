@@ -14,6 +14,7 @@ export interface SystemInfo {
   storageTotalBytes: number | null; storageAvailableBytes: number | null; displayResolution: string | null; uptimeSeconds: number | null; queriedAt: number;
 }
 export interface Snapshot {
+  localNetwork?: {addresses:{interfaceName:string;ip:string;prefixLength:number}[];error:string|null};
   lastConnection?: {host:string;port:number} | null;
   installResults?: {path: string; success: boolean; message: string}[];
   systemInfo?: SystemInfo | null;
@@ -23,7 +24,7 @@ export interface Snapshot {
   originalHome: string | null; history: HistoryEntry[]; message: string;
 }
 export type Request =
-  | { action: 'getState' | 'refreshSystemInfo' | 'disconnect' | 'scan' | 'restoreHome' | 'clearHistory' }
+  | { action: 'refreshLocalNetwork' | 'getState' | 'refreshSystemInfo' | 'disconnect' | 'scan' | 'restoreHome' | 'clearHistory' }
   | { action: 'setAdbPath'; path: string }
   | { action: 'connect'; host: string; port: number }
   | { action: 'pair'; host: string; port: number; code: string }

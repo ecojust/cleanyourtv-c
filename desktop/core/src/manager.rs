@@ -69,6 +69,7 @@ impl Manager {
     pub fn new(data_dir: PathBuf, cancel: Arc<AtomicBool>) -> Self {
         let saved = read_saved(&data_dir);
         let state = Snapshot {
+            local_network: crate::network::read(),
             history: saved.history.clone(),
             last_connection: saved.last_connection.clone(),
             message: "选择 ADB 后连接电视；首次连接请在电视上授权".into(),
@@ -94,6 +95,21 @@ impl Manager {
         // Resetting here could swallow an immediate cancel queued before lock acquisition.
         self.defer_cancel = false;
         let result = match request {
+            Request::RefreshLocalNetwork => {
+                self.state.local_network = crate::network::read();
+                match self.state.local_network.error.clone() {
+                    Some(error) => Err(error),
+                    None => {
+                        self.state.message = if self.state.local_network.addresses.is_empty() {
+                            "未检测到可用的局域网 IPv4 地址"
+                        } else {
+                            "本机局域网地址已刷新"
+                        }
+                        .into();
+                        Ok(())
+                    }
+                }
+            }
             Request::RefreshSystemInfo => {
                 let device = self.ensure_device(true)?;
                 self.refresh_system_info(&device);
@@ -217,6 +233,7 @@ impl Manager {
     }
     fn connect(&mut self, host: &str, port: u16) -> Result<(), String> {
         let serial = parse::endpoint(host, port)?;
+        self.state.local_network = crate::network::read();
         let address = ConnectionAddress {
             host: host.trim().to_string(),
             port,

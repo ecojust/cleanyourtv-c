@@ -25,10 +25,11 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 
 `--mcp` 是当前窗口的代理，不创建第二套电视连接或管理状态。管理器内部仅监听 `127.0.0.1` 的随机端口，每次启动生成随机凭据；代理自动读取受保护的本机会话文件，不需要把令牌放到 Agent 配置。拒绝浏览器 Origin 请求，不允许跨电脑访问。重启窗口后请重新连接 MCP；关闭窗口后调用会明确报错。
 
-## 全部工具（28 个）
+## 全部工具（29 个）
 
 | 工具 | 参数 | 行为 |
 | --- | --- | --- |
+| `get_local_network` | 无 | 刷新当前电脑的局域网 IPv4、网卡与子网前缀；无需 ADB 或电视连接，返回共享状态 |
 | `get_interface_preferences` | 无 | 读取当前窗口的语言和主题偏好 |
 | `set_interface_preferences` | 可选 `locale`、`theme` | 保存偏好并立即同步窗口；语言 zh-CN / zh-TW / en，主题 emerald / ocean / graphite |
 | `get_state` | 无 | 当前设备、ADB 状态、应用、启动器、原桌面、最近 200 项记录和消息；忙碌时返回最近快照 |

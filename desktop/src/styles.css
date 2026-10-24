@@ -1468,3 +1468,13 @@ input[type="checkbox"]:checked::after { border-color:var(--on-accent); }
 .sidebar > .brand { margin:20px 7px 0; font-size:28px; }
 .sidebar > .brand img { width:36px; height:36px; }
 .sidebar > .brand-caption { margin:7px 7px 0; font-size:12px; }
+
+.local-network-panel { padding:18px 22px; margin-bottom:22px; }
+.local-network-panel .section-title { padding:0; margin-bottom:12px; }
+.local-network-panel h2 { font-size:15px; }
+.local-network-addresses { max-height:120px; overflow:auto; list-style:none; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:10px; }
+.local-network-addresses li { display:flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface-soft); }
+.local-network-addresses code { font-size:14px; color:var(--text); }
+.local-network-addresses span { font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+
+.adb-ready:disabled { opacity:1; color:var(--green); background:var(--green-soft); border-color:transparent; cursor:default; }
