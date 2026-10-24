@@ -259,6 +259,7 @@ function layoutEditor(): string {
 }
 function sceneEditor(markup:string,draft:LauncherLayout):string {
  const page=draft[layoutSection],scene=page.scene!;
+ if(!sceneNode(draft,layoutSection,layoutNode,layoutSelected)){layoutNode="background";layoutSelected=-1;}
  const template=document.createElement('template');template.innerHTML=markup;
  const canvas=template.content.querySelector<HTMLElement>('.tv-canvas')!;
  const tiles=Array.from(canvas.querySelectorAll<HTMLElement>('.tv-tile'));
@@ -297,8 +298,8 @@ function modifyLayout(change: (draft: LauncherLayout) => void): void {
   if (busy || !layoutAvailable()) return;
   const draft = draftLayout(); if (!draft) throw new Error(t('请先解析有效的 layout.json'));
   const previous=layoutJson; change(draft); layoutJson = JSON.stringify(draft, null, 2);
-  if(!draftLayout()){layoutJson=previous;showNotice(t('布局未修改：首页最多 24 张卡片，应用列表最多 100 项，并使用有效的名称、图标与颜色。'),'error');return;}
-  render();
+  if(!draftLayout()){layoutJson=previous;showNotice(t('布局未修改：请检查元素边界、应用数量、名称、图标与颜色。'),'error');return;}
+  notice='';noticeKind='info';render();
 }
 function launcherCardCover(image?:string|null):string {
   return image && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image)?`<img class="launcher-card-background" src="${esc(image)}" alt="">`:'';

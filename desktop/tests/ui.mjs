@@ -490,6 +490,8 @@ try {
     await clock.click();
     await p.locator('[data-scene-frame="x"]').fill('120');await p.locator('[data-scene-frame="x"]').dispatchEvent('change');
     let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='clock').frame.x,120);
+    await p.locator('[data-scene-frame="x"]').fill('950');await p.locator('[data-scene-frame="x"]').dispatchEvent('change');
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='clock').frame.x,120);assert.match(await p.locator('.layout-modal .banner.error').innerText(),/元素边界/);
     await p.locator('[data-scene-node="settings"]').click();await p.locator('[data-scene-visible]').uncheck();
     draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='settings').visible,false);
     assert.equal(await p.locator('[data-scene-node="settings"].scene-hidden').count(),1);
