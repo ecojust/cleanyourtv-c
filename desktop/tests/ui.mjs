@@ -309,7 +309,7 @@ try {
   },withoutAdb(),{slowDownload:true});
   await check('ADB ready status prevents redundant setup and connected TVs prevent switching',async p=>{
     assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
-    assert.equal(await act(p,'choose-adb').isDisabled(),true);assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
+    assert.equal(await act(p,'choose-adb').isDisabled(),true);assert.equal(await act(p,'redownload-adb').isDisabled(),true);assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
     await act(p,'disconnect').click();await settled(p);
     assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);assert.equal(await act(p,'choose-adb').isEnabled(),true);assert.equal(await p.evaluate(()=>window.__toolsInstalls),0);
   },snapshot(),{toolsInstalled:true});
@@ -323,6 +323,24 @@ try {
     assert.equal(await act(p,'connect').isEnabled(),true);assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),1);
   },withoutAdb(),{toolsInstalled:true});
+  const readyDisconnected={...snapshot(),device:null,packages:[],launchers:[],defaultHome:null};
+  await check('ready ADB can be forcibly re-downloaded with consent and fresh download progress',async p=>{
+    assert.equal(await act(p,'download-adb').isDisabled(),true);assert.equal(await act(p,'redownload-adb').isEnabled(),true);
+    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();
+    assert.match(await p.locator('dialog.modal h2').innerText(),/重新下载/);assert.match(await p.locator('dialog.modal').innerText(),/15\.4 MiB/);assert.doesNotMatch(await p.locator('dialog.modal').innerText(),/0 MiB/);assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
+    await acceptTools(p);await p.locator('.busy-bar').waitFor();assert.match(await p.locator('.busy-bar').innerText(),/正在下载/);await settled(p);
+    assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true,forceDownload:true}]);assert.notEqual(await p.locator('[name="adbPath"]').inputValue(),previous);assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);
+    await shot(p,'adb-redownload-ready');
+  },readyDisconnected,{toolsInstalled:true,slowDownload:true});
+  await check('failed forced download retains current ADB and allows a retry',async p=>{
+    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();await acceptTools(p);await settled(p);
+    assert.match(await p.locator('.notice.error').innerText(),/下载失败/);assert.equal(await p.locator('[name="adbPath"]').inputValue(),previous);assert.equal(await act(p,'connect').isEnabled(),true);
+    await act(p,'redownload-adb').click();await acceptTools(p);await settled(p);assert.equal(await p.evaluate(()=>window.__toolsInstalls),2);assert.notEqual(await p.locator('[name="adbPath"]').inputValue(),previous);
+  },readyDisconnected,{toolsInstalled:true,failDownloadOnce:true});
+  await check('cancelled forced download keeps ready ADB and the original path',async p=>{
+    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();await acceptTools(p);await p.locator('.busy-bar').waitFor();await act(p,'cancel').click();await settled(p);
+    assert.equal(await p.locator('[name="adbPath"]').inputValue(),previous);assert.equal(await act(p,'connect').isEnabled(),true);assert.match(await p.locator('.notice.info').innerText(),/取消/);
+  },readyDisconnected,{toolsInstalled:true,slowDownload:true});
   await check('unsupported online setup keeps manual ADB selection available', async p => {
     await p.getByText('此系统请手动配置 ADB',{exact:true}).waitFor();
     assert.equal(await act(p,'download-adb').isDisabled(),true);

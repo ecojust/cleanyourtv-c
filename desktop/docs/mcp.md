@@ -47,7 +47,7 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `clear_history` | 无 | 清空保存的操作记录 |
 | `cancel` | 无 | 取消扫描／下载，或跳过后续批量项；正在修改的一项会完成并复查 |
 | `platform_tools_info` | 无 | 查询固定版本、大小、缓存及系统支持情况，不下载 |
-| `install_platform_tools` | `acceptedLicense: true` | 校验离线缓存或从 Google／腾讯镜像下载安装并配置 ADB；需先断开电视，且用户已同意 SDK 许可 |
+| `install_platform_tools` | `acceptedLicense: true`，可选 `forceDownload: true` | 下载、校验并配置 ADB；默认复用已校验缓存，强制模式重新下载；失败或取消保留当前配置，需先断开电视 |
 | `choose_apks` | 无 | 在管理器打开原生多选 APK 对话框，只返回路径，不安装 |
 | `choose_adb` | 无 | 在管理器打开原生可执行文件对话框，只返回路径，不配置 |
 | `open_resource` | `resource` | 打开 `catalog`、`releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |

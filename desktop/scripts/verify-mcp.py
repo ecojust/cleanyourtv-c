@@ -172,6 +172,7 @@ def main():
                 assert client.call('get_state')['defaultHome']=='com.stock.home/com.stock.home.Main'
                 assert client.call('platform_tools_info')['version']=='37.0.1'
                 client.call('install_platform_tools',{'acceptedLicense':True},failure=True) # TV is connected: never downloads.
+                client.call('install_platform_tools',{'acceptedLicense':True,'forceDownload':True},failure=True) # Same connected-TV guard for forced replacement.
                 invalid=client.rpc('tools/call',{'name':'install_platform_tools','arguments':{'acceptedLicense':False}})
                 assert invalid['error']['code']==-32602
                 (root/'slow').touch()

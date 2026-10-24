@@ -622,6 +622,7 @@ fn write_pointer(path: &Path, contents: &[u8]) -> Result<(), String> {
 pub fn install<T>(
     data_dir: &Path,
     cancel: &AtomicBool,
+    force_download: bool,
     report: impl FnMut(Progress) -> Result<(), String>,
     activate: impl FnOnce(&Path) -> Result<T, String>,
 ) -> Result<T, String> {
@@ -633,14 +634,39 @@ pub fn install<T>(
         .archives
         .get(std::env::consts::OS)
         .ok_or("此系统没有官方工具包")?;
-    install_with(data_dir, &spec, archive, cancel, report, activate, download)
+    install_with_mode(
+        data_dir,
+        &spec,
+        archive,
+        cancel,
+        force_download,
+        report,
+        activate,
+        download,
+    )
 }
 
+#[cfg(test)]
 fn install_with<T>(
     data_dir: &Path,
     spec: &Manifest,
     archive: &Archive,
     cancel: &AtomicBool,
+    report: impl FnMut(Progress) -> Result<(), String>,
+    activate: impl FnOnce(&Path) -> Result<T, String>,
+    fetch: impl FnOnce(&Path, &Archive, &AtomicBool, Report<'_>) -> Result<(), String>,
+) -> Result<T, String> {
+    install_with_mode(
+        data_dir, spec, archive, cancel, false, report, activate, fetch,
+    )
+}
+
+fn install_with_mode<T>(
+    data_dir: &Path,
+    spec: &Manifest,
+    archive: &Archive,
+    cancel: &AtomicBool,
+    force_download: bool,
     mut report: impl FnMut(Progress) -> Result<(), String>,
     activate: impl FnOnce(&Path) -> Result<T, String>,
     fetch: impl FnOnce(&Path, &Archive, &AtomicBool, Report<'_>) -> Result<(), String>,
@@ -658,10 +684,12 @@ fn install_with<T>(
         .map_err(|_| "另一个管理器正在准备 ADB，请稍后重试".to_string())?;
     clean_abandoned_downloads(&tools)?;
     progress(&mut report, "verifying", 0, archive.bytes)?;
-    if let Some(path) = cached(&tools, spec, archive, true, cancel)? {
-        progress(&mut report, "checking", archive.bytes, archive.bytes)?;
-        cancelled(cancel)?;
-        return activate(&path);
+    if !force_download {
+        if let Some(path) = cached(&tools, spec, archive, true, cancel)? {
+            progress(&mut report, "checking", archive.bytes, archive.bytes)?;
+            cancelled(cancel)?;
+            return activate(&path);
+        }
     }
     let id = nonce();
     let stage_path = tools.join(format!(".download-{id}"));
@@ -935,6 +963,104 @@ mod tests {
         }
     }
     #[test]
+    fn forced_download_bypasses_valid_cache_and_keeps_previous_binary() {
+        let root = directory();
+        let bytes = fake_zip(None);
+        let spec = manifest().unwrap();
+        let archive = test_archive(&bytes);
+        let cancel = AtomicBool::new(false);
+        let first = install_with(
+            &root.path,
+            &spec,
+            &archive,
+            &cancel,
+            |_| Ok(()),
+            |path| Ok(path.to_path_buf()),
+            local_fetch(&bytes),
+        )
+        .unwrap();
+        let fetched = std::cell::Cell::new(false);
+        let second = install_with_mode(
+            &root.path,
+            &spec,
+            &archive,
+            &cancel,
+            true,
+            |_| Ok(()),
+            |path| Ok(path.to_path_buf()),
+            |path, archive, cancel, report| {
+                fetched.set(true);
+                local_fetch(&bytes)(path, archive, cancel, report)
+            },
+        )
+        .unwrap();
+        assert!(
+            fetched.get(),
+            "A valid cache must not suppress a requested re-download"
+        );
+        assert_ne!(first, second);
+        assert_eq!(fs::read(&first).unwrap(), fs::read(&second).unwrap());
+        assert_eq!(installed_dirs(&root.path), 2);
+        let reused = install_with(
+            &root.path,
+            &spec,
+            &archive,
+            &cancel,
+            |_| Ok(()),
+            |path| Ok(path.to_path_buf()),
+            |_, _, _, _| panic!("Freshly downloaded tools should be reusable offline"),
+        )
+        .unwrap();
+        assert_eq!(reused, second);
+    }
+    #[test]
+    fn failed_or_cancelled_forced_download_preserves_old_cache_and_configuration() {
+        for failure in ["download", "cancel", "activate"] {
+            let root = directory();
+            let bytes = fake_zip(None);
+            let spec = manifest().unwrap();
+            let archive = test_archive(&bytes);
+            let cancel = AtomicBool::new(false);
+            let first = install_with(
+                &root.path,
+                &spec,
+                &archive,
+                &cancel,
+                |_| Ok(()),
+                |path| Ok(path.to_path_buf()),
+                local_fetch(&bytes),
+            )
+            .unwrap();
+            let previous = fs::read(pointer_path(&root.path)).unwrap();
+            let result: Result<(), String> = install_with_mode(
+                &root.path,
+                &spec,
+                &archive,
+                &cancel,
+                true,
+                |_| Ok(()),
+                |_| {
+                    assert_eq!(failure, "activate");
+                    Err("activation failed".into())
+                },
+                |path, archive, cancel, report| {
+                    if failure == "download" {
+                        return Err("download failed".into());
+                    }
+                    local_fetch(&bytes)(path, archive, cancel, report)?;
+                    if failure == "cancel" {
+                        cancel.store(true, Ordering::Release);
+                    }
+                    Ok(())
+                },
+            );
+            assert!(result.is_err());
+            assert_eq!(fs::read(pointer_path(&root.path)).unwrap(), previous);
+            assert_eq!(fs::read(first).unwrap(), b"verified test data");
+            assert_eq!(installed_dirs(&root.path), 1);
+        }
+    }
+    #[test]
     fn damaged_cache_repairs_in_new_directory_and_failed_activation_rolls_back() {
         let root = directory();
         let bytes = fake_zip(None);
@@ -1115,6 +1241,7 @@ mod tests {
         let state = install(
             &root.path,
             &cancel,
+            false,
             |p| {
                 if p.stage != "downloading" {
                     println!("Platform Tools: {}", p.stage);

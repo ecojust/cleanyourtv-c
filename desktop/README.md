@@ -1,8 +1,8 @@
 # pureTV 电视系统管理器
 
-**pureTV Manager 0.3.1** 是电脑端电视系统管理工具，通过 ADB 管理 Android TV / Google TV 的设备信息、应用和默认启动器，并提供完整 MCP 接口。
+**pureTV Manager 0.3.2** 是电脑端电视系统管理工具，通过 ADB 管理 Android TV / Google TV 的设备信息、应用和默认启动器，并提供完整 MCP 接口。
 
-下载：[0.3.1 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.1)。提供 Windows x64 安装版／便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG（macOS 11+）和 Linux x64 DEB。文件大小与 SHA256 校验清单见发布页。管理器安装在电脑，电视开启并授权 ADB 即可管理应用。
+下载：[0.3.2 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.2)。提供 Windows x64 安装版／便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG（macOS 11+）和 Linux x64 DEB。文件大小与 SHA256 校验清单见发布页。管理器安装在电脑，电视开启并授权 ADB 即可管理应用。
 
 ## 功能
 
@@ -23,14 +23,14 @@
 应用对整个 `.app` 执行 ad-hoc 签名，最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
 
 - 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
-- 提示「已损坏，无法打开」：先从本仓库的 [0.3.1 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.1) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+- 提示「已损坏，无法打开」：先从本仓库的 [0.3.2 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.2) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
 
   ```bash
   cd ~/Downloads
-  shasum -a 256 pureTV-Manager-0.3.1-macos-arm64.dmg
+  shasum -a 256 pureTV-Manager-0.3.2-macos-arm64.dmg
   ```
 
-  Intel Mac 将上述文件名换为 `pureTV-Manager-0.3.1-macos-x64.dmg`。
+  Intel Mac 将上述文件名换为 `pureTV-Manager-0.3.2-macos-x64.dmg`。
 
   将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
 
@@ -61,6 +61,8 @@
 ## ADB 在线配置
 
 主按钮在工具可用时显示「ADB 已就绪」；缺少 ADB 时显示「下载 ADB 工具」。点击「下载 ADB 工具」，阅读并勾选 Android SDK 许可后确认。固定版本 **Platform Tools 37.0.1** 优先 Google，失败自动切换腾讯镜像；所有来源核对同一官方字节数与 SHA256。解压完整工具集后检查 `adb version` 并保存路径。
+
+工具区域另提供「重新下载」：即使 ADB 已就绪或缓存有效，也强制重新下载完整工具包、校验后在新目录配置。失败或取消保留原工具与配置，连接电视期间需先断开。
 
 缓存校验完整时可离线复用；损坏缓存重新下载到新目录，不覆盖在用工具。工具放在电脑应用数据目录，不修改系统 PATH 或 macOS 应用包。已有 `adb`／`adb.exe` 可手动选择。更换 ADB 前需先断开电视。下载支持取消，失败或取消保留原有配置。
 

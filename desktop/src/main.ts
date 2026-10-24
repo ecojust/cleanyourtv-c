@@ -139,7 +139,7 @@ function adbPanel(): string {
   const unavailable = busy || toolsPreparing || (!api.desktop && !api.demo), connected = !!snapshot.device;
   const installLabel = snapshot.adbAvailable ? t('ADB 已就绪') : toolsPreparing ? t('读取工具信息…') : t('下载 ADB 工具');
   const detail = snapshot.adbAvailable ? t('当前 ADB 已可用，无需重复下载。') : toolsInfo ? toolsInfo.supported ? `Platform Tools ${toolsInfo.version} · ${platformName(toolsInfo.platform)} · ${toolsInfo.installed ? t('已下载，优先使用本地工具') : ui`下载 ${bytes(toolsInfo.downloadBytes)}`}` : toolsInfo.message : toolsInfoError || t('从 Google 官方下载，完成后自动配置。');
-  return ui`<section class="panel adb-panel"><div class="panel-heading">${icon('settings')}<div><h2>ADB 工具</h2><p>${snapshot.adbAvailable ? t('已找到本地工具，可直接连接电视') : t('连接电视前，先准备 ADB 工具')}</p></div></div><div class="adb-download"><div class="button-row">${actionButton('download-adb', icon(snapshot.adbAvailable ? 'check' : 'download') + installLabel, disabled(snapshot.adbAvailable || unavailable || connected || toolsInfo?.supported === false), snapshot.adbAvailable ? 'adb-ready' : 'primary')}</div><p class="hint">${esc(message(detail))}</p>${connected ? t('<p class="hint">请先断开电视，再更换或配置 ADB。</p>') : ''}${api.demo ? t('<p class="hint">演示模式仅模拟进度，不会下载文件。</p>') : ''}</div><label class="field-label">已有 ADB 路径<input name="adbPath" placeholder="自动查找，或选择 adb / adb.exe" value="${esc(adbPath || snapshot.adbPath || '')}"${disabled(unavailable || connected)}></label><div class="button-row">${actionButton('choose-adb', t('选择 ADB'), disabled(unavailable || connected))}${actionButton('save-adb', t('应用路径'), disabled(unavailable || connected))}${actionButton('auto-adb', t('自动查找'), disabled(unavailable || connected), 'text-button')}</div>${actionButton('platform-tools', t('手动下载官方工具 ↗'), '', 'text-button link-button')}<p class="hint">也可选择已解压的 adb.exe（Windows）或 adb（macOS / Linux）。</p></section>`;
+  return ui`<section class="panel adb-panel"><div class="panel-heading">${icon('settings')}<div><h2>ADB 工具</h2><p>${snapshot.adbAvailable ? t('已找到本地工具，可直接连接电视') : t('连接电视前，先准备 ADB 工具')}</p></div></div><div class="adb-download"><div class="button-row">${actionButton('download-adb', icon(snapshot.adbAvailable ? 'check' : 'download') + installLabel, disabled(snapshot.adbAvailable || unavailable || connected || toolsInfo?.supported === false), snapshot.adbAvailable ? 'adb-ready' : 'primary')}${actionButton('redownload-adb',icon('refresh')+t('重新下载'),disabled(unavailable || connected || toolsInfo?.supported === false))}</div><p class="hint">${esc(message(detail))}</p>${connected ? t('<p class="hint">请先断开电视，再更换或配置 ADB。</p>') : ''}${api.demo ? t('<p class="hint">演示模式仅模拟进度，不会下载文件。</p>') : ''}</div><label class="field-label">已有 ADB 路径<input name="adbPath" placeholder="自动查找，或选择 adb / adb.exe" value="${esc(adbPath || snapshot.adbPath || '')}"${disabled(unavailable || connected)}></label><div class="button-row">${actionButton('choose-adb', t('选择 ADB'), disabled(unavailable || connected))}${actionButton('save-adb', t('应用路径'), disabled(unavailable || connected))}${actionButton('auto-adb', t('自动查找'), disabled(unavailable || connected), 'text-button')}</div>${actionButton('platform-tools', t('手动下载官方工具 ↗'), '', 'text-button link-button')}<p class="hint">也可选择已解压的 adb.exe（Windows）或 adb（macOS / Linux）。</p></section>`;
 }
 function shell(): string {
   const [label, status] = deviceStatus();
@@ -316,10 +316,11 @@ async function refreshToolsInfo(): Promise<void> {
   try { toolsInfo = await api.platformToolsInfo(); toolsInfoError = ''; }
   catch (error) { toolsInfoError = ui`暂时无法读取下载信息：${error instanceof Error ? error.message : String(error)}`; }
 }
-function confirmTools(info: PlatformToolsInfo): Promise<boolean> {
+function confirmTools(info: PlatformToolsInfo,forceDownload=false): Promise<boolean> {
   if (dialog.open) dialog.close();
-  const title = info.installed ? t('使用已下载的 ADB') : t('下载官方 Platform Tools');
-  dialog.innerHTML = ui`<div class="modal-heading"><h2>${title}</h2><button class="icon-button" data-act="close-dialog" aria-label="关闭">${icon('close')}</button></div><p>${info.installed ? t('优先验证并使用已下载工具；校验失败时会重新下载并修复；Google 不可用时自动尝试腾讯镜像。') : t('优先从 Google 官方下载，失败时自动尝试腾讯镜像；校验并解压到本应用的数据目录后自动配置 ADB。')}</p><dl><dt>版本</dt><dd>${esc(info.version)}</dd><dt>适用系统</dt><dd>${esc(platformName(info.platform))}</dd><dt>下载大小</dt><dd>${info.installed ? ui`缓存完整时 0 MiB；需修复时 ${bytes(info.downloadBytes)}` : bytes(info.downloadBytes)}</dd><dt>来源</dt><dd>Google · dl.google.com<br>备用：腾讯镜像 · mirrors.cloud.tencent.com<br>所有来源均核对官方文件大小和 SHA256</dd></dl>${api.demo ? t('<p>演示模式：仅模拟此流程，不下载文件。</p>') : ''}${actionButton('platform-tools-license', t('阅读 Android SDK 许可协议 ↗'), '', 'text-button link-button')}<label class="license-consent"><input type="checkbox" id="platform-tools-license"><span>我已阅读并同意 Android SDK 许可协议</span></label><div class="modal-actions">${actionButton('close-dialog', t('取消'))}<button id="confirm-platform-tools" class="primary" disabled>${info.installed ? t('验证并使用') : t('确认下载')}</button></div>`;
+  const title = forceDownload ? t('重新下载 ADB 工具') : info.installed ? t('使用已下载的 ADB') : t('下载官方 Platform Tools');
+  const reuseCache=info.installed && !forceDownload;
+  dialog.innerHTML = ui`<div class="modal-heading"><h2>${title}</h2><button class="icon-button" data-act="close-dialog" aria-label="关闭">${icon('close')}</button></div><p>${forceDownload ? t('强制重新下载完整工具包并校验，配置成功后才切换；失败或取消保留当前 ADB。Google 不可用时自动尝试腾讯镜像。') : reuseCache ? t('优先验证并使用已下载工具；校验失败时会重新下载并修复；Google 不可用时自动尝试腾讯镜像。') : t('优先从 Google 官方下载，失败时自动尝试腾讯镜像；校验并解压到本应用的数据目录后自动配置 ADB。')}</p><dl><dt>版本</dt><dd>${esc(info.version)}</dd><dt>适用系统</dt><dd>${esc(platformName(info.platform))}</dd><dt>下载大小</dt><dd>${reuseCache ? ui`缓存完整时 0 MiB；需修复时 ${bytes(info.downloadBytes)}` : bytes(info.downloadBytes)}</dd><dt>来源</dt><dd>Google · dl.google.com<br>备用：腾讯镜像 · mirrors.cloud.tencent.com<br>所有来源均核对官方文件大小和 SHA256</dd></dl>${api.demo ? t('<p>演示模式：仅模拟此流程，不下载文件。</p>') : ''}${actionButton('platform-tools-license', t('阅读 Android SDK 许可协议 ↗'), '', 'text-button link-button')}<label class="license-consent"><input type="checkbox" id="platform-tools-license"><span>我已阅读并同意 Android SDK 许可协议</span></label><div class="modal-actions">${actionButton('close-dialog', t('取消'))}<button id="confirm-platform-tools" class="primary" disabled>${reuseCache ? t('验证并使用') : t('确认下载')}</button></div>`;
   dialog.setAttribute('aria-label', title); dialog.returnValue = ''; dialog.showModal();
   const consent = dialog.querySelector<HTMLInputElement>('#platform-tools-license')!;
   const accept = dialog.querySelector<HTMLButtonElement>('#confirm-platform-tools')!;
@@ -343,18 +344,18 @@ function updateToolsProgress(progress: DownloadProgress): void {
     else bar.querySelector('button')?.insertAdjacentHTML('beforebegin', downloadMeter());
   } else meter?.remove();
 }
-async function downloadTools(): Promise<void> {
+async function downloadTools(forceDownload=false): Promise<void> {
   if (busy || toolsPreparing || snapshot.device || (!api.desktop && !api.demo)) return;
   toolsPreparing = true; render();
   let info: PlatformToolsInfo;
   try { info = await api.platformToolsInfo(); toolsInfo = info; toolsInfoError = ''; }
   finally { toolsPreparing = false; render(); }
   if (!info.supported) throw new Error(info.message || t('当前电脑不支持在线配置，请手动选择 ADB'));
-  if (!await confirmTools(info) || busy || snapshot.device) return;
+  if (!await confirmTools(info,forceDownload) || busy || snapshot.device) return;
   localBusy = true; busy = true; downloadingTools = true; cancelling = false; notice = '';
-  toolsProgress = { stage: info.installed ? 'checking' : 'downloading', downloaded: 0, total: info.downloadBytes }; render();
+  toolsProgress = { stage: info.installed && !forceDownload ? 'checking' : 'downloading', downloaded: 0, total: info.downloadBytes }; render();
   try {
-    const value = await api.installPlatformTools(updateToolsProgress);
+    const value = await api.installPlatformTools(updateToolsProgress,forceDownload);
     if (!value.adbAvailable || !value.adbPath) throw new Error(t('工具尚未就绪，请重试或手动选择 ADB'));
     applySnapshot(value); adbPath = snapshot.adbPath || ""; toolsInfo = { ...info, installed: true };
     notice = value.message || t('ADB 已就绪，可以连接电视'); noticeKind = cancelling ? 'info' : 'success';
@@ -423,6 +424,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
     case 'save-adb': await run({ action: 'setAdbPath', path: adbPath.trim() }, t('验证 ADB 工具…')); break;
     case 'auto-adb': adbPath = ''; await run({ action: 'setAdbPath', path: '' }, t('查找 ADB 工具…')); break;
     case 'download-adb': await downloadTools(); break;
+    case 'redownload-adb': await downloadTools(true); break;
     case 'platform-tools': await api.openResource('platformTools'); break;
     case 'platform-tools-license': await api.openResource('platformToolsLicense'); break;
     case 'releases': await api.openResource('releases'); break;
