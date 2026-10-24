@@ -12,7 +12,13 @@ final class CardFocus {
         int target = Math.max(0, Math.min(position, grid.getAdapter().getItemCount() - 1));
         RecyclerView.ViewHolder holder = LayoutScene.holder(grid,target);
         if (holder != null) {
-            if(holder.itemView.getVisibility()==View.VISIBLE)holder.itemView.findViewById(R.id.card).requestFocus();
+            if(holder.itemView.getVisibility()==View.VISIBLE) {
+                View card=holder.itemView.findViewById(R.id.card);
+                if(card.getWidth()>0)card.requestFocus();
+                else holder.itemView.addOnLayoutChangeListener(new View.OnLayoutChangeListener(){
+                    @Override public void onLayoutChange(View view,int l,int t,int r,int b,int oldL,int oldT,int oldR,int oldB){if(card.getWidth()>0){view.removeOnLayoutChangeListener(this);card.requestFocus();}}
+                });
+            }
             else if(grid.getParent() instanceof LayoutScene){
                 android.view.ViewGroup parent=(android.view.ViewGroup)grid.getParent();for(int i=0;i<parent.getChildCount();i++)if(parent.getChildAt(i).isShown() && parent.getChildAt(i).hasFocusable()){parent.getChildAt(i).requestFocus();break;}
             }

@@ -499,7 +499,7 @@ try {
     draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.ok(draft.home.items[0].frame.x>sceneLayout.home.items[0].frame.x);assert.ok(draft.home.items[0].frame.y<sceneLayout.home.items[0].frame.y);
     await shot(p,'layout-scene-home-034');
     await act(p,'layout-apps').click();await shot(p,'layout-scene-apps-034');
-    await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await settled(p);
+    await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='applyLayout'));await settled(p);
     const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));assert.equal(applied.layout.version,3);assert.equal(applied.layout.home.scene.background.color,'#223344');
   },customHome,{layoutSupported:true,layout:sceneLayout});
   await check('scan disables competing actions and exposes cancellation', async p => {

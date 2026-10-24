@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn scene_geometry_and_fixed_control_ids_are_validated_before_writes() {
         let valid: Value =
-            serde_json::from_str(include_str!("../../../public/layout.json")).unwrap();
+            serde_json::from_str(include_str!("../../public/layout.json")).unwrap();
         validate_layout(&valid).unwrap();
         for invalid in [
             json!({"x":950,"y":0,"width":200,"height":65}),

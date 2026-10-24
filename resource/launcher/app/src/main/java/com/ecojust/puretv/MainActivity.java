@@ -254,11 +254,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if(layoutScene==null)layoutScene=new LayoutScene(this,root,grid,"home");
             removeWallpaper();
             layoutScene.apply(layout,"home");
-            /* Grid geometry is now owned by the shared scene.
-            boolean multipleRows=adapter.getItemCount()>layoutColumns;
-            findViewById(R.id.homeSpacer).setVisibility(multipleRows?View.GONE:View.VISIBLE);
-            android.widget.LinearLayout.LayoutParams params=(android.widget.LinearLayout.LayoutParams)grid.getLayoutParams();
-            params.height=multipleRows?0:android.view.ViewGroup.LayoutParams.WRAP_CONTENT;params.weight=multipleRows?1:0;grid.setLayoutParams(params); */
             grid.post(()->focusTile(Math.min(lastFocused,adapter.getItemCount()-1)));
         } else {adapter.reload();if(layoutScene!=null)layoutScene.apply(layout,"home");}
     }
