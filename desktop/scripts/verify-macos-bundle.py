@@ -10,6 +10,9 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.request
+import urllib.error
+import http.client
 
 
 def run(*args):
@@ -63,12 +66,16 @@ def launch_copy(executable, directory, identifier):
     profile.mkdir()
     data_path.parent.mkdir(parents=True, exist_ok=True)
     data_path.symlink_to(profile, target_is_directory=True)
+    fake_adb=directory/"adb";marker=directory/"adb-stopped"
+    fake_adb.write_text('#!/bin/sh\nif [ "$1" = "kill-server" ]; then echo stopped > "$PURETV_EXIT_MARKER"; elif [ "$1" = "version" ]; then echo "Android Debug Bridge version 1.0.41"; else exit 1; fi\n')
+    fake_adb.chmod(0o755)
+    environment={**os.environ,"PURETV_ADB":str(fake_adb),"PURETV_EXIT_MARKER":str(marker)}
     log = directory / "startup.log"
     process = None
     try:
         with log.open("wb") as output:
             process = subprocess.Popen(
-                [str(executable)], cwd=directory, stdout=output, stderr=subprocess.STDOUT
+                [str(executable)], cwd=directory, stdout=output, stderr=subprocess.STDOUT,env=environment
             )
             try:
                 process.wait(timeout=5)
@@ -76,6 +83,16 @@ def launch_copy(executable, directory, identifier):
                 print("Installed copy stayed running for 5 seconds (no device operations)", flush=True)
             else:
                 raise RuntimeError(f"Installed app exited during startup: {process.returncode}")
+            session=json.loads((profile/'mcp-session.json').read_text())
+            request=urllib.request.Request(session['url'],data=json.dumps({'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'close_manager','arguments':{'confirmShutdown':True}}}).encode(),headers={'Authorization':'Bearer '+session['token'],'Content-Type':'application/json'},method='POST')
+            try:
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request,timeout=10) as response:
+                    result=json.load(response);assert result.get('result',{}).get('isError') is False,result
+            except (urllib.error.URLError,http.client.RemoteDisconnected,ConnectionResetError):
+                pass # The process may exit before the shutdown acknowledgment is flushed.
+            process.wait(timeout=20)
+            assert process.returncode==0 and marker.read_text().strip()=='stopped','Normal exit did not stop ADB'
+            print('Installed copy exited normally after stopping simulated ADB',flush=True)
     finally:
         if process is not None and process.poll() is None:
             process.terminate()

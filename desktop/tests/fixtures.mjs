@@ -1,6 +1,6 @@
 export function snapshot() {
   return {
-    localNetwork:{addresses:[{interfaceName:'Wi-Fi',ip:'192.168.0.2',prefixLength:24},{interfaceName:'Ethernet',ip:'10.0.0.2',prefixLength:24}],error:null},
+    localNetwork:{addresses:[{interfaceName:'Wi-Fi',ip:'192.168.0.2',prefixLength:24},{interfaceName:'Ethernet',ip:'10.0.0.2',prefixLength:24},{interfaceName:'Test LAN',ip:'192.168.1.2',prefixLength:24}],error:null},
     systemInfo:{manufacturer:'Test Maker',brand:'Test',sdkVersion:'33',securityPatch:'2026-10-01',cpu:'test-cpu',cpuAbi:'arm64-v8a',memoryTotalBytes:4294967296,memoryAvailableBytes:1073741824,storageTotalBytes:34359738368,storageAvailableBytes:8589934592,displayResolution:'1920x1080',uptimeSeconds:3600,queriedAt:1},
     revision: 0, adbPath: 'C:\\platform-tools\\adb.exe', adbAvailable: true,
     device: { serial: '192.168.1.50:5555', model: '测试电视', androidVersion: '12', userId: 0, status: 'device' },
@@ -31,13 +31,14 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
     const callbacks = new Map(); let nextCallback = 1, downloadCancelled = false, toolsInstalled = !!options.toolsInstalled;
     window.__emitMcp = (event, payload) => { for (const callback of (window.__eventListeners?.[event] || [])) callbacks.get(callback)?.({event, payload, id:callback}); };
     window.__eventListeners = {};
-    window.__requests = []; window.__pickerCalls = 0; window.__xss = false; window.__toolsInstalls = 0; window.__resources = [];
+    window.__networkReads=0; window.__requests = []; window.__pickerCalls = 0; window.__xss = false; window.__toolsInstalls = 0; window.__resources = [];
     window.__TAURI_INTERNALS__ = {
       transformCallback: callback => { const id = nextCallback++; callbacks.set(id, callback); return id; },
       unregisterCallback: id => { callbacks.delete(id); },
       invoke: async (command, args = {}) => {
         if (command === 'plugin:event|listen') { (window.__eventListeners[args.event] ||= []).push(args.handler); return args.handler; }
         if (command === 'plugin:event|unlisten') return;
+        if(command==='get_local_network'){window.__networkReads++;return structuredClone(options.preflightNetwork || state.localNetwork || {addresses:[],error:null});}
         if(command==='get_interface_preferences')return structuredClone(window.__interfacePreferences);
         if(command==='set_interface_preferences'){Object.assign(window.__interfacePreferences,args.preferences);window.__emitMcp('interface-preferences',structuredClone(window.__interfacePreferences));return structuredClone(window.__interfacePreferences);}
         if (command === 'mcp_info') return {config:{mcpServers:{puretv:{command:'/Applications/pureTV Manager.app/Contents/MacOS/puretv-desktop',args:['--mcp','/Users/test/mcp-session.json']}}},sessionPath:'/Users/test/mcp-session.json'};

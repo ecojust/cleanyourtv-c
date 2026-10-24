@@ -10,7 +10,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 ## 下载
 
-[下载 pureTV Manager 0.3.2](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.2)
+[下载 pureTV Manager 0.3.4](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.4)
 
 | 系统 | 安装包 |
 | --- | --- |
@@ -136,7 +136,7 @@ resource/
 
 ## MCP / Agent
 
-在「设备连接 → MCP · Agent 调试」复制配置到客户端，保持管理器窗口打开。29 个工具覆盖系统信息、连接、应用管理、APK 安装、启动器切换与布局、背景图、ADB 配置、语言与主题、取消及记录；Agent 与界面共享状态。
+在「设备连接 → MCP · Agent 调试」复制配置到客户端，保持管理器窗口打开。30 个工具覆盖系统信息、连接、应用管理、APK 安装、启动器切换与布局、背景图、ADB 配置、语言与主题、取消及记录；Agent 与界面共享状态。
 
 [完整 MCP 接入与参数](desktop/docs/mcp.md)。
 

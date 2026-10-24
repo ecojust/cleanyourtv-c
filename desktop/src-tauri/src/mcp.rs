@@ -42,6 +42,7 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
+        tool("close_manager","Close the open manager after cancelling pending work and stopping the configured ADB server. In-flight mutations finish first. This interrupts connections using that ADB server; explicit user confirmation is required. A stdio disconnection during shutdown is expected.",json!({"confirmShutdown":{"type":"boolean","const":true}}),&["confirmShutdown"],false),
         tool("get_local_network","Refresh this computer's active LAN IPv4 addresses, adapter names and subnet prefixes. Returns the shared snapshot; no ADB or TV connection required.",json!({}),&[],true),
         tool("get_interface_preferences","Get the open manager's interface language and theme preferences.",json!({}),&[],true),
         tool("set_interface_preferences","Change and persist the open manager's interface language and theme. Device state is unchanged.",json!({"locale":{"type":"string","enum":["zh-CN","zh-TW","en"]},"theme":{"type":"string","enum":["emerald","ocean","graphite"]}}),&[],false),
@@ -430,7 +431,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 29);
+        assert_eq!(tools().len(), 30);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {

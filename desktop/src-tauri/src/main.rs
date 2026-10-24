@@ -17,6 +17,7 @@ use tauri_plugin_opener::OpenerExt;
 
 #[derive(Clone)]
 struct Bridge {
+    closing: Arc<AtomicBool>,
     manager: Arc<Mutex<TvManager>>,
     cancel: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
@@ -24,8 +25,61 @@ struct Bridge {
     progress: Arc<Mutex<Option<platform_tools::Progress>>>,
 }
 
+#[derive(Default)]
+struct Shutdown {
+    started: Arc<AtomicBool>,
+    complete: AtomicBool,
+}
+// Returns true while shutdown is pending; callers then prevent the default exit.
+fn request_shutdown(app: &tauri::AppHandle) -> bool {
+    let Some(state) = app.try_state::<Arc<Shutdown>>() else {
+        return false;
+    };
+    let shutdown = state.inner().clone();
+    if shutdown.complete.load(Ordering::Acquire) {
+        return false;
+    }
+    let Some(state) = app.try_state::<Bridge>() else {
+        return false;
+    };
+    let bridge = state.inner().clone();
+    if shutdown
+        .started
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_ok()
+    {
+        bridge.cancel.store(true, Ordering::Release);
+        for window in app.webview_windows().values() {
+            let _ = window.hide();
+        }
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let result = bridge
+                .manager
+                .lock()
+                .map_err(|_| "ADB shutdown state unavailable".to_string())
+                .and_then(|mut manager| {
+                    let result = manager.shutdown_adb();
+                    if let Ok(mut cache) = bridge.snapshot.lock() {
+                        *cache = manager.snapshot();
+                    }
+                    result
+                });
+            if let Err(error) = result {
+                eprintln!("ADB shutdown: {error}");
+            }
+            shutdown.complete.store(true, Ordering::Release);
+            app.exit(0);
+        });
+    }
+    true
+}
+
 #[tauri::command]
 async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<Snapshot, String> {
+    if bridge.closing.load(Ordering::Acquire) {
+        return Err("管理器正在退出".into());
+    }
     if bridge
         .running
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -34,12 +88,21 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
         return Err("已有操作正在执行，请等待完成或取消".into());
     }
     bridge.cancel.store(false, Ordering::Release);
+    if bridge.closing.load(Ordering::Acquire) {
+        bridge.cancel.store(true, Ordering::Release);
+        bridge.running.store(false, Ordering::Release);
+        return Err("管理器正在退出".into());
+    }
+    let closing = bridge.closing.clone();
     let manager = bridge.manager.clone();
     let cache = bridge.snapshot.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut manager = manager
             .lock()
             .map_err(|_| "管理状态不可用，请重新打开程序".to_string())?;
+        if closing.load(Ordering::Acquire) {
+            return Err("管理器正在退出".into());
+        }
         let result = manager.execute(request);
         *cache.lock().map_err(|_| "状态缓存不可用")? = manager.snapshot();
         result
@@ -47,6 +110,11 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
     .await;
     bridge.running.store(false, Ordering::Release);
     result.map_err(|_| "操作任务异常结束，请重新扫描设备状态".to_string())?
+}
+
+#[tauri::command]
+fn get_local_network() -> puretv_core::LocalNetwork {
+    puretv_core::read_local_network()
 }
 
 #[tauri::command]
@@ -139,10 +207,19 @@ async fn launcher_execute(
         return Err("已有操作正在执行，请等待完成或取消".into());
     }
     bridge.cancel.store(false, Ordering::Release);
+    if bridge.closing.load(Ordering::Acquire) {
+        bridge.cancel.store(true, Ordering::Release);
+        bridge.running.store(false, Ordering::Release);
+        return Err("管理器正在退出".into());
+    }
+    let closing = bridge.closing.clone();
     let manager = bridge.manager.clone();
     let cache = bridge.snapshot.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut manager = manager.lock().map_err(|_| "管理状态不可用")?;
+        if closing.load(Ordering::Acquire) {
+            return Err("管理器正在退出".into());
+        }
         let result = manager.execute_launcher(request);
         *cache.lock().map_err(|_| "状态缓存不可用")? = manager.snapshot();
         result
@@ -218,6 +295,9 @@ async fn install_platform_tools(
     app: tauri::AppHandle,
     bridge: tauri::State<'_, Bridge>,
 ) -> Result<Snapshot, String> {
+    if bridge.closing.load(Ordering::Acquire) {
+        return Err("管理器正在退出".into());
+    }
     if !accepted_license {
         return Err("请先阅读并同意 Android SDK 许可协议".into());
     }
@@ -233,6 +313,12 @@ async fn install_platform_tools(
         return Err("已有操作正在执行，请等待完成或取消".into());
     }
     bridge.cancel.store(false, Ordering::Release);
+    if bridge.closing.load(Ordering::Acquire) {
+        bridge.cancel.store(true, Ordering::Release);
+        bridge.running.store(false, Ordering::Release);
+        return Err("管理器正在退出".into());
+    }
+    let closing = bridge.closing.clone();
     let manager = bridge.manager.clone();
     let cancel = bridge.cancel.clone();
     let cache = bridge.snapshot.clone();
@@ -242,6 +328,9 @@ async fn install_platform_tools(
         let mut manager = manager
             .lock()
             .map_err(|_| "管理状态不可用，请重新打开程序")?;
+        if closing.load(Ordering::Acquire) {
+            return Err("管理器正在退出".into());
+        }
         if manager.execute(Request::GetState)?.device.is_some() {
             return Err("请先断开当前电视，再准备或更换 ADB".into());
         }
@@ -345,6 +434,16 @@ fn mcp_call(
     name: &str,
     args: Value,
 ) -> Result<Value, String> {
+    if bridge.closing.load(Ordering::Acquire) {
+        return Err("管理器正在退出".into());
+    }
+    if name == "close_manager" {
+        if args["confirmShutdown"] != true {
+            return Err("请先确认关闭管理器会停止当前 ADB 服务".into());
+        }
+        app.exit(0);
+        return Ok(json!({"closing":true}));
+    }
     if name == "get_interface_preferences" {
         return Ok(json!(get_interface_preferences(app.clone())?));
     }
@@ -382,6 +481,11 @@ fn mcp_call(
     }
     let guard = Busy(&bridge.running);
     bridge.cancel.store(false, Ordering::Release);
+    if bridge.closing.load(Ordering::Acquire) {
+        bridge.cancel.store(true, Ordering::Release);
+        bridge.running.store(false, Ordering::Release);
+        return Err("管理器正在退出".into());
+    }
     *bridge.progress.lock().map_err(|_| "进度不可用")? = None;
     let _ = app.emit("mcp-operation", json!({"running":true,"tool":name}));
     let result = (|| -> Result<Value, String> {
@@ -404,6 +508,9 @@ fn mcp_call(
             _ => {}
         }
         let mut manager = bridge.manager.lock().map_err(|_| "管理状态不可用")?;
+        if bridge.closing.load(Ordering::Acquire) {
+            return Err("管理器正在退出".into());
+        }
         if let Some(request) = mcp::launcher_request(name, args.clone())? {
             let result = manager.execute_launcher(request);
             *bridge.snapshot.lock().map_err(|_| "状态不可用")? = manager.snapshot();
@@ -429,7 +536,9 @@ fn mcp_call(
             platform_tools::install(
                 &directory,
                 &bridge.cancel,
-                args.get("forceDownload").and_then(Value::as_bool).unwrap_or(false),
+                args.get("forceDownload")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
                 |progress| {
                     *bridge.progress.lock().map_err(|_| "进度不可用")? = Some(progress.clone());
                     let _ = app.emit("mcp-progress", progress);
@@ -499,10 +608,13 @@ fn main() {
                 .map_err(|_| "pureTV 管理器已运行，请使用已有窗口")?;
             app.manage(lock);
             app.manage(ui_preferences::Settings::load(directory.clone()));
+            let shutdown = Arc::new(Shutdown::default());
+            app.manage(shutdown.clone());
             let manager = TvManager::new(directory.clone(), cancel.clone());
             let snapshot = manager.snapshot();
             let snapshot = Arc::new(Mutex::new(snapshot));
             let bridge = Bridge {
+                closing: shutdown.started.clone(),
                 manager: Arc::new(Mutex::new(manager)),
                 cancel,
                 running: Arc::new(AtomicBool::new(false)),
@@ -519,8 +631,16 @@ fn main() {
             app.manage(bridge);
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if request_shutdown(window.app_handle()) {
+                    api.prevent_close();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             execute,
+            get_local_network,
             get_interface_preferences,
             set_interface_preferences,
             get_launcher_covers,
@@ -538,5 +658,11 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("无法启动 pureTV 电视管理器")
-        .run(|_, _| {});
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                if request_shutdown(app) {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

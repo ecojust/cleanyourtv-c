@@ -4,7 +4,7 @@ mod adb;
 mod manager;
 mod network;
 mod parse;
-pub use network::{LocalAddress, LocalNetwork};
+pub use network::{read as read_local_network, LocalAddress, LocalNetwork};
 
 pub use manager::Manager;
 use serde::{Deserialize, Serialize};

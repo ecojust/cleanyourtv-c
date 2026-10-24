@@ -37,7 +37,7 @@ fn addresses(interfaces: Vec<Interface>) -> Vec<LocalAddress> {
     result
 }
 /// Enumerate local adapters without contacting the TV or an Internet service.
-pub(crate) fn read() -> LocalNetwork {
+pub fn read() -> LocalNetwork {
     match if_addrs::get_if_addrs() {
         Ok(interfaces) => LocalNetwork {
             addresses: addresses(interfaces),

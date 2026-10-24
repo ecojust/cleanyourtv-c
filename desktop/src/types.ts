@@ -13,8 +13,9 @@ export interface SystemInfo {
   cpu: string | null; cpuAbi: string | null; memoryTotalBytes: number | null; memoryAvailableBytes: number | null;
   storageTotalBytes: number | null; storageAvailableBytes: number | null; displayResolution: string | null; uptimeSeconds: number | null; queriedAt: number;
 }
+export interface LocalNetworkInfo {addresses:{interfaceName:string;ip:string;prefixLength:number}[];error:string|null}
 export interface Snapshot {
-  localNetwork?: {addresses:{interfaceName:string;ip:string;prefixLength:number}[];error:string|null};
+  localNetwork?: LocalNetworkInfo;
   lastConnection?: {host:string;port:number} | null;
   installResults?: {path: string; success: boolean; message: string}[];
   systemInfo?: SystemInfo | null;

@@ -101,6 +101,8 @@ jobs:
         run: npm ci
       - name: Check and build frontend
         run: npm run build
+      - name: Test subnet comparison
+        run: npm run test:network
       - name: Test ADB core
         run: cargo test --locked --manifest-path core/Cargo.toml
       - name: Test Platform Tools installer
