@@ -33,6 +33,8 @@ elif args[:2]==['-s','192.168.1.50:5555']:
    if (root/'slow').exists():time.sleep(3)
    print('MCP Test TV' if a[1]=='ro.product.model' else '13')
   elif a[0]=='dumpsys':print('Packages:\n  User 0: installed=true hidden=false enabled=0')
+  elif a[0]=='stat':print('1024')
+  elif a[:2]==['pm','path']:print('package:/data/app/example/base.apk')
   elif a[:2]==['pm','list']:
    data=tv['system'] if '-s' in a else tv['disabled'] if '-d' in a else list(set(tv['installed']+tv['system'])) if '-u' in a else tv['installed']
    print('\n'.join('package:'+x for x in data))
@@ -118,6 +120,7 @@ def main():
                 client.call('pair',{'host':'192.168.1.50','port':33111,'code':'123456'})
                 state=client.call('connect',{'host':'192.168.1.50','port':5555})
                 assert state['device']['model']=='MCP Test TV'
+                assert next(p for p in state['packages'] if p['packageName']=='com.ecojust.cleanyourtv')['apkSizeBytes']==1024
                 client.call('set_enabled',{'packages':['com.vendor.ads'],'enabled':False})
                 assert next(p for p in client.call('get_state')['packages'] if p['packageName']=='com.vendor.ads')['enabled'] is False
                 client.call('set_enabled',{'packages':['com.vendor.ads'],'enabled':True})

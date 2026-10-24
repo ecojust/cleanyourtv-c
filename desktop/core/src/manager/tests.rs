@@ -78,6 +78,8 @@ impl Runner for FakeRunner {
                             tv.user,
                             tv.prior.get(&a[2]).copied().unwrap_or(0)
                         ),
+                        "stat" => "1024\n2048".into(),
+                        "pm" if a[1] == "path" => "package:/data/app/example/base.apk\npackage:/data/app/example/split.apk".into(),
                         "pm" if a[1] == "list" => {
                             if tv.failure.as_deref() == Some("scan") {
                                 return Ok(Output {
@@ -856,4 +858,35 @@ fn snapshot_revisions_advance_on_success_and_failure_without_changing_old_snapsh
         .is_err());
     assert!(manager.snapshot().revision > state.revision);
     assert_eq!(initial.revision, 0);
+}
+
+#[test]
+fn scanning_reports_user_apk_sizes_but_does_not_measure_system_packages() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    let state = manager.snapshot();
+    assert_eq!(
+        state
+            .packages
+            .iter()
+            .find(|p| p.package_name == "com.user.app")
+            .unwrap()
+            .apk_size_bytes,
+        Some(3072)
+    );
+    assert_eq!(
+        state
+            .packages
+            .iter()
+            .find(|p| p.package_name == "android")
+            .unwrap()
+            .apk_size_bytes,
+        None
+    );
+    assert!(!tv
+        .lock()
+        .unwrap()
+        .calls
+        .iter()
+        .any(|args| args.windows(2).any(|pair| pair == ["path", "android"])));
 }

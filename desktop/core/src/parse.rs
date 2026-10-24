@@ -159,3 +159,82 @@ pub(crate) fn core_package(pkg: &str) -> bool {
             | "com.android.documentsui"
     )
 }
+
+/// Only absolute, ordinary APK paths can be interpolated into the remote shell.
+pub(crate) fn apk_paths(output: &str) -> Option<Vec<String>> {
+    let mut paths = BTreeSet::new();
+    for line in output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let path = line.strip_prefix("package:")?;
+        if path.len() > 4096
+            || !path.starts_with('/')
+            || !path.ends_with(".apk")
+            || !path
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"/._-+~=".contains(&b))
+            || path.split('/').any(|part| part == "..")
+        {
+            return None;
+        }
+        paths.insert(path.to_string());
+        if paths.len() > 64 {
+            return None;
+        }
+    }
+    if paths.is_empty() {
+        None
+    } else {
+        Some(paths.into_iter().collect())
+    }
+}
+pub(crate) fn apk_size(output: &str, expected: usize) -> Option<u64> {
+    let sizes: Vec<_> = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if sizes.len() != expected || expected == 0 {
+        return None;
+    }
+    sizes.into_iter().try_fold(0u64, |sum, line| {
+        if !line.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let bytes = line.parse::<u64>().ok()?;
+        if bytes == 0 {
+            None
+        } else {
+            sum.checked_add(bytes)
+        }
+    })
+}
+#[cfg(test)]
+mod size_tests {
+    use super::*;
+    #[test]
+    fn apk_sizes_include_splits_and_reject_untrusted_or_incomplete_output() {
+        assert_eq!(apk_paths("package:/data/app/~~a+b==/example/base.apk\npackage:/data/app/~~a+b==/example/split.apk").unwrap().len(),2);
+        for path in [
+            "package:/data/app/a';touch /tmp/pwn;.apk",
+            "package:/data/../secret.apk",
+            "package:relative.apk",
+            "Error: permission denied",
+            "",
+        ] {
+            assert!(apk_paths(path).is_none());
+        }
+        assert_eq!(apk_size("1024\n2048\n", 2), Some(3072));
+        for (output, count) in [
+            ("1024", 2),
+            ("0", 1),
+            ("-1", 1),
+            ("Error", 1),
+            ("18446744073709551615\n1", 2),
+        ] {
+            assert_eq!(apk_size(output, count), None);
+        }
+    }
+}

@@ -90,6 +90,55 @@ try {
     await p.evaluate(value => window.__emitMcp('mcp-operation',{running:false,tool:'scan',snapshot:value}),snapshot());
     await settled(p);
   },snapshot(),{slowScan:true});
+  await check('user APK sizes are explicit and missing sizes are not invented', async p => {
+    await nav(p,'apps');
+    assert.match(await p.locator('tr[data-package="com.ecojust.webtv"] .size-cell').innerText(),/12.0 MiB/);
+    assert.equal(await p.locator('tr[data-package="com.ecojust.cleanyourtv"] .size-cell').innerText(),'未能读取');
+    assert.equal(await p.locator('tr[data-package="com.android.settings"] .size-cell').innerText(),'—');
+    await p.locator('tr[data-package="com.ecojust.webtv"] [data-act="details"]').click();
+    assert.match(await p.locator('dialog').innerText(),/不含私有数据和缓存/);
+  });
+  const longState = snapshot();
+  longState.packages = Array.from({length:120},(_,i)=>({packageName:`com.example.app${i}`,label:`应用 ${i}`,installed:true,system:false,enabled:true,protectedReason:null,apkSizeBytes:1048576}));
+  longState.launchers = Array.from({length:30},(_,i)=>({packageName:`com.example.home${i}`,component:`com.example.home${i}/.Main`,label:`桌面 ${i}`,isDefault:false}));
+  longState.history = Array.from({length:100},(_,i)=>({id:String(i),timestamp:1,action:'install',target:`com.example.app${i}`,device:'tv',userId:0,success:true,message:'已完成'}));
+  await check('all long lists scroll internally while top actions and surrounding content stay fixed', async p => {
+    for (const viewport of [{width:1440,height:900},{width:960,height:640}]) {
+      await p.setViewportSize(viewport);
+      for (const [page,key] of [['apps','apps'],['launchers','launchers'],['history','history'],['install','apks']]) {
+        await nav(p,page);
+        if (page==='install' && !await p.locator('[data-scroll="apks"]').count()) await act(p,'add-apks').click();
+        const area = p.locator(`[data-scroll="${key}"]`);
+        const metrics = await area.evaluate(el=>({height:el.clientHeight,total:el.scrollHeight}));
+        assert.ok(metrics.height>45 && metrics.total>metrics.height,`${page} has a usable internal scroll area at ${viewport.width}: ${JSON.stringify(metrics)}`);
+        assert.ok(await p.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),`${page}: no document vertical overflow`);
+        const header = await p.locator('.page-header').boundingBox();
+        const toolbar = page==='apps' ? p.locator('#selection-bar') : page==='install' ? p.locator('.install-footer') : null;
+        if (toolbar) assert.ok((await toolbar.boundingBox()).y+(await toolbar.boundingBox()).height <= (await area.boundingBox()).y+1,'Batch actions are above the list');
+        await area.evaluate(el=>{el.scrollTop=1000;});
+        const box = await area.boundingBox(); await p.mouse.move(box.x+box.width/2,box.y+box.height/2); await p.mouse.wheel(0,500);
+        await p.waitForTimeout(80);
+        assert.ok(await area.evaluate(el=>el.scrollTop>0));
+        assert.equal((await p.locator('.page-header').boundingBox()).y,header.y,'Header does not move');
+        assert.equal(await p.evaluate(()=>scrollY),0);
+        if (page==='apps') {
+          const before=await area.evaluate(el=>el.scrollTop);
+          await p.locator('[data-select-all]').check();
+          assert.equal(await area.evaluate(el=>el.scrollTop),before,'Selection keeps list position');
+          const head=await p.locator('.apps-table thead th').first().boundingBox();
+          assert.ok(head.y >= box.y-1,'Table headings remain visible');
+        }
+        if (page==='install') {
+          if (await act(p,'clear-apks-selection').isDisabled()) await act(p,'select-apks').click();
+          const before=await area.evaluate(el=>el.scrollTop);
+          await act(p,'clear-apks-selection').click();
+          assert.equal(await area.evaluate(el=>el.scrollTop),before,'APK rerender keeps list position');
+        }
+      }
+    }
+    await nav(p,'apps');
+    await p.screenshot({path:'/tmp/puretv-list-layout.png',fullPage:true});
+  },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');

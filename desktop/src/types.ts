@@ -1,5 +1,5 @@
 export interface Device { serial: string; model: string; androidVersion: string; userId: number; status: string }
-export interface PackageInfo { packageName: string; label: string; system: boolean; enabled: boolean; installed: boolean; protectedReason: string | null }
+export interface PackageInfo { apkSizeBytes?: number | null; packageName: string; label: string; system: boolean; enabled: boolean; installed: boolean; protectedReason: string | null }
 export interface LauncherInfo { component: string; packageName: string; label: string; isDefault: boolean }
 export interface HistoryEntry { id: string; timestamp: number; action: string; target: string; device: string; userId: number; success: boolean; message: string }
 export interface PlatformToolsInfo {

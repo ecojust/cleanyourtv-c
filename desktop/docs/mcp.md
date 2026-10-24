@@ -50,6 +50,8 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `choose_adb` | 无 | 在管理器打开原生可执行文件对话框，只返回路径，不配置 |
 | `open_resource` | `resource` | 打开 `releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
 
+用户应用的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
+
 应用筛选、搜索、查看记录可基于 `get_state` 的 `packages`、`launchers`、`history` 完成；Agent 可直接提交选定的包名或 APK 路径，不需要模拟勾选界面。文件选择器需要用户在窗口操作，自动化时直接提供本机完整路径更方便。
 
 ## 调试示例

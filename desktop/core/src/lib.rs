@@ -76,6 +76,8 @@ pub struct Device {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackageInfo {
+    /// Sum of installed base/split APK bytes; excludes private data and cache.
+    pub apk_size_bytes: Option<u64>,
     pub package_name: String,
     pub label: String,
     pub system: bool,

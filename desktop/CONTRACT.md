@@ -46,6 +46,7 @@ interface Snapshot {
 interface Device { serial: string; model: string; androidVersion: string; userId: number; status: string; }
 // status: device / unauthorized / offline; scan/mutations only for device
 interface PackageInfo {
+  apkSizeBytes: number | null; // installed user base/split APK byte total; excludes private data/cache
   packageName: string; label: string; system: boolean; enabled: boolean;
   installed: boolean; protectedReason: string | null;
 }
@@ -100,3 +101,5 @@ The Tauri dispatcher resets the cancellation flag once before enqueueing a task.
 ## MCP bridge
 
 The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 20 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
+
+User APK sizes are measured during scans (and refreshed after APK installation) using validated `pm path --user` paths and bounded `stat` calls; normal batch catalogue checks reuse the measured values. Unavailable, unsupported or incomplete results are null, never invented zeroes. Metadata collection has a 30-second scheduling budget, 8-second command timeouts and shares cancellation. System and uninstalled recovery entries have null sizes.

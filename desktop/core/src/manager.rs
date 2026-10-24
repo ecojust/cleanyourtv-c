@@ -4,14 +4,14 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const LIMIT_HISTORY: usize = 200;
@@ -392,6 +392,12 @@ impl Manager {
             .cloned()
             .chain(known.intersection(&system).cloned())
             .collect();
+        let sizes: BTreeMap<_, _> = self
+            .state
+            .packages
+            .iter()
+            .map(|p| (p.package_name.clone(), p.apk_size_bytes))
+            .collect();
         let packages = all
             .into_iter()
             .map(|pkg| {
@@ -403,6 +409,11 @@ impl Manager {
                     None
                 };
                 PackageInfo {
+                    apk_size_bytes: if installed.contains(&pkg) && !system.contains(&pkg) {
+                        sizes.get(&pkg).copied().flatten()
+                    } else {
+                        None
+                    },
                     label: parse::label(&pkg),
                     system: system.contains(&pkg),
                     enabled: !disabled.contains(&pkg),
@@ -435,6 +446,65 @@ impl Manager {
             .map(|h| h.component.clone());
         Ok(())
     }
+    fn refresh_user_sizes(&mut self, device: &Device) {
+        let targets: Vec<_> = self
+            .state
+            .packages
+            .iter()
+            .filter(|p| p.installed && !p.system)
+            .map(|p| p.package_name.clone())
+            .collect();
+        let started = Instant::now();
+        for package in &mut self.state.packages {
+            if package.installed && !package.system {
+                package.apk_size_bytes = None;
+            }
+        }
+        for package in targets {
+            if self.cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(30) {
+                break;
+            }
+            let size = (|| -> Option<u64> {
+                let output = self
+                    .run(
+                        vec![
+                            "-s".into(),
+                            device.serial.clone(),
+                            "shell".into(),
+                            "pm".into(),
+                            "path".into(),
+                            "--user".into(),
+                            device.user_id.to_string(),
+                            package.clone(),
+                        ],
+                        None,
+                        8,
+                    )
+                    .ok()?;
+                let paths = parse::apk_paths(&output)?;
+                let mut args = vec![
+                    "-s".into(),
+                    device.serial.clone(),
+                    "shell".into(),
+                    "stat".into(),
+                    "-c".into(),
+                    "%s".into(),
+                    "--".into(),
+                ];
+                args.extend(paths.iter().map(|path| format!("'{path}'")));
+                let output = self.run(args, None, 8).ok()?;
+                parse::apk_size(&output, paths.len())
+            })();
+            if let Some(p) = self
+                .state
+                .packages
+                .iter_mut()
+                .find(|p| p.package_name == package)
+            {
+                p.apk_size_bytes = size;
+            }
+        }
+    }
     fn scan(&mut self) -> Result<(), String> {
         let mut device = self.ensure_device(false)?;
         device.model = parse::short(
@@ -449,6 +519,10 @@ impl Manager {
         );
         self.state.device = Some(device.clone());
         self.read_catalogue(&device)?;
+        self.refresh_user_sizes(&device);
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err("操作已取消".into());
+        }
         self.state.message = format!(
             "扫描完成：{} 个已安装应用{}",
             self.state.packages.iter().filter(|p| p.installed).count(),
@@ -653,6 +727,15 @@ impl Manager {
             {
                 break;
             }
+        }
+        if let Some(device) = self.state.device.clone().filter(|d| d.status == "device") {
+            // An APK update can replace any user package; invalidate old sizes before refreshing.
+            for package in &mut self.state.packages {
+                if !package.system {
+                    package.apk_size_bytes = None;
+                }
+            }
+            self.refresh_user_sizes(&device);
         }
         self.state.message = format!(
             "安装完成：成功 {succeeded} 项，失败 {failed} 项，未执行 {} 项",
