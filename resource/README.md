@@ -8,7 +8,7 @@
 
 | 名称 | 作者 | 版本 | 支持自定义 | 封面截图 |
 | --- | --- | --- | --- | --- |
-| [pureTV Launcher](puretv-launcher/) | ecojust / 桔子桑 | 0.2.0 | 否 | — |
+| [pureTV Launcher](puretv-launcher/) | ecojust / 桔子桑 | 0.3.0 | 是 | <img src="puretv-launcher/thumb.png" width="180" alt="pureTV Launcher 界面"> |
 
 ### 电视应用
 

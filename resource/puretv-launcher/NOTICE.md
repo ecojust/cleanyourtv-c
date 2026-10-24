@@ -10,3 +10,7 @@ pureTV 参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)
 本项目是非官方衍生项目，与上述作者及 Android、Google、Apple 无隶属关系。
 
 Outfit 字体按 SIL Open Font License 1.1 分发，完整许可见 [FONT-LICENSE-OFL.txt](launcher/FONT-LICENSE-OFL.txt)。
+
+Public APK resources
+--------------------
+The resource/ directory includes third-party APKs, source archives and upstream screenshots. Each entry retains its original author, source URLs and license. TV Bro binaries are unmodified official releases by Fedir Tsapana. Jellyfin for Android TV and its corresponding source are distributed under the included upstream GPL license. The repository's MIT license does not replace these third-party licenses. See resource/*/LICENSE and resource.json for provenance and SHA256 records.
