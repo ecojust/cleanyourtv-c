@@ -13,6 +13,7 @@ struct FakeTv {
     status: String,
     failure: Option<String>,
     connect_auth_failure: bool,
+    connect_error: Option<String>,
     home_failure: bool,
     home_cancelled: bool,
     ignore_change: bool,
@@ -46,6 +47,12 @@ impl Runner for FakeRunner {
                 tv.status
             ),
             "connect" => {
+                if let Some(error) = tv.connect_error.clone() {
+                    return Ok(Output {
+                        code: 1,
+                        text: error,
+                    });
+                }
                 if tv.connect_auth_failure {
                     return Ok(Output {
                         code: 1,
@@ -1056,4 +1063,103 @@ fn layout_writes_reject_system_disabled_or_missing_user_apps() {
     assert!(manager
         .execute_launcher(crate::LauncherRequest::ApplyLayout { layout })
         .is_ok());
+}
+
+#[test]
+fn connection_addresses_survive_failed_attempts_restart_and_validation() {
+    let (mut manager, tv) = fixture();
+    tv.lock().unwrap().connect_error =
+        Some("failed to connect to '192.168.0.191:5555': No route to host".into());
+    let error = manager
+        .execute(Request::Connect {
+            host: " 192.168.0.191 ".into(),
+            port: 5555,
+        })
+        .unwrap_err();
+    assert!(
+        error.contains("无法通过局域网到达 192.168.0.191:5555")
+            && error.contains("本地网络")
+            && error.contains("No route to host"),
+        "{error}"
+    );
+    assert!(manager.snapshot().device.is_none());
+    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
+    let address = reloaded.snapshot().last_connection.unwrap();
+    assert_eq!(address.host, "192.168.0.191");
+    assert_eq!(address.port, 5555);
+    assert!(
+        reloaded.snapshot().device.is_none(),
+        "Restoring an address never auto-connects"
+    );
+    assert!(manager
+        .execute(Request::Connect {
+            host: "new-tv.local".into(),
+            port: 37777
+        })
+        .is_err());
+    assert!(manager
+        .execute(Request::Connect {
+            host: "bad;host".into(),
+            port: 5555
+        })
+        .is_err());
+    assert!(manager
+        .execute(Request::Connect {
+            host: "other-tv.local".into(),
+            port: 0
+        })
+        .is_err());
+    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
+    let address = reloaded.snapshot().last_connection.unwrap();
+    assert_eq!(address.host, "new-tv.local");
+    assert_eq!(address.port, 37777);
+    let calls = &tv.lock().unwrap().calls;
+    assert_eq!(calls.iter().filter(|a| a[0] == "connect").count(), 2);
+}
+#[test]
+fn remembered_address_survives_disconnect_and_invalid_saved_address_is_ignored() {
+    let (mut manager, _) = fixture();
+    connect(&mut manager);
+    manager.execute(Request::Disconnect).unwrap();
+    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
+    assert_eq!(
+        reloaded.snapshot().last_connection.unwrap().host,
+        "192.168.1.50"
+    );
+    assert!(reloaded.snapshot().device.is_none());
+    let path = manager.data_dir.join("state.json");
+    let mut saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    saved["last_connection"] = serde_json::json!({"host":"bad;host","port":5555});
+    fs::write(&path, saved.to_string()).unwrap();
+    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
+    assert!(reloaded.snapshot().last_connection.is_none());
+    assert_eq!(reloaded.saved.adb_path, manager.saved.adb_path);
+}
+#[test]
+fn connection_failures_explain_network_port_and_timeout_without_hiding_details() {
+    for (error, expected) in [
+        ("No route to host", "无法通过局域网到达"),
+        ("unreachable host. (10065)", "无法通过局域网到达"),
+        ("Connection refused", "拒绝了 ADB 连接"),
+        ("Connection timed out", "超时"),
+    ] {
+        let message = connection_error("tv.local:5555", error.into());
+        assert!(
+            message.contains(expected)
+                && message.contains("tv.local:5555")
+                && message.ends_with(error),
+            "{message}"
+        );
+    }
+    assert_eq!(
+        connection_error(
+            "tv.local:10065",
+            "failed to authenticate to tv.local:10065".into()
+        ),
+        "failed to authenticate to tv.local:10065"
+    );
+    assert_eq!(
+        connection_error("tv.local:5555", "操作已取消".into()),
+        "操作已取消"
+    );
 }

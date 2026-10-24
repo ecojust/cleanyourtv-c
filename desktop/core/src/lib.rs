@@ -54,6 +54,7 @@ pub enum Request {
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    pub last_connection: Option<ConnectionAddress>,
     pub install_results: Vec<InstallResult>,
     pub system_info: Option<SystemInfo>,
     pub revision: u64,
@@ -66,6 +67,12 @@ pub struct Snapshot {
     pub original_home: Option<String>,
     pub history: Vec<HistoryEntry>,
     pub message: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionAddress {
+    pub host: String,
+    pub port: u16,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

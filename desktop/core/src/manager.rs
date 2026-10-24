@@ -1,7 +1,7 @@
 use crate::{
     adb::{self, Output, ProcessRunner, Runner},
-    parse, Device, HistoryEntry, InstallResult, LauncherInfo, PackageInfo, Request, Snapshot,
-    SystemInfo,
+    parse, ConnectionAddress, Device, HistoryEntry, InstallResult, LauncherInfo, PackageInfo,
+    Request, Snapshot, SystemInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,6 +19,7 @@ const LIMIT_HISTORY: usize = 200;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 struct Saved {
+    last_connection: Option<ConnectionAddress>,
     adb_path: Option<String>,
     homes: Vec<Home>,
     enabled_states: Vec<EnabledState>,
@@ -69,6 +70,7 @@ impl Manager {
         let saved = read_saved(&data_dir);
         let state = Snapshot {
             history: saved.history.clone(),
+            last_connection: saved.last_connection.clone(),
             message: "选择 ADB 后连接电视；首次连接请在电视上授权".into(),
             ..Snapshot::default()
         };
@@ -215,6 +217,16 @@ impl Manager {
     }
     fn connect(&mut self, host: &str, port: u16) -> Result<(), String> {
         let serial = parse::endpoint(host, port)?;
+        let address = ConnectionAddress {
+            host: host.trim().to_string(),
+            port,
+        };
+        let previous = self.saved.last_connection.replace(address.clone());
+        if let Err(error) = self.persist() {
+            self.saved.last_connection = previous;
+            return Err(error);
+        }
+        self.state.last_connection = Some(address);
         self.verify_adb()?;
         // Selecting another target never leaves the previous television active
         // behind a failed connection attempt.
@@ -224,7 +236,9 @@ impl Manager {
         self.state.launchers.clear();
         self.state.default_home = None;
         self.state.original_home = None;
-        let connection = self.run(vec!["connect".into(), serial.clone()], None, 20);
+        let connection = self
+            .run(vec!["connect".into(), serial.clone()], None, 20)
+            .map_err(|error| connection_error(&serial, error));
         // ADB can report "failed to authenticate" while it adds an unauthorized
         // device and the television is showing its approval dialog.
         let status = match self.device_status(&serial)? {
@@ -1079,6 +1093,25 @@ fn device_key(device: &Device) -> String {
 fn uncertain(error: String) -> String {
     format!("执行结果未确认，操作可能已生效，请重新扫描：{error}")
 }
+fn connection_error(serial: &str, error: String) -> String {
+    let lower = error.to_ascii_lowercase();
+    if ["no route to host", "unreachable", "(10065)", "(10051)"]
+        .iter()
+        .any(|text| lower.contains(text))
+    {
+        format!("无法通过局域网到达 {serial}。请确认电视在线、IP 正确、电脑与电视在同一网络，并检查 VPN、防火墙和访客网络隔离。macOS 请在系统设置 → 隐私与安全性 → 本地网络中允许 pureTV。原始错误：{error}")
+    } else if lower.contains("refused") || lower.contains("(10061)") {
+        format!("{serial} 拒绝了 ADB 连接。请开启电视的网络调试，并使用电视显示的调试端口（不一定是 5555）。原始错误：{error}")
+    } else if lower.contains("timed out")
+        || lower.contains("timeout")
+        || lower.contains("(10060)")
+        || error.contains("超时")
+    {
+        format!("连接 {serial} 超时。请确认电视在线、地址和端口正确，并检查局域网、防火墙或网络隔离设置。原始错误：{error}")
+    } else {
+        error
+    }
+}
 fn check_output(output: Output) -> Result<String, String> {
     let lower = output.text.to_ascii_lowercase();
     let failure = output.code != 0
@@ -1155,6 +1188,13 @@ fn read_saved(directory: &Path) -> Saved {
         }
         if let Ok(body) = fs::read(path) {
             if let Ok(mut saved) = serde_json::from_slice::<Saved>(&body) {
+                if saved
+                    .last_connection
+                    .as_ref()
+                    .is_some_and(|address| parse::endpoint(&address.host, address.port).is_err())
+                {
+                    saved.last_connection = None;
+                }
                 saved.history.truncate(LIMIT_HISTORY);
                 saved
                     .homes

@@ -397,6 +397,21 @@ try {
     assert.equal(await p.evaluate(()=>sessionStorage.length),0);
     assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.1.50')),false);
   });
+  const rememberedState={...snapshot(),device:null,lastConnection:{host:'192.168.0.191',port:5555}};
+  const routeError="无法通过局域网到达 192.168.0.192:37777。请确认电视在线、IP 正确、电脑与电视在同一网络，并检查 VPN、防火墙和访客网络隔离。macOS 请在系统设置 → 隐私与安全性 → 本地网络中允许 pureTV。原始错误：ADB 操作失败：failed to connect: No route to host";
+  await check('native remembered address prefills without connecting and failures retain edits with localized guidance',async p=>{
+    await p.waitForFunction(()=>document.querySelector('[name="host"]').value==='192.168.0.191');
+    assert.equal(await p.locator('[name="port"]').inputValue(),'5555');assert.deepEqual(await requests(p),[]);
+    await p.reload();await p.waitForFunction(()=>document.querySelector('[name="host"]').value==='192.168.0.191');
+    await p.locator('[name="host"]').fill('192.168.0.192');await p.locator('[name="port"]').fill('37777');
+    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'get_state',snapshot:value}),rememberedState);
+    assert.equal(await p.locator('[name="host"]').inputValue(),'192.168.0.192');assert.equal(await p.locator('[name="port"]').inputValue(),'37777');
+    await act(p,'connect').click();await p.locator('.notice.error').waitFor();assert.match(await p.locator('.notice.error').innerText(),/本地网络/);
+    assert.equal(await p.locator('[name="host"]').inputValue(),'192.168.0.192');assert.equal(await p.locator('[name="port"]').inputValue(),'37777');
+    assert.deepEqual(await requests(p),[{action:'connect',host:'192.168.0.192',port:37777}]);
+    await p.locator('[name="locale"]').selectOption('en');assert.match(await p.locator('.notice.error').innerText(),/Cannot reach 192.168.0.192:37777/);assert.match(await p.locator('.notice.error').innerText(),/Local Network/);assert.match(await p.locator('.notice.error').innerText(),/No route to host/);
+    assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.0.192')),false);
+  },rememberedState,{connectError:routeError});
   await check('scan disables competing actions and exposes cancellation', async p => {
     await nav(p,'apps'); await act(p,'scan').click(); await p.locator('.busy-bar').waitFor();
     assert.equal(await act(p,'scan').isDisabled(),true);
