@@ -44,7 +44,24 @@ jobs:
         env:
           PURETV_KEYSTORE_PASSWORD: ${{ secrets.PURETV_KEYSTORE_PASSWORD }}
         working-directory: launcher
-        run: ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize :webtv:verifyReleaseSize
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize :webtv:verifyReleaseSize 2>&1 | tee "$RUNNER_TEMP/android-build.log"
+      - name: Report Android build or test failures
+        if: failure()
+        run: |
+          python - <<'PYTHON'
+          import os, pathlib, xml.etree.ElementTree as ET
+          messages=[]
+          for report in pathlib.Path('launcher/app/build/test-results').rglob('TEST-*.xml'):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in case.findall('failure'):
+                      messages.append(case.attrib.get('name','test')+': '+(failure.text or '')[:6000])
+          log=pathlib.Path(os.environ['RUNNER_TEMP'])/'android-build.log'
+          if log.exists(): messages.append(log.read_text(errors='replace')[-10000:])
+          for message in messages:
+              print('::error::'+message.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PYTHON
       - name: Verify launcher identity and signing status
         env:
           PURETV_KEYSTORE_PASSWORD: ${{ secrets.PURETV_KEYSTORE_PASSWORD }}
