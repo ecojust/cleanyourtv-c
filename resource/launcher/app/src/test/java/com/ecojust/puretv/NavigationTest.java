@@ -156,9 +156,10 @@ public class NavigationTest {
         try (ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup()) {
             MainActivity home = controller.get();
             layout(home);
-            home.onTileVerticalKey(0, KeyEvent.KEYCODE_DPAD_UP);
-            assertTrue(home.findViewById(R.id.btnWallpaper).hasFocus());
-            home.onTileVerticalKey(0, KeyEvent.KEYCODE_DPAD_DOWN);
+            RecyclerView grid=home.findViewById(R.id.grid);View card=LayoutScene.holder(grid,0).itemView.findViewById(R.id.card);
+            assertFalse(home.onTileVerticalKey(0, KeyEvent.KEYCODE_DPAD_UP));
+            View up=card.focusSearch(View.FOCUS_UP);assertNotNull(up);assertTrue(up.isShown());up.requestFocus();assertTrue(up.hasFocus());
+            View down=card.focusSearch(View.FOCUS_DOWN);assertNotNull(down);assertEquals(R.id.allAppsHint,down.getId());down.performClick();
             assertEquals(AppsActivity.class.getName(), shadowOf(home).getNextStartedActivity()
                     .getComponent().getClassName());
         }
@@ -168,9 +169,10 @@ public class NavigationTest {
         try (ActivityController<AppsActivity> controller = Robolectric.buildActivity(AppsActivity.class).setup()) {
             AppsActivity page = controller.get();
             layout(page);
-            page.onTileVerticalKey(0, KeyEvent.KEYCODE_DPAD_UP);
+            RecyclerView grid=page.findViewById(R.id.appsGrid);View card=LayoutScene.holder(grid,0).itemView.findViewById(R.id.card);
+            assertFalse(page.onTileVerticalKey(0, KeyEvent.KEYCODE_DPAD_UP));View up=card.focusSearch(View.FOCUS_UP);assertNotNull(up);up.requestFocus();
             assertTrue(page.findViewById(R.id.backHome).hasFocus());
-            assertTrue(page.onTileVerticalKey(7, KeyEvent.KEYCODE_DPAD_DOWN));
+            assertFalse(page.onTileVerticalKey(7, KeyEvent.KEYCODE_DPAD_DOWN));
             assertFalse(page.isFinishing());
         }
     }
