@@ -106,11 +106,12 @@ Installed application and launcher APK sizes are measured during scans (and refr
 
 ## Current-launcher layout API
 
-`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`, `capturePreview`; it shares the same busy/cancel guard. `choose_launcher_json` returns UTF-8 JSON text (48 KiB maximum) without writing to the TV. Core `Manager::execute_launcher` only edits the current verified HOME via an explicitly adapted, shell-permission-protected provider; unsupported launchers stay read-only. Configuration schema, Android provider and preview limits are specified in [docs/launcher-layout.md](docs/launcher-layout.md). MCP exposes all five operations; screenshots are image content rather than large base64 text.
+`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`; it shares the busy/cancel guard. `choose_launcher_json` returns UTF-8 layout.json text (48 KiB maximum). Version 2 defines independent `{columns,items}` objects for home and apps; no apps.json compatibility. Core and Android both reject new package entries unless installed, enabled, launchable user applications. The current verified HOME alone exposes an Adjust layout button and full-window canvas; unsupported launchers stay read-only. See [docs/launcher-layout.md](docs/launcher-layout.md).
 
-## System info, install queue and live screen
+`get_launcher_covers`, `choose_launcher_cover` and `choose_launcher_apks` manage user-provided optional card backgrounds, never TV screenshots. PNG/JPEG/WebP imports are bounded to 4 MiB. APK sibling thumb images are discovered locally, and installed-card covers persist in the manager data directory. MCP exposes get_launcher_covers and set_launcher_cover, synchronizing local UI state.
+
+## System info and install queue
 
 `Snapshot.systemInfo` holds nullable manufacturer/brand/SDK/security patch/CPU/ABI, RAM total/available bytes, `/data` total/available bytes, display resolution, uptime and query timestamp. Connection/scans refresh it; `refreshSystemInfo` refreshes it explicitly. Values come from fixed getprop/proc/df/wm commands; unavailable readings remain null.
 
 `Snapshot.installResults` holds the current batch's `{path,success,message}` using the original full request paths. It is not persisted into history. The UI removes only confirmed successful paths from its pending queue; failures and skipped files remain.
-

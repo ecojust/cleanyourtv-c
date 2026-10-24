@@ -4,7 +4,6 @@ mod adb;
 mod manager;
 mod parse;
 
-pub use adb::capture_screen;
 pub use manager::Manager;
 use serde::{Deserialize, Serialize};
 

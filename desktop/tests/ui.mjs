@@ -356,8 +356,8 @@ try {
     assert.deepEqual((await requests(p))[1],{action:'restoreHome'});
     assert.equal(await act(p,'restore-home').isDisabled(),true);
     await act(p,'add-launcher').click();
-    await p.locator('.apk-item').first().waitFor();
-    assert.equal(await p.locator('[data-page="apps"]').getAttribute('aria-current'),'page');
+    await p.locator('.pending-launcher').first().waitFor();
+    assert.equal(await p.locator('[data-page="launchers"]').getAttribute('aria-current'),'page');
   });
   await check('failed mutation shows error and retains actual package state', async p => {
     await nav(p,'apps'); await box(p,'com.vendor.recommendations').check();
