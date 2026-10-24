@@ -5,11 +5,11 @@ on:
       tag:
         description: Existing version tag and release draft
         required: true
-        default: v0.1.5
+        default: v0.2.0
       asset_ref:
         description: Temporary branch containing the signed APK and SHA256SUMS.txt
         required: true
-        default: release-assets/v0.1.5
+        default: release-assets/v0.2.0
 permissions:
   contents: write
 jobs:
@@ -19,6 +19,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.asset_ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "build-tools;34.0.0"
       - name: Verify and publish signed package
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,6 +32,20 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           sha256sum -c SHA256SUMS.txt
+          python - <<'PYTHON'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          info=json.loads(Path('release-metadata.json').read_text())['launcher']
+          assert not info['requiresSigning'] and os.environ['RELEASE_TAG']=='v'+info['versionName']
+          apk=Path(info['releaseName'])
+          assert hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()==info['sha256']
+          tools=Path(os.environ['ANDROID_HOME'])/'build-tools/34.0.0'
+          cert=subprocess.check_output([str(tools/'apksigner'),'verify','--print-certs',str(apk)],text=True)
+          assert re.search(r'Signer #1 certificate SHA-256 digest: (\S+)',cert)[1].lower()==info['certificateSha256']
+          badging=subprocess.check_output([str(tools/'aapt'),'dump','badging',str(apk)],text=True)
+          identity=re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'",badging)
+          assert identity[1]=='com.ecojust.puretv' and identity[3]==info['versionName'] and int(identity[2])==info['versionCode']
+          PYTHON
           gh release view "$RELEASE_TAG"
-          gh release upload "$RELEASE_TAG" ./*.apk SHA256SUMS.txt --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh release upload "$RELEASE_TAG" ./*.apk SHA256SUMS.txt release-metadata.json --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest=false

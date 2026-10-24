@@ -1,17 +1,18 @@
 use crate::{
     adb::{self, Output, ProcessRunner, Runner},
-    parse, Device, HistoryEntry, LauncherInfo, PackageInfo, Request, Snapshot,
+    parse, Device, HistoryEntry, InstallResult, LauncherInfo, PackageInfo, Request, Snapshot,
+    SystemInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const LIMIT_HISTORY: usize = 200;
@@ -52,6 +53,9 @@ impl Action {
     }
 }
 
+#[path = "launcher.rs"]
+mod launcher;
+
 pub struct Manager {
     data_dir: PathBuf,
     saved: Saved,
@@ -79,11 +83,25 @@ impl Manager {
         manager.locate_adb();
         manager
     }
+    pub fn snapshot(&self) -> Snapshot {
+        self.state.clone()
+    }
+
     pub fn execute(&mut self, request: Request) -> Result<Snapshot, String> {
         // The caller resets cancellation once, before dispatching the task.
         // Resetting here could swallow an immediate cancel queued before lock acquisition.
         self.defer_cancel = false;
         let result = match request {
+            Request::RefreshSystemInfo => {
+                let device = self.ensure_device(true)?;
+                self.refresh_system_info(&device);
+                if self.cancel.load(Ordering::Relaxed) {
+                    Err("操作已取消".into())
+                } else {
+                    self.state.message = "电视系统信息已刷新".into();
+                    Ok(())
+                }
+            }
             Request::GetState => {
                 self.locate_adb();
                 Ok(())
@@ -119,6 +137,7 @@ impl Manager {
             }
         };
         self.defer_cancel = false;
+        self.state.revision = self.state.revision.saturating_add(1);
         match result {
             Ok(()) => Ok(self.state.clone()),
             Err(error) => {
@@ -200,6 +219,7 @@ impl Manager {
         // Selecting another target never leaves the previous television active
         // behind a failed connection attempt.
         self.state.device = None;
+        self.state.system_info = None;
         self.state.packages.clear();
         self.state.launchers.clear();
         self.state.default_home = None;
@@ -264,6 +284,7 @@ impl Manager {
             self.run(vec!["disconnect".into(), device.serial], None, 10)?;
         }
         self.state.device = None;
+        self.state.system_info = None;
         self.state.packages.clear();
         self.state.launchers.clear();
         self.state.default_home = None;
@@ -309,6 +330,7 @@ impl Manager {
             // Never associate a previous user's catalogue with the new identity,
             // even if a later read fails or scanning is cancelled.
             self.state.packages.clear();
+            self.state.system_info = None;
             self.state.launchers.clear();
             self.state.default_home = None;
             self.state.original_home = None;
@@ -387,6 +409,12 @@ impl Manager {
             .cloned()
             .chain(known.intersection(&system).cloned())
             .collect();
+        let sizes: BTreeMap<_, _> = self
+            .state
+            .packages
+            .iter()
+            .map(|p| (p.package_name.clone(), p.apk_size_bytes))
+            .collect();
         let packages = all
             .into_iter()
             .map(|pkg| {
@@ -398,6 +426,11 @@ impl Manager {
                     None
                 };
                 PackageInfo {
+                    apk_size_bytes: if installed.contains(&pkg) {
+                        sizes.get(&pkg).copied().flatten()
+                    } else {
+                        None
+                    },
                     label: parse::label(&pkg),
                     system: system.contains(&pkg),
                     enabled: !disabled.contains(&pkg),
@@ -412,6 +445,7 @@ impl Manager {
             .map(|component| {
                 let package_name = component.split('/').next().unwrap_or_default().to_string();
                 LauncherInfo {
+                    apk_size_bytes: sizes.get(&package_name).copied().flatten(),
                     label: parse::label(&package_name),
                     package_name,
                     is_default: default.as_ref() == Some(&component),
@@ -430,6 +464,203 @@ impl Manager {
             .map(|h| h.component.clone());
         Ok(())
     }
+    fn refresh_system_info(&mut self, device: &Device) {
+        let query = |manager: &mut Self, args: &[&str]| -> Option<String> {
+            let mut values = vec!["-s".into(), device.serial.clone(), "shell".into()];
+            values.extend(args.iter().map(|s| s.to_string()));
+            manager.run(values, None, 6).ok()
+        };
+        let properties = query(self, &["getprop"]).unwrap_or_default();
+        let property = |key: &str| -> Option<String> {
+            properties
+                .lines()
+                .find_map(|line| {
+                    line.strip_prefix(&format!("[{key}]: ["))
+                        .and_then(|value| value.strip_suffix(']'))
+                        .map(|value| parse::short(value, 160))
+                })
+                .filter(|value| !value.is_empty())
+        };
+        let memory =
+            query(self, &["cat", "/proc/meminfo"]).and_then(|output| parse::memory_info(&output));
+        let storage =
+            query(self, &["df", "-k", "/data"]).and_then(|output| parse::disk_info(&output));
+        let display_resolution = query(self, &["wm", "size"]).and_then(|output| {
+            output.lines().rev().find_map(|line| {
+                line.split_once(':')
+                    .map(|(_, value)| value.trim().to_string())
+                    .filter(|value| {
+                        value.len() < 32
+                            && value.split_once('x').is_some_and(|(width, height)| {
+                                width.parse::<u32>().is_ok_and(|n| n > 0 && n <= 16384)
+                                    && height.parse::<u32>().is_ok_and(|n| n > 0 && n <= 16384)
+                            })
+                    })
+            })
+        });
+        let uptime_seconds = query(self, &["cat", "/proc/uptime"]).and_then(|output| {
+            output
+                .split_whitespace()
+                .next()?
+                .split('.')
+                .next()?
+                .parse::<u64>()
+                .ok()
+        });
+        self.state.system_info = Some(SystemInfo {
+            manufacturer: property("ro.product.manufacturer"),
+            brand: property("ro.product.brand"),
+            sdk_version: property("ro.build.version.sdk"),
+            security_patch: property("ro.build.version.security_patch"),
+            cpu: property("ro.soc.model")
+                .or_else(|| property("ro.board.platform"))
+                .or_else(|| property("ro.hardware")),
+            cpu_abi: property("ro.product.cpu.abilist").or_else(|| property("ro.product.cpu.abi")),
+            memory_total_bytes: memory.map(|pair| pair.0),
+            memory_available_bytes: memory.map(|pair| pair.1),
+            storage_total_bytes: storage.map(|pair| pair.0),
+            storage_available_bytes: storage.map(|pair| pair.1),
+            display_resolution,
+            uptime_seconds,
+            queried_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        });
+    }
+    fn metadata_batch(
+        &mut self,
+        device: &Device,
+        script: String,
+    ) -> Option<BTreeMap<String, String>> {
+        if script.len() > 48 * 1024 || script.contains('\'') {
+            return None;
+        }
+        let args = vec![
+            "-s".into(),
+            device.serial.clone(),
+            "shell".into(),
+            "sh".into(),
+            "-c".into(),
+            format!("'{script}'"),
+        ];
+        let program = self.state.adb_path.as_ref()?;
+        let output = self
+            .runner
+            .run(
+                Path::new(program),
+                &args,
+                None,
+                &self.cancel,
+                Duration::from_secs(12),
+            )
+            .ok()?;
+        Some(parse::package_blocks(&output.text))
+    }
+    fn refresh_package_sizes(&mut self, device: &Device) {
+        // One ADB round-trip for each group, rather than two round-trips per app.
+        let homes: BTreeSet<_> = self
+            .state
+            .launchers
+            .iter()
+            .map(|home| home.package_name.clone())
+            .collect();
+        let mut targets: Vec<_> = self
+            .state
+            .packages
+            .iter()
+            .filter(|p| p.installed)
+            .map(|p| {
+                (
+                    if homes.contains(&p.package_name) {
+                        0
+                    } else if !p.system {
+                        1
+                    } else {
+                        2
+                    },
+                    p.package_name.clone(),
+                )
+            })
+            .collect();
+        targets.sort();
+        for package in &mut self.state.packages {
+            package.apk_size_bytes = None;
+        }
+        let started = Instant::now();
+        for chunk in targets.chunks(40) {
+            if self.cancel.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(30) {
+                break;
+            }
+            let names = chunk
+                .iter()
+                .map(|(_, name)| name.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if chunk.iter().any(|(_, name)| !parse::package(name)) {
+                continue;
+            }
+            let script=format!("for p in {names}; do printf \"\\n@@puretv@@%s\\n\" \"$p\"; pm path --user {} \"$p\"; done",device.user_id);
+            let Some(paths) = self.metadata_batch(device, script) else {
+                continue;
+            };
+            let mut groups: Vec<(String, Vec<(String, usize)>)> = Vec::new();
+            let mut script = String::new();
+            let mut counts = Vec::new();
+            for (_, name) in chunk {
+                let Some(paths) = paths.get(name).and_then(|text| parse::apk_paths(text)) else {
+                    continue;
+                };
+                let block = format!(
+                    "printf \"\\n@@puretv@@{name}\\n\"; stat -c %s -- {}; ",
+                    paths.join(" ")
+                )
+                .replace("\\\"", "\"");
+                if block.len() > 48 * 1024 {
+                    continue;
+                }
+                if script.len() + block.len() > 48 * 1024 {
+                    groups.push((script, counts));
+                    script = String::new();
+                    counts = Vec::new();
+                }
+                script.push_str(&block);
+                counts.push((name.clone(), paths.len()));
+            }
+            if !script.is_empty() {
+                groups.push((script, counts));
+            }
+            for (script, counts) in groups {
+                if self.cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                if let Some(sizes) = self.metadata_batch(device, script) {
+                    for (name, count) in counts {
+                        let size = sizes
+                            .get(&name)
+                            .and_then(|text| parse::apk_size(text, count));
+                        if let Some(package) = self
+                            .state
+                            .packages
+                            .iter_mut()
+                            .find(|p| p.package_name == name)
+                        {
+                            package.apk_size_bytes = size;
+                        }
+                    }
+                }
+            }
+        }
+        let sizes: BTreeMap<_, _> = self
+            .state
+            .packages
+            .iter()
+            .map(|p| (p.package_name.clone(), p.apk_size_bytes))
+            .collect();
+        for home in &mut self.state.launchers {
+            home.apk_size_bytes = sizes.get(&home.package_name).copied().flatten();
+        }
+    }
     fn scan(&mut self) -> Result<(), String> {
         let mut device = self.ensure_device(false)?;
         device.model = parse::short(
@@ -444,6 +675,11 @@ impl Manager {
         );
         self.state.device = Some(device.clone());
         self.read_catalogue(&device)?;
+        self.refresh_system_info(&device);
+        self.refresh_package_sizes(&device);
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err("操作已取消".into());
+        }
         self.state.message = format!(
             "扫描完成：{} 个已安装应用{}",
             self.state.packages.iter().filter(|p| p.installed).count(),
@@ -621,9 +857,10 @@ impl Manager {
             .iter()
             .map(|s| validate_apk(s))
             .collect::<Result<_, _>>()?;
+        self.state.install_results.clear();
         let mut succeeded = 0;
         let mut failed = 0;
-        for file in &files {
+        for (source, file) in paths.iter().zip(&files) {
             if self.cancel.load(Ordering::Relaxed) {
                 break;
             }
@@ -634,6 +871,11 @@ impl Manager {
             } else {
                 failed += 1;
             }
+            self.state.install_results.push(InstallResult {
+                path: source.clone(),
+                success: result.is_ok(),
+                message: result.as_deref().unwrap_or_else(|e| e).to_string(),
+            });
             self.record(
                 "安装 APK",
                 &file.file_name().unwrap_or_default().to_string_lossy(),
@@ -648,6 +890,15 @@ impl Manager {
             {
                 break;
             }
+        }
+        if let Some(device) = self.state.device.clone().filter(|d| d.status == "device") {
+            // An APK update can replace any user package; invalidate old sizes before refreshing.
+            for package in &mut self.state.packages {
+                if !package.system {
+                    package.apk_size_bytes = None;
+                }
+            }
+            self.refresh_package_sizes(&device);
         }
         self.state.message = format!(
             "安装完成：成功 {succeeded} 项，失败 {failed} 项，未执行 {} 项",

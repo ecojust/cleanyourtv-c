@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -20,14 +20,14 @@ import java.util.List;
 /**
  * The launcher's settings: the values in res/values/config.xml, with an optional overlay read from
  * {@code config.json} in the app's external files directory
- * ({@code /sdcard/Android/data/com.ecojust.cleanyourtv/files/}). Every key in the JSON is optional and an
+ * ({@code /sdcard/Android/data/com.ecojust.puretv/files/}). Every key in the JSON is optional and an
  * unknown or badly typed key is ignored, so a theme can change the dock and the look without a rebuild:
  * {@code tools/theme.sh themes/<name>} pushes a theme folder there and restarts Home.
  *
  * Read once in {@link MainActivity#onCreate}; nothing here touches the network.
  */
 final class Config {
-    private static final String TAG = "CleanYourTv.Config";
+    private static final String TAG = "PureTV.Config";
     static final String FILE_NAME = "config.json";
     static final String WALLPAPER_NAME = "wallpaper.jpg";
 

@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -25,7 +25,7 @@ import java.net.URL;
  */
 final class Wallpaper {
 
-    private static final String TAG = "CleanYourTv.Wallpaper";
+    private static final String TAG = "PureTV.Wallpaper";
     private static final String PREFS = "wallpaper";
     private static final String KEY_AUTO = "daily_wallpaper_enabled";
     private static final String KEY_LAST_DAY = "daily_wallpaper_last_day";

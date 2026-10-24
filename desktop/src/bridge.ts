@@ -1,4 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { emptySnapshot, type Snapshot, type Request, type PlatformToolsInfo, type DownloadProgress } from './types';
 
 export const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -11,7 +12,7 @@ if (demo) {
   sample.adbPath = '演示 / platform-tools / adb';
   sample.device = { serial: '192.168.1.50:5555', model: '客厅电视', androidVersion: '12', userId: 0, status: 'device' };
   sample.packages = [
-    { packageName: 'com.ecojust.cleanyourtv', label: 'pureTV', system: false, enabled: true, installed: true, protectedReason: null },
+    { packageName: 'com.ecojust.puretv', label: 'pureTV', system: false, enabled: true, installed: true, protectedReason: null },
     { packageName: 'com.ecojust.music', label: 'Music TV', system: false, enabled: true, installed: true, protectedReason: null },
     { packageName: 'com.ecojust.webtv', label: 'WebTV', system: false, enabled: true, installed: true, protectedReason: null },
     { packageName: 'com.vendor.recommendations', label: '厂商推荐', system: true, enabled: true, installed: true, protectedReason: null },
@@ -24,7 +25,7 @@ if (demo) {
   sample.defaultHome = 'com.vendor.launcher/.Home';
   sample.launchers = [
     { component: 'com.vendor.launcher/.Home', packageName: 'com.vendor.launcher', label: '原厂桌面', isDefault: true },
-    { component: 'com.ecojust.cleanyourtv/.MainActivity', packageName: 'com.ecojust.cleanyourtv', label: 'pureTV', isDefault: false },
+    { component: 'com.ecojust.puretv/.MainActivity', packageName: 'com.ecojust.puretv', label: 'pureTV', isDefault: false },
   ];
 }
 function copy(): Snapshot { return structuredClone(sample); }
@@ -111,4 +112,34 @@ export async function openResource(resource: 'releases' | 'platformTools' | 'pla
     window.open(url, '_blank', 'noopener,noreferrer'); return;
   }
   await invoke('open_resource', { resource });
+}
+
+export interface McpInfo { config: { mcpServers: Record<string, { command: string; args: string[] }> }; sessionPath: string }
+export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo | import('./types').LauncherPreview }
+export async function mcpInfo(): Promise<McpInfo | null> {
+  if (!desktop || demo) return null;
+  return invoke<McpInfo>('mcp_info');
+}
+export async function watchMcp(operation: (value: McpOperation) => void, progress: (value: DownloadProgress) => void): Promise<void> {
+  if (!desktop || demo) return;
+  await listen<McpOperation>('mcp-operation', event => operation(event.payload));
+  await listen<DownloadProgress>('mcp-progress', event => progress(event.payload));
+}
+export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo | import('./types').LauncherPreview> {
+  if (!desktop || demo) throw new Error('请在真实桌面管理器中连接电视，读取启动器布局接口。');
+  return invoke('launcher_execute', { request });
+}
+export async function chooseLauncherJson(): Promise<string | null> {
+  if (!desktop || demo) throw new Error('请在桌面管理器中选择 apps.json。');
+  return invoke('choose_launcher_json');
+}
+
+export async function liveExecute(action: 'start'|'pause'|'stop'|'status'|'frame', fps?: number): Promise<import('./types').LiveStatus | import('./types').LiveFrame> {
+  if (!desktop || demo) throw new Error('请运行桌面管理器并连接电视。');
+  return invoke('live_execute', { action, fps });
+}
+export async function watchLive(state: (value: import('./types').LiveStatus)=>void, frame: (value: {frame:import('./types').LiveFrame;status:import('./types').LiveStatus})=>void): Promise<void> {
+  if (!desktop || demo) return;
+  await listen<import('./types').LiveStatus>('live-state',event=>state(event.payload));
+  await listen<{frame:import('./types').LiveFrame;status:import('./types').LiveStatus}>('live-frame',event=>frame(event.payload));
 }

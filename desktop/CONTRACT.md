@@ -32,6 +32,7 @@ impl Manager {
 
 ```ts
 interface Snapshot {
+  revision: number; // monotonically increasing in this Manager process; UI rejects older results
   adbPath: string | null;
   adbAvailable: boolean;
   device: Device | null;
@@ -45,6 +46,7 @@ interface Snapshot {
 interface Device { serial: string; model: string; androidVersion: string; userId: number; status: string; }
 // status: device / unauthorized / offline; scan/mutations only for device
 interface PackageInfo {
+  apkSizeBytes: number | null; // installed user base/split APK byte total; excludes private data/cache
   packageName: string; label: string; system: boolean; enabled: boolean;
   installed: boolean; protectedReason: string | null;
 }
@@ -95,3 +97,21 @@ The backend owns validation and protection. On connect, verify devices state and
 Batches are bounded, serial and independently recorded; no success claims from exit status alone. Remote shell arguments must be strictly validated. Paths to local APKs are passed as process arguments. Use explicit `-s SERIAL`, process timeout/output limit, and recheck the connected user's identity before mutation. Persist configured ADB path, original HOME per device/user and bounded history; do not persist pairing codes or APK contents.
 
 The Tauri dispatcher resets the cancellation flag once before enqueueing a task. `Manager::execute` never resets it, so cancellation queued before acquiring the manager lock is preserved.
+
+## MCP bridge
+
+The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 31 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
+
+Installed application and launcher APK sizes are measured during scans (and refreshed after APK installation) using validated `pm path --user` paths and bounded marker-delimited `stat` batches; normal batch catalogue checks reuse the measured values. Unavailable, unsupported or incomplete results are null, never invented zeroes. Metadata collection has a 30-second scheduling budget, 12-second batch command timeouts and shares cancellation. Uninstalled recovery entries have null sizes; installed system packages are measured too.
+
+## Current-launcher layout API
+
+`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`, `capturePreview`; it shares the same busy/cancel guard. `choose_launcher_json` returns UTF-8 JSON text (48 KiB maximum) without writing to the TV. Core `Manager::execute_launcher` only edits the current verified HOME via an explicitly adapted, shell-permission-protected provider; unsupported launchers stay read-only. Configuration schema, Android provider and preview limits are specified in [docs/launcher-layout.md](docs/launcher-layout.md). MCP exposes all five operations; screenshots are image content rather than large base64 text.
+
+## System info, install queue and live screen
+
+`Snapshot.systemInfo` holds nullable manufacturer/brand/SDK/security patch/CPU/ABI, RAM total/available bytes, `/data` total/available bytes, display resolution, uptime and query timestamp. Connection/scans refresh it; `refreshSystemInfo` refreshes it explicitly. Values come from fixed getprop/proc/df/wm commands; unavailable readings remain null.
+
+`Snapshot.installResults` holds the current batch's `{path,success,message}` using the original full request paths. It is not persisted into history. The UI removes only confirmed successful paths from its pending queue; failures and skipped files remain.
+
+`live_execute {action: start|pause|stop|status|frame, fps?:1..3}` is read-only and uses fixed `adb -s SERIAL exec-out screencap -p` commands with separate cancellation, 8-second deadlines and 8-MiB PNG bounds. It shares the verified cached device identity but does not block normal device mutations or open HOME. Device/user/ADB changes stop the worker; app exit cancels and joins it. Status excludes image data, latest frame stays in memory, and frames emit via `live-frame`. The UI updates the image element without rebuilding controls per frame.

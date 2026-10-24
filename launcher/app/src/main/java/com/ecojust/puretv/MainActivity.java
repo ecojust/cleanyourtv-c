@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -58,6 +58,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** The four approved home shortcuts remain one row. */
     static final int COLUMNS = 4;
+    private int layoutColumns = COLUMNS;
+    private String layoutSignature = "";
     /** config.xml defaults with an optional config.json theme overlay on top. */
     private Config cfg;
     /** The wallpaper file on the TV; null until something asks for it. */
@@ -76,9 +78,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * ({@link QuickSettingsActivity}) sends this, so the remote's Settings button can reach the wallpaper
      * and icon-per-row settings without a second settings screen.
      */
-    public static final String ACTION_DESKTOP_SETTINGS = "com.ecojust.cleanyourtv.action.DESKTOP_SETTINGS";
+    public static final String ACTION_DESKTOP_SETTINGS = "com.ecojust.puretv.action.DESKTOP_SETTINGS";
     /** Same route for the Favourites (dock) panel, so the quick settings overlay can offer it too. */
-    public static final String ACTION_DOCK_PICKER = "com.ecojust.cleanyourtv.action.DOCK_PICKER";
+    public static final String ACTION_DOCK_PICKER = "com.ecojust.puretv.action.DOCK_PICKER";
     private static final long MINUTE_MS = 60_000L;
     private String liveTvPkg;
 
@@ -146,7 +148,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi = findViewById(R.id.btnWifi);
 
         grid = findViewById(R.id.grid);
-        grid.setLayoutManager(new GridLayoutManager(this, COLUMNS));
+        grid.setLayoutManager(new GridLayoutManager(this, layoutColumns));
         grid.setHasFixedSize(false);
         grid.setItemAnimator(null);
         reducedMotion = getSharedPreferences(PREFS_LAYOUT, MODE_PRIVATE)
@@ -171,7 +173,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
                 // Back to the dock tile Up came from, not wherever the focus finder happens to land.
-                focusTile(lastFocused % COLUMNS);
+                focusTile(lastFocused % layoutColumns);
                 return true;
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnWallpaper) return true;
@@ -219,7 +221,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             wallpaperReleased = false;
             applyWallpaper();
         }
-        adapter.reload();
+        reloadCustomLayout();
         if (weather != null && weather.enabled()) refreshWeather();
         updateWifiLabel();
         handler.postDelayed(minuteTick, MINUTE_MS);
@@ -233,6 +235,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int pos = adapter.positionOf(returnKey);
             focusTile(pos >= 0 ? pos : returnSlot);
         });
+    }
+
+    static void reloadLayoutFromManager() {
+        MainActivity activity=live==null?null:live.get();
+        if(activity!=null) activity.runOnUiThread(activity::reloadCustomLayout);
+    }
+    private void reloadCustomLayout() {
+        LauncherLayout layout=LauncherLayout.override(this);
+        String signature=layout==null?"":layout.json.toString();
+        if (!signature.equals(layoutSignature)) {
+            layoutSignature=signature;layoutColumns=layout==null?COLUMNS:layout.columns;
+            adapter.clear();
+            adapter=new AppAdapter(this,this,layoutColumns,layout==null?AppAdapter.homeEntries():layout.entries(this,"home"));
+            grid.setLayoutManager(new GridLayoutManager(this,layoutColumns));grid.setAdapter(adapter);
+            boolean multipleRows=adapter.getItemCount()>layoutColumns;
+            findViewById(R.id.homeSpacer).setVisibility(multipleRows?View.GONE:View.VISIBLE);
+            android.widget.LinearLayout.LayoutParams params=(android.widget.LinearLayout.LayoutParams)grid.getLayoutParams();
+            params.height=multipleRows?0:android.view.ViewGroup.LayoutParams.WRAP_CONTENT;params.weight=multipleRows?1:0;grid.setLayoutParams(params);
+            grid.post(()->focusTile(Math.min(lastFocused,adapter.getItemCount()-1)));
+        } else adapter.reload();
     }
 
     @Override
@@ -980,10 +1002,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            findViewById(R.id.btnWallpaper).requestFocus();
+        if (keyCode==KeyEvent.KEYCODE_DPAD_UP) {
+            if(position<layoutColumns)findViewById(R.id.btnWallpaper).requestFocus();
+            else focusTile(position-layoutColumns);
         } else {
-            openAppList();
+            int next=position+layoutColumns;
+            int lastRow=((adapter.getItemCount()-1)/layoutColumns)*layoutColumns;
+            if(next<adapter.getItemCount())focusTile(next);
+            else if(position<lastRow)focusTile(adapter.getItemCount()-1);
+            else openAppList();
         }
         return true;
     }

@@ -116,7 +116,8 @@ pub(crate) fn short(value: &str, count: usize) -> String {
 }
 pub(crate) fn label(pkg: &str) -> String {
     match pkg {
-        "com.ecojust.cleanyourtv" => "pureTV",
+        "com.ecojust.puretv" => "pureTV",
+        "com.ecojust.cleanyourtv" => "pureTV（旧版）",
         "com.ecojust.music" => "Music TV",
         "com.ecojust.shortvideo" => "ShortVideo TV",
         "com.ecojust.webtv" => "WebTV",
@@ -158,4 +159,168 @@ pub(crate) fn core_package(pkg: &str) -> bool {
             | "com.android.bluetooth"
             | "com.android.documentsui"
     )
+}
+
+/// Only absolute, ordinary APK paths can be interpolated into the remote shell.
+pub(crate) fn apk_paths(output: &str) -> Option<Vec<String>> {
+    let mut paths = BTreeSet::new();
+    for line in output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let path = line.strip_prefix("package:")?;
+        if path.len() > 4096
+            || !path.starts_with('/')
+            || !path.ends_with(".apk")
+            || !path
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"/._-+~=".contains(&b))
+            || path.split('/').any(|part| part == "..")
+        {
+            return None;
+        }
+        paths.insert(path.to_string());
+        if paths.len() > 64 {
+            return None;
+        }
+    }
+    if paths.is_empty() {
+        None
+    } else {
+        Some(paths.into_iter().collect())
+    }
+}
+pub(crate) fn apk_size(output: &str, expected: usize) -> Option<u64> {
+    let sizes: Vec<_> = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if sizes.len() != expected || expected == 0 {
+        return None;
+    }
+    sizes.into_iter().try_fold(0u64, |sum, line| {
+        if !line.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let bytes = line.parse::<u64>().ok()?;
+        if bytes == 0 {
+            None
+        } else {
+            sum.checked_add(bytes)
+        }
+    })
+}
+#[cfg(test)]
+mod size_tests {
+    use super::*;
+    #[test]
+    fn apk_sizes_include_splits_and_reject_untrusted_or_incomplete_output() {
+        assert_eq!(apk_paths("package:/data/app/~~a+b==/example/base.apk\npackage:/data/app/~~a+b==/example/split.apk").unwrap().len(),2);
+        for path in [
+            "package:/data/app/a';touch /tmp/pwn;.apk",
+            "package:/data/../secret.apk",
+            "package:relative.apk",
+            "Error: permission denied",
+            "",
+        ] {
+            assert!(apk_paths(path).is_none());
+        }
+        assert_eq!(apk_size("1024\n2048\n", 2), Some(3072));
+        for (output, count) in [
+            ("1024", 2),
+            ("0", 1),
+            ("-1", 1),
+            ("Error", 1),
+            ("18446744073709551615\n1", 2),
+        ] {
+            assert_eq!(apk_size(output, count), None);
+        }
+    }
+}
+
+pub(crate) fn memory_info(output: &str) -> Option<(u64, u64)> {
+    let get = |key: &str| -> Option<u64> {
+        let value = output.lines().find_map(|line| line.strip_prefix(key))?;
+        let mut fields = value.split_whitespace();
+        let number = fields.next()?.parse::<u64>().ok()?;
+        if fields.next() != Some("kB") {
+            return None;
+        }
+        number.checked_mul(1024)
+    };
+    let total = get("MemTotal:")?;
+    let available = get("MemAvailable:").or_else(|| {
+        get("MemFree:")?
+            .checked_add(get("Buffers:")?)?
+            .checked_add(get("Cached:")?)
+    })?;
+    if total == 0 || available > total {
+        None
+    } else {
+        Some((total, available))
+    }
+}
+pub(crate) fn disk_info(output: &str) -> Option<(u64, u64)> {
+    output.lines().rev().find_map(|line| {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        let used = fields.iter().position(|field| {
+            field
+                .strip_suffix('%')
+                .is_some_and(|number| number.parse::<u32>().is_ok())
+        })?;
+        if used < 3 {
+            return None;
+        }
+        let total = fields[used - 3].parse::<u64>().ok()?.checked_mul(1024)?;
+        let available = fields[used - 1].parse::<u64>().ok()?.checked_mul(1024)?;
+        if total == 0 || available > total {
+            None
+        } else {
+            Some((total, available))
+        }
+    })
+}
+#[cfg(test)]
+mod system_tests {
+    use super::*;
+    #[test]
+    fn memory_and_disk_values_require_real_units_and_sane_capacity() {
+        assert_eq!(
+            memory_info("MemTotal: 4096 kB\nMemAvailable: 1024 kB"),
+            Some((4194304, 1048576))
+        );
+        assert_eq!(
+            memory_info("MemTotal: 4096 kB\nMemFree: 512 kB\nBuffers: 256 kB\nCached: 256 kB"),
+            Some((4194304, 1048576))
+        );
+        assert_eq!(memory_info("MemTotal: 1 kB\nMemAvailable: 2 kB"), None);
+        assert_eq!(disk_info("Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/block/data 4096 1024 3072 25% /data"),Some((4194304,3145728)));
+        assert_eq!(
+            disk_info("/dev/long-name\n4096 1024 3072 25% /data"),
+            Some((4194304, 3145728))
+        );
+        assert_eq!(disk_info("permission denied"), None);
+    }
+}
+
+pub(crate) fn package_blocks(output: &str) -> std::collections::BTreeMap<String, String> {
+    let mut blocks = std::collections::BTreeMap::new();
+    let mut current = None;
+    for line in output.lines() {
+        if let Some(name) = line
+            .trim()
+            .strip_prefix("@@puretv@@")
+            .filter(|name| package(name))
+        {
+            current = Some(name.to_string());
+            blocks.insert(name.to_string(), String::new());
+        } else if let Some(name) = &current {
+            let block = blocks.get_mut(name).unwrap();
+            block.push_str(line);
+            block.push('\n');
+        }
+    }
+    blocks
 }

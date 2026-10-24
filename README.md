@@ -1,160 +1,90 @@
 # pureTV
 
-参考 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv) 实现的 Android TV / Google TV 项目，包含一个电脑端电视管理工具，以及电视端的一个桌面启动器和三个独立播放器 App。四个电视端软件支持 Android 8.0（API 26）及以上系统。
+**专门管理电视系统的电脑端工具。** 通过 ADB 连接 Android TV / Google TV，查看设备信息、管理应用、安装自定义 APK、选择与自定义启动器，并查看电视实时画面。也可通过 MCP 让 Agent 操作当前管理器窗口。
 
 仓库：[ecojust/pureTV](https://github.com/ecojust/pureTV)
 
-## 软件总览
+![pureTV Manager 界面示例（模拟设备数据）](docs/previews/manager-020.png)
 
-**电脑端工具：安装在电脑上，通过 ADB 管理电视。**
+## 下载与安装
 
-| 软件 | 类型 | 负责什么／主要功能 | 软件版本 | 电脑端安装包大小 |
-| --- | --- | --- | --- | --- |
-| [pureTV Manager／电视管理器](desktop/README.md) | **电脑端桌面应用／电视管理工具** | 连接电视、扫描应用、停用／启用、为当前用户卸载／恢复、添加外部 APK 并勾选安装、选择默认启动器；在线下载并配置 ADB | 0.1.3 | Windows 安装版／便携版、macOS ARM64、Linux x64；大小见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) |
+[pureTV Manager 0.2.0 · 电脑端管理器](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.0)
 
-桌面安装包大小与 SHA256 校验清单见发布页，不含首次按需下载的 Platform Tools 和系统 WebView 运行时。提供 Windows x64、macOS Apple Silicon（ARM64，macOS 11 及以上）和 Linux x64 构建，使用入口见[电脑端管理工具](#电脑端管理工具)。它独立于下面四个电视 APK，不捆绑进电视端安装包，也不需要在电视上安装额外常驻管理服务，因此不会增大现有电视端 APK。
+| 电脑系统 | 安装包 |
+| --- | --- |
+| Windows x64 | 安装版 EXE / 便携 EXE |
+| macOS Apple Silicon | ARM64 DMG，macOS 11 及以上 |
+| Linux x64 | DEB，需兼容的 GTK / WebKitGTK 运行环境 |
 
-**电视端软件：分别安装在电视上，负责桌面或媒体播放。**
+文件大小及 `SHA256SUMS.txt` 见发布页。Windows 使用 WebView2；便携版需要电脑已具备该运行时。macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
 
-| 软件 | 类型 | 负责什么／主要功能 | 软件版本 | 已签名 APK 大小 |
-| --- | --- | --- | --- | --- |
-| pureTV | **启动器（Launcher／电视桌面）** | 提供电视首页和应用入口；显示时间、日期，可设置壁纸、天气和屏保；通过遥控器打开播放器、文件管理器和应用商城 | 0.1.5 | **341.1 KiB**（349,264 字节） |
-| [Music TV](apps/music/README.md) | **独立 App／音乐播放器** | B 站音乐搜索／BV 输入与音轨播放、本地音频、收藏和播放队列，支持后台音频播放 | 0.1.1 | **32.7 KiB**（33,484 字节） |
-| [ShortVideo TV](apps/shortvideo/README.md) | **独立 App／短视频播放器** | 获取多平台随机短视频，打开后自动播放、连续播放，支持遥控器上下切换和播放／暂停 | 0.1.0 | **23.6 KiB**（24,160 字节） |
-| [WebTV](apps/webtv/README.md) | **独立 App／电视直播播放器** | 播放卫视／央视直播，支持频道分类、收藏、全屏切台、切换线路，以及网络／本地 M3U 频道列表导入 | 0.1.0 | **33.4 KiB**（34,204 字节） |
+管理器安装在**电脑**上。电视开启 ADB／网络调试并接受连接授权即可使用应用管理等功能，不需要额外安装管理服务。要使用 pureTV 的自定义桌面布局，再按需安装[电视端 pureTV 启动器 0.2.0](https://github.com/ecojust/pureTV/releases/tag/v0.2.0)。
 
-以上大小以 [v0.1.5 发布页](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) 的签名安装包为准，1 KiB = 1,024 字节；这是 APK 文件大小，安装后的存储占用和运行内存会随系统及播放内容变化。
+## 连接与系统信息
 
-四个软件分别打包、按需安装。只想换电视桌面，安装 **pureTV** 并在系统中选择默认桌面；只想听音乐、刷短视频或看直播，安装对应 **App** 即可，也能从原厂桌面打开。安装启动器不会自动安装三个播放器；全部安装后，可从启动器的「全部应用」页进入它们。
+1. 电脑和电视接入可互通的网络，在电视开发者选项中开启 ADB／网络调试。
+2. 在管理器首页填写电视 IP／主机名与调试端口，连接后在电视上允许授权。需要无线配对时，先使用配对端口与六位配对码，再用调试端口连接。
+3. 缺少 ADB 时点击「下载并配置 ADB」，阅读并同意 Android SDK 许可后自动下载、校验和配置；优先 Google，失败时尝试腾讯镜像。也可手动选择已有 ADB。
 
-## 电脑端管理工具
+连接后首页展示型号、Android／SDK／安全补丁、制造商、CPU／架构、内存、`/data` 磁盘容量、分辨率与运行时间，支持刷新。权限或固件限制导致读不到的数据明确显示未知。其他页面顶部只保留当前连接状态。
 
-[pureTV Manager 0.1.3](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) 用于从电脑管理电视，使用方式如下：
+## 应用管理
 
-1. 在电脑安装并打开管理器，程序会检测已有 ADB。缺少时点击「下载并配置 ADB」，阅读并勾选 Android SDK 许可后确认，优先从 Google 官方下载 Platform Tools 37.0.1，失败时自动尝试腾讯镜像，校验、解压并自动配置。缓存完整时可离线复用，校验发现损坏时会重新下载修复；也保留手动选择 `adb.exe`／`adb` 的方式。Windows 使用系统 WebView2，便携版需电脑已安装该运行时。
-2. 电视开启 ADB／网络调试，电脑与电视连接到可互通的网络。输入电视 IP 和实际调试端口，点击连接，并在电视上接受授权；支持配对码的电视可先配对再连接。
-3. 扫描当前电视用户的全部已安装应用，按包名／已知名称搜索，筛选系统应用、用户应用、已停用及可恢复项目，勾选后执行停用、启用、为当前用户卸载或恢复。
-4. 在「安装应用」点击「添加安装包」，从电脑添加自己的 APK，勾选后点击「安装所选」。添加文件不会立即安装；首版支持普通单 APK。
-5. 在「启动器」查看已安装的桌面，也可导入自定义启动器 APK，安装后选择默认桌面；管理器记录原桌面，供恢复时使用。
+- **已安装应用**：搜索、筛选、批量启用／停用、为当前用户卸载、恢复系统中仍保有安装包的应用。
+- **待安装应用**：导入自己的本地 APK，勾选后安装；成功项从待安装列表移除，失败或未执行项保留供核对和重试。
+- 应用和启动器均显示**安装包大小**，包含主 APK 与分包 APK，不包含私有数据、缓存或优化文件。无法读取时显示「未能读取」，不编造零值。
+- 应用、启动器、待安装 APK 和操作记录独立滚动，表头固定；批量选择及操作按钮位于列表顶部，勾选不会跳回开头。
 
-系统应用的「为当前用户卸载」保留数据且不删除系统分区 APK；恢复要求设备仍保有该安装包。应用清单以真实包名为准，首版仅为已知应用提供友好名称，不保证所有应用的本地化名称和图标。实际操作结果和厂商限制会显示在界面与操作记录中。
+卸载只针对当前 Android 用户，保留数据，不删除系统分区 APK。核心系统组件和当前默认启动器受保护。安装结果会刷新应用列表；具备启动入口的新应用可加入启动器排布。
 
-Platform Tools 只安装在电脑的应用数据目录，不写入电视或系统 PATH；下载支持进度、取消和重试。下载量为 Windows 约 7.67 MiB、macOS 约 15.36 MiB、Linux 约 8.63 MiB，解压后分别约占 16.72／37.02／21.17 MiB。更换 ADB 前需先断开电视。
+## 启动器与自定义布局
 
-macOS 用户将 DMG 内的应用拖入「应用程序」。应用采用完整 ad-hoc 签名，最低系统版本为 macOS 11；尚未使用 Developer ID 证书或完成 Apple 公证。出现「已损坏」或开发者验证提示时，请按 [macOS 安装与首次打开](desktop/README.md#macos-安装与首次打开) 校验下载并处理。
+在「启动器」查看已安装桌面、包大小，选择默认启动器，或恢复记录的原桌面。「显示当前桌面并截图」获取电视上的实际画面作为封面。
 
-详细连接步骤、恢复范围、运行环境和开发说明见 [desktop/README.md](desktop/README.md)。桌面程序与 Android APK 分别发布，桌面版 0.1.3 不改变 Android 最新版本 **v0.1.5**。0.1.3 三平台构建、核心与工具安装测试、真实官方工具下载及离线复用、腾讯镜像下载及 ADB 运行检查均已通过；Linux 的 15 项界面测试、macOS DMG／完整签名／安装副本启动检查也已通过，见 [0.1.3 构建记录](https://github.com/ecojust/pureTV/actions/runs/39989740541)。四个发布附件均已下载并核对 SHA256。当前尚未完成真实电视连接与操作验证。
+管理器会先读取**当前默认启动器的自定义能力**。支持已适配接口时，可编辑首页和应用列表的顺序、列数、名称、图标与卡片颜色，通过 `apps.json` 应用并读回核对。图标来自电视实际安装的应用，也可选择内置图标。
 
-![桌面渲染预览（Robolectric，非电视实机截图）](docs/previews/home-render.png)
+当前适配 **pureTV 0.2.0 的布局接口**。其他启动器需适配其可靠接口后才能编辑；未适配时明确显示不可编辑，不猜测和改写未知配置。详见[启动器布局与 apps.json](desktop/docs/launcher-layout.md)。
 
-## 启动器功能
+![启动器布局编辑示例（模拟接口，非电视实机截图）](docs/previews/launcher-layout-020.png)
 
-- 极简深色桌面：左上时间与日期、右上文字导航、底部四个纯色卡片，细白框提示焦点。
-- 桌面顺序：音乐、哔哩哔哩、文件、应用。
-- 音乐：优先启动独立的 [Music TV](apps/music/README.md) 轻量播放器；未安装时通过电视浏览器打开 [SomaFM 免费网络电台](https://somafm.com/player/)。
-- 哔哩哔哩：优先打开已安装的 TV 版，没有安装时明确提示。
-- 文件：优先打开已安装的文件管理器；没有可用管理器时使用系统文件选择器，选中文件后交给支持它的应用打开。
-- 应用：优先打开当贝市场、Google Play、小米应用商店或支持 Android 商城入口的厂商应用；不可用时打开 [当贝官网](https://www.dangbei.com/)，没有商城和浏览器时明确提示。
-- 桌面按下方向键或点击底部「全部应用」，仍可进入包含音乐、短视频、WebTV 直播和 5 个占位项的独立列表页；返回键回桌面。
-- 菜单键打开快捷设置；顶栏「常用」将焦点移回底部快捷入口。
-- 桌面设置：减弱动画、本地壁纸、每日随机壁纸。桌面固定四列，应用页随屏幕宽度采用三列或四列。
-- 时钟、日期、可选时钟屏保；可选天气、城市搜索和空气质量。
-- 简体中文、繁体中文及参考项目提供的其他语言，跟随系统语言。
-- 可选无障碍服务：Home 键回顶、在其他应用中打开快捷设置。
+### 新包名
 
-pureTV 启动器沿用包名 `com.ecojust.cleanyourtv` 和既有发布签名，可覆盖升级旧版 cleanyourtv-c 并保留设置。仓库及应用显示名已更名为 pureTV；三个独立播放器的包名保持各自独立。
+电视端 pureTV 的新包名为 **`com.ecojust.puretv`**。旧版使用 `com.ecojust.cleanyourtv`；Android 将它们视为两个应用，需安装新 APK 后重新选择默认桌面，不能直接覆盖旧包。新包使用独立的 pureTV 发布证书，后续版本保持同一证书以支持升级。
 
-## 配套应用
+推荐先保留原桌面，安装并切换到新版，确认布局和操作正常后再决定如何处理旧应用。
 
-- [Music TV](apps/music/README.md)：B 站音乐和本地音频播放器，封面内存缓存最多 1 MiB。已按 BiliMusic 请求流程补齐 DASH 参数并验证样本 AAC 文件；开发网络的详情接口仍返回 412，完整电视播放链路待实测。
-- [ShortVideo TV](apps/shortvideo/README.md)：免费免 Key 的多平台随机短视频，自动播放和遥控器上下切换；单一原生播放器，不缓存视频。
-- [WebTV](apps/webtv/README.md)：卫视／央视直播、遥控器切台、收藏和多线路；支持网络或本地 M3U 导入，单播放器，无视频缓存。
+## 实时画面
 
-三个应用与桌面分别安装，复用同一套构建工具，没有生产环境第三方依赖；CI 分别限制 Release APK 不超过 5 MiB。新版桌面的「全部应用」页提供三个播放器入口。
+在「实时画面」开始持续预览当前电视屏幕，可暂停、继续或停止。采用 ADB 连续截图，目标 **1–3 帧／秒**，界面显示实际帧率；速度取决于电视与网络，不会强制跳回首页。断开连接或切换设备时停止旧设备预览。
 
-## 下载
+## MCP / Agent
 
-[电脑端管理器 0.1.3](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) · [Android 最新版 APK v0.1.5](https://github.com/ecojust/pureTV/releases/tag/v0.1.5) · [全部版本](https://github.com/ecojust/pureTV/releases)
+管理器打开后，在「设备连接 → MCP · Agent 调试」复制配置到客户端。使用标准 stdio 接入，Agent 与窗口共享设备、用户、操作锁和记录，操作状态、错误、布局及画面同步显示。
 
-电脑端管理器提供 Windows x64 安装版／便携版、macOS ARM64 DMG 和 Linux x64 DEB；请安装到电脑。Android v0.1.5 包含以下四个电视安装包，按用途选择：
+工具覆盖系统信息、连接／配对、应用管理、APK 安装、启动器切换与布局、ADB 配置、实时画面、截图、取消和记录。完整接入及参数见 [MCP 文档](desktop/docs/mcp.md)。
 
-- [pureTV-0.1.5.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/pureTV-0.1.5.apk)：电视桌面启动器。
-- [music-tv-0.1.1.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/music-tv-0.1.1.apk)：音乐 App。
-- [shortvideo-tv-0.1.0.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/shortvideo-tv-0.1.0.apk)：短视频 App。
-- [webtv-0.1.0.apk](https://github.com/ecojust/pureTV/releases/download/v0.1.5/webtv-0.1.0.apk)：电视直播 App。
+## 可选电视应用
 
-仓库发布版本与各 App 的版本分别管理，因此同一发布页中的版本号可能不同。
+电视上的启动器和播放器独立安装，不捆绑进电脑管理器，也不会因管理器升级增大已有电视 APK。
 
-## 构建
+| 应用 | 用途 |
+| --- | --- |
+| pureTV Launcher | 可自定义 Android TV 桌面，支持 apps.json |
+| [Music TV](apps/music/README.md) | 音乐与本地音频播放 |
+| [ShortVideo TV](apps/shortvideo/README.md) | 短视频播放 |
+| [WebTV](apps/webtv/README.md) | M3U 电视直播 |
 
-需要 JDK 17 或 21、Android SDK Platform 35 与 Build Tools 34.0.0。设置 `ANDROID_HOME`，或在 `launcher/local.properties` 中写入 `sdk.dir=/你的/SDK/路径`。
+## 开发与验证
+
+电脑端构建、运行环境与测试：[desktop/README.md](desktop/README.md)。电视端需 JDK 17／21、Android SDK Platform 35、Build Tools 34.0.0：
 
 ```bash
 cd launcher
-./gradlew assembleDebug
-# Windows: .\gradlew.bat assembleDebug
+./gradlew assembleDebug assembleRelease lintDebug testDebugUnitTest
 ```
 
-安装包：`launcher/app/build/outputs/apk/debug/app-debug.apk`。首次构建需要联网下载 Gradle 和依赖。使用 Android 默认本地 debug 签名，不依赖原作者电脑上的密钥。
+项目通过核心测试、界面交互测试、三平台构建、模拟 ADB 联调和 Android 布局测试验证。真实电视的授权、固件限制、应用包与默认桌面切换能力仍以设备实际结果为准。
 
-```bash
-./gradlew assembleRelease lintDebug testDebugUnitTest
-```
+## 许可与致谢
 
-Release 启用 R8 和资源压缩。未提供签名配置时输出 `app/build/outputs/apk/release/app-release-unsigned.apk`；设置 `ANDROID_KEYSTORE_PATH` 与 `ANDROID_KEYSTORE_PASSWORD` 后输出已签名的 `app-release.apk`，密钥别名为 `cleanyourtv-c`。后续升级必须继续使用同一密钥，不要把密钥提交到仓库。正式发布页提供已签名的 APK。
-
-GitHub Actions 会构建 Debug、Release 并运行 lint、壁纸下载测试及页面导航测试；仓库签名 Secrets 可用时自动签名 Release，否则输出未签名构建，APK 可在对应工作流的 Artifacts 下载。CI Debug 密钥不保证跨运行一致；需要持续覆盖升级时请在本地使用固定密钥构建。
-
-## 安装与使用
-
-电视启用开发者选项和 USB/网络调试，并允许电脑连接。电视与电脑在同一网络：
-
-```bash
-adb connect <电视IP>:5555
-adb -s <电视IP>:5555 install -r launcher/app/build/outputs/apk/debug/app-debug.apk
-adb -s <电视IP>:5555 shell cmd package set-home-activity --user 0 com.ecojust.cleanyourtv/.MainActivity
-adb -s <电视IP>:5555 shell am start -n com.ecojust.cleanyourtv/.MainActivity
-```
-
-也可以把 APK 拷到电视，用文件管理器安装，再从系统设置选择默认桌面。部分厂商固件限制第三方桌面，是否可用取决于设备。
-
-一键构建安装（需要 `adb` 在 PATH 中）：
-
-```bash
-TV_HOST=192.168.1.50 ./launcher/build-and-install.sh
-```
-
-Windows PowerShell：
-
-```powershell
-$env:TV_HOST = "192.168.1.50"
-.\launcher\build-and-install.ps1
-```
-
-脚本不会禁用原厂桌面。要还原，请在系统设置中选择原桌面，或执行：
-
-```bash
-adb shell cmd package set-home-activity --user 0 <原桌面包名/Activity>
-```
-
-建议替换前先通过 `adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME` 记录原桌面组件。
-
-## 个性化
-
-在顶栏「桌面」中设置壁纸、动画和天气。当前应用列表包含三个播放器入口和五个占位项，尚未接入已安装应用枚举。应用页按返回键或点击「返回」回到桌面，桌面保留离开时的焦点。
-
-天气与每日随机壁纸默认关闭，启用后需要联网。在线壁纸使用 `https://picsum.photos/1920/1080?random=1`，按需跟随 HTTPS 重定向获取 1920×1080 图片，每天最多成功更新一次；下载失败保留原壁纸。天气请求使用 Open-Meteo；手动点击城市定位时会请求 ipinfo.io。Wi-Fi 名称读取在部分 Android 版本需要位置权限，天气本身不依赖 GPS。
-
-可选 Home 键增强：在系统「无障碍 → 已下载的服务」启用本应用的「Home 键回顶」。屏保可在系统屏保设置中选择。
-
-进阶配置目录：`/sdcard/Android/data/com.ecojust.cleanyourtv/files/`。支持 `config.json` 和固定文件名 `wallpaper.jpg`（内容可为 JPEG、PNG 或 WebP），修改后重启桌面。背景色、输入源等默认配置见 [config.xml](launcher/app/src/main/res/values/config.xml)。旧的 Dock 和列数配置不作用于当前固定四入口桌面。
-
-```bash
-./tools/set-wallpaper.sh <电视IP> <图片路径>
-```
-
-[桌面渲染预览](docs/previews/home-render.png) · [应用页渲染预览](docs/previews/apps-render.png)（Robolectric 渲染，非电视实机截图）。完整验证记录与限制见 [VALIDATION.md](docs/VALIDATION.md)。
-
-## 来源与许可
-
-本项目参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)，本分支实现极简桌面与独立应用列表页，并适配独立应用标识、构建签名、安装工具及自动构建。原作者 Gathin、mclhm8182 的版权保留在 [LICENSE](LICENSE) 和 [NOTICE.md](NOTICE.md)。Outfit 字体使用 [SIL OFL](launcher/FONT-LICENSE-OFL.txt)。
+部分电视端启动器代码参考 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)。原作者版权与许可继续保留，见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。字体许可见 [launcher/FONT-LICENSE-OFL.txt](launcher/FONT-LICENSE-OFL.txt)。

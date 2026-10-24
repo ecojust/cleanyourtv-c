@@ -3,32 +3,32 @@ plugins {
 }
 
 android {
-    namespace 'com.ecojust.cleanyourtv'
+    namespace 'com.ecojust.puretv'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.ecojust.cleanyourtv'
+        applicationId 'com.ecojust.puretv'
         minSdk 26
         targetSdk 29
-        versionCode 6
-        versionName '0.1.5'
+        versionCode 7
+        versionName '0.2.0'
     }
 
     // Release credentials are supplied locally or through GitHub Actions secrets.
     signingConfigs {
         release {
-            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
-                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
-                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
-                keyAlias 'cleanyourtv-c'
-                keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            if (System.getenv('PURETV_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('PURETV_KEYSTORE_PATH'))
+                storePassword System.getenv('PURETV_KEYSTORE_PASSWORD')
+                keyAlias 'puretv'
+                keyPassword System.getenv('PURETV_KEYSTORE_PASSWORD')
             }
         }
     }
 
     buildTypes {
         release {
-            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+            if (System.getenv('PURETV_KEYSTORE_PATH')) {
                 signingConfig signingConfigs.release
             }
             // Same switch upstream uses: R8 strips and optimises the code (AndroidX included),

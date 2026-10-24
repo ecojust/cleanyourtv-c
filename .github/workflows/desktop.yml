@@ -111,6 +111,9 @@ jobs:
         run: npm run test:ui
       - name: Build native desktop and installer
         run: npm run tauri -- build --ci --target "$BUILD_TARGET" --bundles "$BUNDLE_FORMAT" -- --locked
+      - name: Verify MCP against the running desktop
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python scripts/verify-mcp.py --binary "src-tauri/target/$BUILD_TARGET/release/puretv-desktop"
       - name: Verify macOS DMG, bundle signature and installed startup
         if: runner.os == 'macOS'
         run: python scripts/verify-macos-bundle.py --target "$BUILD_TARGET"
@@ -217,4 +220,4 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "pureTV Manager ${RELEASE_TAG#desktop-v}" --notes-file release-notes.txt
           fi
           gh release upload "$RELEASE_TAG" release/*.exe release/*.dmg release/*.deb release/SHA256SUMS.txt --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          gh release edit "$RELEASE_TAG" --draft=false --latest
