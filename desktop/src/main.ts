@@ -16,6 +16,7 @@ let mcpInfo: api.McpInfo | null = null, mcpError = "";
 let localBusy = false, agentOperation: api.McpOperation | null = null, agentProgress: DownloadProgress | null = null;
 function applySnapshot(value: Snapshot): boolean {
   if ((value.revision ?? 0) < (snapshot.revision ?? 0)) return false;
+  if(snapshot.device?.serial!==value.device?.serial || snapshot.device?.userId!==value.device?.userId || snapshot.defaultHome!==value.defaultHome)layoutDirty=true;
   snapshot = value; return true;
 }
 let page: Page = api.demo ? 'apps' : 'connect';
@@ -475,7 +476,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
       const component = button.dataset.component!;
       if (await confirm('更换默认桌面', '切换前会记录原来的桌面，便于之后恢复。', [component], '设为默认桌面')) {await run({ action: 'setHome', component }, '切换默认桌面并核对结果…');await launcherOperation({action:'getLayout'});} break;
     }
-    case 'restore-home': if (snapshot.originalHome && await confirm('恢复原来的桌面', '将当前电视的默认桌面切换回记录的启动器。', [snapshot.originalHome], '恢复原桌面')) await run({ action: 'restoreHome' }, '恢复原桌面并核对结果…'); break;
+    case 'restore-home': if (snapshot.originalHome && await confirm('恢复原来的桌面', '将当前电视的默认桌面切换回记录的启动器。', [snapshot.originalHome], '恢复原桌面')) {await run({ action: 'restoreHome' }, '恢复原桌面并核对结果…');await launcherOperation({action:'getLayout'});} break;
     case 'clear-history': if (await confirm('清空操作记录', '仅清空本机保存的记录，不撤销电视上已执行的操作。', [`${snapshot.history.length} 条记录`], '清空记录')) await run({ action: 'clearHistory' }, '清空记录…'); break;
   }
 }
@@ -545,11 +546,13 @@ void api.watchMcp(value => {
       notice = value.error || snapshot.message; noticeKind = value.error ? 'error' : 'info';
     }
   }
-  if (value.tool==='install' && !value.running) layoutDirty=true;
+  if (['install','uninstall','restore','set_enabled','scan'].includes(value.tool) && !value.running) layoutDirty=true;
   if (value.launcherResult) acceptLauncherResult(value.launcherResult);
   if(value.tool==='set_launcher_cover' && !value.running)void api.launcherCovers().then(value=>{covers=value;render();});
   if (!value.running) { agentProgress = null; void refreshToolsInfo().then(render); }
+  if(value.tool==='get_launcher_layout' && value.launcherResult)layoutDirty=false;
   render();
+  if(page==='launchers' && !busy && layoutDirty && online())void launcherOperation({action:'getLayout'},true);
 }, value => { agentProgress = value; render(); }).catch(error => { mcpError = `无法订阅 Agent 状态：${String(error)}`; render(); });
 
 void api.launcherCovers().then(value=>{covers=value;render();}).catch(error=>showNotice(String(error),'error'));
