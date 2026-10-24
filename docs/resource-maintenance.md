@@ -1,19 +1,19 @@
 # 维护 APK 资源
 
-resource/ 的每个软件文件夹必须有实际 APK、resource.json、README、LICENSE 与 SHA256SUMS.txt。可附源码和 thumb.png，文件名保持在同一文件夹内。第三方二进制保留作者原始签名，更新时固定上游版本，核验其签名、包名、文件哈希和许可证。源码归档应对应 APK 的版本。
+根目录只保留电脑管理器与公共资源入口。原 Android 源码整体位于 `resource/launcher/` 与 `resource/apps/`；启动器 APK 直接在 launcher 目录，各应用 APK 直接在 apps 下各自的软件目录。每个软件目录必须有实际 APK、resource.json、README、LICENSE 和 SHA256SUMS.txt。源码可直接放在目录中，也可附对应源码归档；封面使用 thumb.png。
 
-验证：
+第三方 APK 保留上游原始二进制、证书与许可证。自研应用使用固定的 pureTV 发布证书，旧证书安装包不能直接覆盖安装，更新前按各目录说明处理。密钥与密码不能进入 Git、源码归档或 Release。
 
 ```bash
 python tools/resource_catalog.py --build-tools "$ANDROID_HOME/build-tools/34.0.0"
 python tools/update-resource-index.py
 ```
 
-## 准备 pureTV 新版本
+## 更新 Android APK
 
-1. 修改版本、Android 代码与图标后提交，在 Android build 工作流手动触发 stage_resources=true。构建、测试和 APK 校验成功后，将公开的构建输入暂存到 build-assets/resources-运行编号；未签名 APK 不会作为正式发布附件。
-2. 在本机设置 PURETV_KEYSTORE_PATH 和 PURETV_KEYSTORE_PASSWORD，使用既有 pureTV 发布密钥。密钥和密码不能进入 Git、源码归档或 Release。
-3. 运行：
+1. 提交源码后手动运行 Android build，设置 `stage_resources=true`。CI 构建、测试后把 APK、元数据和 TV 渲染图暂存到 `build-assets/resources-运行编号`。这不会创建 Release。
+2. 在本机设置 `PURETV_KEYSTORE_PATH` 和 `PURETV_KEYSTORE_PASSWORD`，使用既有 pureTV 发布密钥。
+3. 更新启动器：
 
 ```bash
 python tools/prepare-launcher-resource.py \
@@ -22,8 +22,12 @@ python tools/prepare-launcher-resource.py \
   --build-tools "$ANDROID_HOME/build-tools/34.0.0"
 ```
 
-脚本核验构建提交、源码树、APK 哈希、包名、版本和证书，签名后更新资源、对应源码、实际页面渲染图和索引。公开证书摘要固定在 tools/puretv-release-certificate.sha256；同包升级须保持证书。
+更新自研应用使用相同参数运行 `tools/prepare-app-resources.py`。两者核验构建来源、包名、版本和签名后，直接更新对应软件文件夹的 APK、校验值和索引。应用直接保留源码；启动器同时附精确版本的源码归档。
 
-4. 提交生成的资源，重新运行验证，再发布版本标签。Android 发布任务会从资源目录选择与当前 launcher 源码树一致的已验签 APK；没有对应签名资源时，标签发布检查失败。资源目录和 Release 使用相同文件。
+4. 提交资源并重新运行严格校验。普通 Android CI 不允许缺少 APK 或元数据；仅准备资源的手动任务允许尚未登记的三个自研应用先完成构建。校验完成后删除临时 build-assets 分支。
 
-提交资源和文档不改变 launcher 源码树，因此不需要再次编译；任何 launcher 源码、资源或 Gradle 输入变化都需要重新准备 APK。验证完成后可删除临时 build-assets 分支。源码中不包含发布私钥。
+启动器源码指纹仅覆盖 Gradle、源码、字体许可和安装脚本等构建输入，资源目录中的 APK、封面和元数据不参与计算，避免循环依赖。目录搬迁不改变现有 APK 的源码指纹。
+
+## 发布管理器
+
+以后只使用 `desktop-v版本号` 标签发布电脑管理器，四平台构建和校验全部成功后发布。Android 工作流只构建、测试和校验资源，不创建电视端 Release；历史版本保持可用。管理器 Release 说明链接到资源目录下载电视 APK。

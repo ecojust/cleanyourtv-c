@@ -6,7 +6,7 @@
 
 pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连接电视，查看系统信息，安装、卸载、启停应用，选择启动器，并用可视化画布自定义支持的桌面。也可通过 MCP 让 Agent 控制已打开的管理器。
 
-![管理器界面示例，使用模拟设备数据](docs/previews/manager-030.png)
+![管理器界面示例，使用模拟设备数据](docs/previews/manager-031.png)
 
 ## 下载
 
@@ -51,6 +51,17 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 启动器表格的“支持自定义”指支持本管理器的 **layout.json 版本 2 画布接口**。卡片背景仅在提供 `thumb.png`／`APK名.thumb.png` 等图片，或手动选择图片后显示。
 
+```text
+resource/
+├── launcher/          # 启动器源码、pureTV-0.3.0.apk、layout 示例和封面
+└── apps/
+    ├── music/         # Music TV 源码与 APK
+    ├── shortvideo/    # ShortVideo TV 源码与 APK
+    ├── webtv/         # WebTV 源码与 APK
+    ├── tvbro/         # TV Bro APK 与对应源码
+    └── jellyfin-tv/   # Jellyfin TV APK 与对应源码
+```
+
 <!-- resource-index:start -->
 
 ### 启动器
@@ -68,7 +79,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 <!-- resource-index:end -->
 
-其他电视应用的源码工程见 [apps/](resource/apps/)。第三方资源保留各自作者、原始签名和许可证，不纳入 pureTV 的 MIT 授权范围。
+所有电视应用的 APK 与源码见 [resource/apps/](resource/apps/)。第三方资源保留各自作者、原始签名和许可证，不纳入 pureTV 的 MIT 授权范围。
 
 ## layout.json 规范与画面对照
 

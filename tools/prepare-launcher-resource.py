@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='puretv-resource-') as temporary:
         assert data.startswith(b'\x89PNG\r\n\x1a\n') and len(data)<4*1024*1024
         previews[name]=data
     source=temporary/'source.tar.gz'
-    with source.open('wb') as output:subprocess.run(['git','-C',str(root),'archive','--format=tar.gz',args.source_sha,*['resource/launcher/'+name for name in LAUNCHER_INPUTS],'LICENSE','NOTICE.md'],stdout=output,check=True)
+    with source.open('wb') as output:subprocess.run(['git','-C',str(root),'archive','--format=tar.gz',args.source_sha,*['resource/launcher/'+name for name in LAUNCHER_INPUTS],'resource/apps/music/build.gradle','resource/apps/shortvideo/build.gradle','resource/apps/webtv/build.gradle','resource/apps/music/src','resource/apps/shortvideo/src','resource/apps/webtv/src','LICENSE','NOTICE.md'],stdout=output,check=True)
     folder=root/'resource/launcher';folder.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(signed,folder/signed.name)
     shutil.copyfile(source,folder/'source.tar.gz')
