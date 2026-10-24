@@ -1,43 +1,21 @@
-# pureTV 电视管理器
+# pureTV 电视系统管理器
 
-通过 ADB 在电脑上管理 Android TV / Google TV 的独立桌面应用。负责连接电视、查看应用、停用／恢复、为当前用户卸载、安装外部 APK 和选择默认启动器。它与电视上的 pureTV 启动器、Music TV、ShortVideo TV、WebTV 分别安装；电视端无需额外常驻管理服务。
+**pureTV Manager 0.2.0** 是电脑端电视系统管理工具，通过 ADB 管理 Android TV / Google TV 的设备信息、应用和默认启动器，并提供实时画面与完整 MCP 接口。
 
-版本 **0.1.3**。Windows x64 优先，提供 macOS Apple Silicon（macOS 11 及以上）和 Linux x64 构建。下载入口：[桌面工具发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。缺少 ADB 时，可直接在应用内下载并配置 Google 官方 Platform Tools，Google 不可达时自动尝试腾讯镜像，无需手动解压和寻找文件。
-
-![应用管理界面（模拟电视数据）](docs/previews/applications.png)
-
-## 安装包大小
-
-| 平台／格式 | 0.1.3 安装包大小 |
-| --- | --- |
-| Windows x64 安装版 EXE | 1,508,749 字节，约 1.44 MiB |
-| Windows x64 便携 EXE | 4,156,416 字节，约 3.96 MiB |
-| macOS ARM64 DMG | 1,866,652 字节，约 1.78 MiB |
-| Linux x64 DEB | 2,370,708 字节，约 2.26 MiB |
-
-1 MiB = 1,048,576 字节。以上为本版实际发布文件大小，已下载并核对 SHA256，完整校验清单见[发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3)。不包含首次按需下载的 Platform Tools 和系统 WebView；安装后的占用及内存依运行环境而异。
-
-源码中的应用列表新增用户应用“安装包大小”（主 APK 与分包合计，不含私有数据和缓存，读取不到时明确显示）。应用、启动器、待安装 APK 和操作记录均独立滚动，批量操作位于列表顶部；这些改进随下一版管理器发布。
-
-## MCP / Agent 调试（开发中）
-
-源码已加入控制当前窗口的 MCP 接口，覆盖全部电视管理功能；在「设备连接 → MCP · Agent 调试」复制配置。接入方式、25 个工具及验证说明见 [MCP 文档](docs/mcp.md)。此功能尚未包含在已发布的 0.1.3 安装包中。
-
-## 当前启动器布局（开发中）
-
-可读取当前默认启动器的自定义能力，支持时编辑首页／应用列表、顺序、列数、图标、名称与颜色，通过 apps.json 应用并读回复查；支持获取电视实际桌面截图作为封面。当前适配本次新增布局接口的 pureTV 电视 APK，旧版及其他未适配启动器不会显示无效编辑控件。详见[启动器布局文档](docs/launcher-layout.md)。
+下载：[0.2.0 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.0)。提供 Windows x64 安装版／便携版、macOS Apple Silicon DMG（macOS 11+）和 Linux x64 DEB。文件大小与 SHA256 校验清单见发布页。管理器安装在电脑，电视开启并授权 ADB 即可管理应用。
 
 ## 功能
 
-| 页面 | 能做什么 |
+| 页面 | 功能 |
 | --- | --- |
-| 设备连接 | 输入 IP／主机名和端口连接 ADB，区分等待授权、在线、离线；支持有配对功能的电视；自动寻找、在线下载并配置或手动选择 ADB |
-| 应用管理 | 扫描当前电视用户所有已安装应用，按包名／已知名称搜索，区分系统、用户、停用、可恢复；勾选后停用、启用、卸载或恢复 |
-| 启动器 | 查看已安装 HOME 启动器，导入本地启动器 APK，选择默认桌面并恢复记录的原桌面 |
-| 安装应用 | 点击「添加安装包」从电脑导入外部 APK，多次追加去重，勾选后安装；从列表移除不会删除源文件 |
-| 操作记录 | 保存最近 200 项修改结果，显示具体电视、用户、目标、成功／失败及原因 |
+| 设备连接 | 首页输入 IP／端口与连接／配对；展示 Android、SDK、安全补丁、CPU、内存、磁盘、分辨率、运行时间；下载或选择 ADB |
+| 应用管理 · 已安装 | 搜索／分类、应用与启动器安装包大小、批量启用／停用、为当前用户卸载／恢复 |
+| 应用管理 · 待安装 | 导入本地 APK、勾选安装；成功项移出队列，失败和未执行项保留 |
+| 启动器 | 设置／恢复默认 HOME，查看包大小、获取实际桌面截图；支持时读取和编辑 apps.json 布局及应用图标 |
+| 实时画面 | ADB 连续截图预览当前屏幕，目标 1–3 帧／秒，显示实际帧率，可暂停／继续／停止 |
+| 操作记录 | 最近 200 项修改记录，包含目标设备／用户、逐项结果与错误 |
 
-先使用真实包名完成清单，不为扫描批量下载电视上的 APK。已知 pureTV／常见系统包显示友好名称，其他包以包名展示；首版不保证全部应用的本地化名称和图标。
+非首页仅在顶部显示当前连接状态，不重复放置 IP 和连接表单。各类列表独立滚动，表头及顶部批量操作保持可见，选择和重新渲染保留列表位置。
 
 ## macOS 安装与首次打开
 
@@ -46,11 +24,11 @@
 应用对整个 `.app` 执行 ad-hoc 签名，最低系统版本为 macOS 11。**ad-hoc 签名不是 Developer ID 签名，也不代表通过 Apple 公证**；首次打开仍可能出现来源或开发者验证提示。
 
 - 提示「无法验证开发者」：尝试打开一次后，进入「系统设置 → 隐私与安全性」，找到 pureTV Manager 的拦截信息并选择「仍要打开」（Open Anyway）。macOS 11／12 的入口为「系统偏好设置 → 安全性与隐私」。
-- 提示「已损坏，无法打开」：先从本仓库的 [0.1.3 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.1.3) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
+- 提示「已损坏，无法打开」：先从本仓库的 [0.2.0 发布页](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.0) 下载 DMG 和 `SHA256SUMS.txt`，在终端进入下载目录并计算校验值：
 
   ```bash
   cd ~/Downloads
-  shasum -a 256 pureTV-Manager-0.1.3-macos-arm64.dmg
+  shasum -a 256 pureTV-Manager-0.2.0-macos-arm64.dmg
   ```
 
   将输出的完整 SHA256 与 `SHA256SUMS.txt` 中同名文件的一行比较；不一致时重新下载，不要打开该副本。校验一致后，重新将 DMG 中的应用拖入「应用程序」，覆盖旧版。
@@ -63,82 +41,64 @@
 
   此命令仅移除上述应用的下载隔离属性，不使用 `sudo`，不关闭全局 Gatekeeper。如果仍打不开，请提供完整提示和 macOS 版本；不要扩大命令作用范围。**此方法不适用于「将损坏电脑」或其他恶意软件警报。**
 
-## 连接与使用
+## 连接与系统信息
 
-1. 在电脑安装并打开本工具。程序会检测已有 ADB；缺少时在「ADB 工具」点击「下载并配置 ADB」，查看下载信息，阅读并勾选 Android SDK 许可后确认。程序优先从 Google 官方下载，失败时自动尝试腾讯镜像，校验、解压并自动配置；完成后可连接电视。已有工具也可通过「选择 ADB」手动指定，离线电脑保留此方式。
-2. 电视和电脑位于可互通网络，在电视开发者选项开启 ADB／网络调试。输入电视实际 IP 和端口，点击连接，在电视上接受电脑调试授权。常见端口为 5555，以设备实际配置为准。
-3. 若电视提供「无线调试 → 配对码」，先输入配对端口和配对码；配对成功后用电视显示的**调试端口**连接，两者可能不同。配对码不保存。
-4. 连接后扫描应用。选择具体目标并确认后执行；批量操作逐项记录，失败不会显示为成功。扫描可取消；批量变更可停止后续项，正在执行的安装／修改会先完成并复查，已完成项不会自动回滚。
-5. 安装应用时点击「添加安装包」，选择自己的 `.apk` 文件，勾选后点击「安装所选」。添加文件不会立即安装。每次最多安装 10 个，应用批量操作每次最多 100 项。首版接受普通单 APK，分包 APK／APKS／XAPK 需先使用其他工具处理。
-6. 更换桌面时先安装目标启动器，再在启动器页面设置默认桌面。部分厂商不允许修改或重启后恢复原桌面，软件会按实际查询结果反馈。
+1. 电脑与电视接入可互通的网络，在电视开发者选项开启 ADB／网络调试。
+2. 首页填写 IP／主机名和调试端口，在电视上接受授权；无线配对先使用配对端口和六位码，再使用调试端口连接。配对码不保存。
+3. 首页自动显示系统信息，点击「刷新信息」重新查询。内存来自 `/proc/meminfo`，存储容量来自 `/data` 分区；权限或固件限制时显示未知。
 
-## 在线准备 ADB
+## ADB 在线配置
 
-在线下载固定为 Google 官方 **Android SDK Platform Tools 37.0.1**，下载信息和 Android SDK 许可在确认前展示。只有用户勾选许可并确认后才开始；打开软件、浏览器预览或进入连接页面不会自动下载。下载中显示字节数、百分比及校验／解压／检查阶段，可取消，失败后可重试。
+缺少 ADB 时点击「下载并配置 ADB」，阅读并勾选 Android SDK 许可后确认。固定版本 **Platform Tools 37.0.1** 优先 Google，失败自动切换腾讯镜像；所有来源核对同一官方字节数与 SHA256。解压完整工具集后检查 `adb version` 并保存路径。
 
-| 电脑平台 | 官方 ZIP 下载量 | 解压后工具文件大小 |
-| --- | --- | --- |
-| Windows x64 | 8,044,989 字节，约 7.67 MiB | 约 16.72 MiB |
-| macOS Apple Silicon | 16,110,554 字节，约 15.36 MiB | 约 37.02 MiB |
-| Linux x64 | 9,054,187 字节，约 8.63 MiB | 约 21.17 MiB |
+缓存校验完整时可离线复用；损坏缓存重新下载到新目录，不覆盖在用工具。工具放在电脑应用数据目录，不修改系统 PATH 或 macOS 应用包。已有 `adb`／`adb.exe` 可手动选择。更换 ADB 前需先断开电视。下载支持取消，失败或取消保留原有配置。
 
-程序使用内置的 Google 官方和腾讯镜像 HTTPS 地址，优先尝试 Google，连接、下载或校验失败时自动切换腾讯镜像；每次切换都会清除未完成的下载。所有来源均核对预期字节数和 SHA256 后解压完整工具集，保留 Windows DLL 及许可／NOTICE 文件，再检查 `adb version` 并保存路径。校验不通过不会运行下载文件；取消或失败会清理临时文件，并保留原有 ADB 配置。
+## 应用安装与包大小
 
-工具保存在本应用数据目录 `tools/` 下的独立版本目录，只占用电脑空间，不更改系统 PATH 或 macOS `.app`。下载成功后可点击「使用已下载 ADB」，勾选 SDK 许可并「验证并使用」；缓存完整时无需联网，校验发现损坏时会从 Google 或备用腾讯镜像重新下载到新目录，不覆盖之前在用的工具。更换 ADB 前需先断开电视；工具版本随管理器发布维护。
+在「应用管理 → 待安装应用」导入本地普通 APK，勾选后确认安装。每次最多 10 个，每个不超过 2 GiB；不支持 APKS／XAPK。成功项按完整路径移出待安装队列，其他项保留；安装不会因仅导入文件而自动执行。
 
-如果 Google 和腾讯镜像均不可达，可通过 [官方 Platform Tools 页面](https://developer.android.com/tools/releases/platform-tools) 在其他电脑下载，完整解压后使用「选择 ADB」指定 `adb.exe`（Windows）或 `adb`（macOS/Linux）。Windows 的 `AdbWinApi.dll`、`AdbWinUsbApi.dll` 应与 `adb.exe` 保持在同一目录。
+安装后刷新应用列表，新的可启动应用可在启动器布局中选择。具备服务或其他用途但没有启动入口的 APK 不会被假装成可点击的启动器应用。
 
-自动查找仍支持已保存的路径、`PURETV_ADB`、程序旁的 `platform-tools/`、PATH、`ANDROID_HOME`／`ANDROID_SDK_ROOT` 和常见 SDK 路径。管理器安装包不捆绑 Platform Tools，按需下载的 ZIP 和解压后工具占用另计。
+应用和启动器的大小统计主 APK 与分包 APK 的合计字节数，不包含应用私有数据、缓存、原生库或优化文件。通过分组查询路径和文件元数据减少 ADB 往返；无法读取或结果不完整时显示「未能读取」。
 
-![在线下载后自动配置 ADB（Linux 原生窗口，未连接电视）](docs/previews/adb-setup.png)
+## 当前启动器的自定义布局
 
-## 操作范围和恢复
+只有当前默认启动器成功返回已适配的布局接口时才显示编辑器。当前适配电视端 **pureTV 0.2.0，包名 `com.ecojust.puretv`**；旧版 `com.ecojust.cleanyourtv` 及未适配的其他启动器不可直接写入。包名变化需要安装新 APK 并重新选择默认桌面。
 
-应用扫描与变更绑定所连接设备及当前 Android 用户。每次修改前检查设备与用户，未授权或用户切换时停止执行；关键系统包和当前默认启动器受保护。
+支持首页／应用列表、顺序、列数、名称、原应用或内置图标、颜色、导入 apps.json、应用后读回复查与恢复默认。详情：[启动器布局文档](docs/launcher-layout.md)。
 
-厂商限制 HOME 查询时仍显示应用清单，但暂时阻止停用／卸载；恢复 HOME 查询后再操作。
+「显示当前桌面并截图」明确在电视上打开当前 HOME，再获取实际 PNG 作为封面；「实时画面」则持续读取当前屏幕，不会跳回首页。两种操作独立。
 
-系统软件的「为当前用户卸载」使用 `pm uninstall -k --user`，保留数据且不删除系统分区 APK，因此不能承诺释放其系统分区空间。恢复使用 `install-existing`，只对设备仍保有安装包的应用有效；普通第三方 App 可能需要重新安装 APK。停用和当前用户卸载是两种不同操作。
+## MCP / Agent
 
-选择启动器时会记录当前用户原桌面；恢复前仍需确认对应组件存在且可用。管理器不会自动停用原厂桌面，不会批量预选所谓推荐清理项目。
+保持管理器打开，在首页「MCP · Agent 调试」复制 JSON 到客户端。标准 stdio 代理连接同一窗口，共享当前电视、Android 用户、ADB、操作锁和记录；状态、错误、布局与画面同步显示。
 
-配置和操作记录位于系统应用数据目录 `com.ecojust.puretv.manager` 下，保存 ADB 路径、有限的原桌面记录及操作日志。配对码和 APK 内容不保存；删除待安装列表项不删除电脑文件。
+**31 个工具**覆盖界面现有设备管理功能，包括系统信息、连接／配对、应用安装／卸载／启停、启动器切换／布局、ADB 下载配置、实时预览／截图、原生文件选择器、取消和历史。详见 [MCP 接入及工具](docs/mcp.md)。
 
-## 精简实现
+## 操作范围与恢复
 
-Tauri 2、Rust、原生 TypeScript/CSS，使用系统 WebView，无前端框架、数据库、遥测或网络后端。Windows 发行包未使用商业代码签名证书；macOS 使用 ad-hoc 应用包签名，未使用 Developer ID 证书、未完成 Apple 公证。Windows 使用系统 WebView2；安装程序可在需要时安装 WebView2，便携 EXE 需要电脑已具备该运行时。Linux 依赖 WebKitGTK，macOS 使用系统 WebView。
+批量应用操作最多 100 项，逐项执行并核对，部分失败不报告为全部成功。核心组件与当前默认 HOME 受保护；切换桌面不会自动停用原厂桌面。卸载只针对当前用户，保留数据，不删除系统分区 APK；恢复要求设备仍保有安装包。
 
-后台核心只开放明确的 ADB 操作，不向网页开放任意 shell。参数经过校验，进程有超时、输出上限和取消机制；修改操作串行，批量逐项复查。前端不引入框架，不下载网页字体或第三方界面资源。实际电脑端安装包大小与内存以各平台构建和测试为准，不能与电视 APK 的体积直接比较。
+取消扫描／下载或停止后续批量项不会回滚已完成操作；正在执行的修改会完成并复查。配置、原桌面记录、工具与最近操作位于系统应用数据目录 `com.ecojust.puretv.manager`。截图临时文件及时清理；实时画面只保留内存中的最近一帧。
 
 ## 开发与验证
 
-前置：Node.js 22+、Rust stable，以及 [Tauri 各平台开发依赖](https://v2.tauri.app/start/prerequisites/)。
-
 ```bash
-cd desktop
 npm ci
 npm run build
-cargo test --manifest-path core/Cargo.toml --locked
-cargo test --manifest-path src-tauri/Cargo.toml --locked
-npm run tauri dev
+cargo test --locked --manifest-path core/Cargo.toml
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+npm run test:ui
 ```
 
-打包：`npm run tauri build`。原生产物在 `src-tauri/target/release/bundle/`；桌面程序与电视 APK 使用不同构建，不需要 Android SDK 构建本工具（连接电视仅需 Platform Tools）。
+界面测试需 Playwright Chromium：`npx playwright install chromium`，或设置 `CHROMIUM_PATH`。通过 `PURETV_CAPTURE_DIR` 保存界面截图。普通浏览器预览不会连接电视；`?demo=1` 为明确的模拟模式。
 
-浏览器控件预览：`npm run dev`，普通模式明确提示需桌面程序；`http://localhost:1420/?demo=1` 是显式演示模式，显示示例数据，下载准备也只作模拟，不下载工具或连接真实设备。
+原生 MCP 联调（Linux Xvfb，使用隔离的模拟 ADB，不连接真实电视）：
 
-前端交互测试：先执行 `npm run build`，再执行 `npm run test:ui`（需 Playwright Chromium，可先运行 `npx playwright install chromium`）。可通过 `CHROMIUM_PATH` 指定已有 Chromium，通过 `PURETV_CAPTURE_DIR` 保存控件截图。自动化测试使用模拟设备，不能替代电视实机连接和厂商兼容性测试。
+```bash
+xvfb-run -a python scripts/verify-mcp.py --binary src-tauri/target/x86_64-unknown-linux-gnu/release/puretv-desktop
+```
 
-官方工具集成验证：`cargo test --manifest-path src-tauri/Cargo.toml --locked official_download_and_offline_reuse -- --ignored --nocapture`。此项会下载当前平台的官方包，运行 `adb version`，检查配置持久化和离线复用，不连接电视。
+发布流程验证三平台构建、核心与工具安装测试、Google／腾讯实际 ADB 下载、界面交互、原生 MCP 联调、macOS DMG／签名／启动，以及 Android 包名／版本／签名证书和布局测试。自动化测试使用模拟设备／Robolectric，不替代厂商电视实机验证。
 
-0.1.2 三平台构建、核心测试、各 8 项工具安装测试，以及真实官方工具下载／`adb version`／配置持久化／离线复用检查均已通过。Linux 的 15 项界面交互测试、macOS 的 DMG 挂载／完整签名／安装副本启动检查也已通过，结果见 [0.1.2 构建记录](https://github.com/ecojust/pureTV/actions/runs/39984220050)。macOS 检查不代表 Apple 公证或 Gatekeeper 批准。`desktop-v*` 标签发布桌面工具，Android 最新版本入口保持独立。
-
-0.1.2 发布前的本地验证已通过 30 项 Rust 核心测试、8 项工具安装测试、15 项浏览器交互场景及真实 Linux 官方工具下载／配置／离线复用检查。交互场景覆盖 SDK 许可确认、下载取消与重试、外部 APK 添加去重、勾选安装、保护组件、启动器恢复、失败结果和窄窗口布局。Linux 原生窗口已完成首次启动、许可确认、真实下载进度、自动配置和连接按钮启用的完整流程验证；此前已验证系统文件选择器和外部 APK 导入。未连接真实电视。
-
-![外部 APK 导入（Linux 原生窗口，未连接电视）](docs/previews/import-apks.png)
-
-[已确认的设计提案](docs/design-proposal.png) · [ADB 命令调研](docs/adb-research.md)
-
-本项目参考自 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)。本目录为电脑端管理工具实现，原作者版权和许可见仓库 [LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)。
-
-0.1.3 三平台构建、核心与工具安装测试、真实官方工具下载及离线复用、腾讯镜像下载及 ADB 运行检查均已通过；Linux 的 15 项界面测试、macOS DMG／完整签名／安装副本启动检查也已通过，见 [0.1.3 构建记录](https://github.com/ecojust/pureTV/actions/runs/39989740541)。四个发布附件均已下载并核对 SHA256。
+协议与实现约束：[CONTRACT.md](CONTRACT.md)。许可：[LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)。

@@ -14,18 +14,20 @@ import threading
 import time
 
 FAKE_ADB = r'''#!/usr/bin/env python3
-import json, os, sys, time, base64
+import json, os, sys, time, base64, re
 from pathlib import Path
 root=Path(os.environ['PURETV_FAKE_ROOT'])
 p=root/'tv.json';tv=json.loads(p.read_text());args=sys.argv[1:]
-def save():p.write_text(json.dumps(tv))
+def save():
+ temp=p.with_suffix('.tmp');temp.write_text(json.dumps(tv));os.replace(temp,p)
 if args[0]=='version':print('Android Debug Bridge version 1.0.41')
 elif args[0]=='devices':print('List of devices attached\n192.168.1.50:5555\tdevice model:TestTV')
 elif args[0]=='pair':
  assert sys.stdin.read().strip()=='123456';print('Successfully paired to 192.168.1.50:33111')
 elif args[0] in ['connect','disconnect']:print('connected' if args[0]=='connect' else 'disconnected')
 elif args[:2]==['-s','192.168.1.50:5555']:
- if args[2]=='pull':Path(args[-1]).write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='));print('pulled')
+ if args[2]=='exec-out':sys.stdout.buffer.write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='))
+ elif args[2]=='pull':Path(args[-1]).write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='));print('pulled')
  elif args[2]=='install':tv['installed'].append('com.imported.app');save();print('Success')
  else:
   a=args[3:]
@@ -35,12 +37,23 @@ elif args[:2]==['-s','192.168.1.50:5555']:
    method=a[a.index('--method')+1]
    if method=='apply':tv['layout']=json.loads(base64.b64decode(a[a.index('--arg')+1]));tv['customLayout']=True;save()
    elif method=='reset':tv['layout']=json.loads((root/'default-apps.json').read_text());tv['customLayout']=False;save()
-   result={'supported':True,'version':1,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-apps.json').read_text())),'apps':[{'packageName':'com.ecojust.cleanyourtv','label':'pureTV'}]}
+   result={'supported':True,'version':1,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-apps.json').read_text())),'apps':[{'packageName':'com.ecojust.puretv','label':'pureTV'}]}
    print('Bundle[{result='+base64.b64encode(json.dumps(result).encode()).decode()+'}]')
+  elif a[0]=='cat':print('MemTotal: 4096 kB\nMemAvailable: 1024 kB' if a[1]=='/proc/meminfo' else '3600.25 20.0')
+  elif a[0]=='df':print('Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/data 4096 1024 3072 25% /data')
+  elif a[0]=='wm':print('Physical size: 1920x1080')
+  elif a[0]=='getprop' and len(a)==1:print('[ro.product.manufacturer]: [Test Maker]\n[ro.build.version.sdk]: [33]\n[ro.product.cpu.abi]: [arm64-v8a]')
   elif a[0]=='getprop':
    if (root/'slow').exists():time.sleep(3)
    print('MCP Test TV' if a[1]=='ro.product.model' else '13')
   elif a[0]=='dumpsys':print('Packages:\n  User 0: installed=true hidden=false enabled=0')
+  elif a[0]=='sh':
+   script=a[2]
+   if 'for p in ' in script:
+    names=script.split('for p in ',1)[1].split('; do',1)[0].split()
+    for name in names:print('@@puretv@@'+name+'\npackage:/data/app/'+name+'/base.apk')
+   else:
+    for name in re.findall(r'@@puretv@@([A-Za-z0-9_.]+)',script):print('@@puretv@@'+name+'\n1024')
   elif a[0]=='stat':print('1024')
   elif a[:2]==['pm','path']:print('package:/data/app/example/base.apk')
   elif a[:2]==['pm','list']:
@@ -54,7 +67,7 @@ elif args[:2]==['-s','192.168.1.50:5555']:
    else:raise AssertionError(a)
    save();print('Success' if a[1]=='uninstall' else 'new state: changed')
   elif a[:2]==['cmd','package']:
-   if a[2]=='query-activities':print('com.stock.home/.Main\ncom.ecojust.cleanyourtv/.MainActivity')
+   if a[2]=='query-activities':print('com.stock.home/.Main\ncom.ecojust.puretv/.MainActivity')
    elif a[2]=='resolve-activity':print(tv['home'])
    elif a[2]=='set-home-activity':tv['home']=a[-1].strip("'");save();print('Success')
    elif a[2]=='install-existing':tv['installed'].append(a[-1]);save();print('Package installed for user')
@@ -106,7 +119,7 @@ def main():
     binary=Path(parser.parse_args().binary).resolve()
     with tempfile.TemporaryDirectory(prefix='puretv-mcp-smoke-') as temp:
         root=Path(temp);adb=root/'adb';adb.write_text(FAKE_ADB);adb.chmod(0o755)
-        (root/'tv.json').write_text(json.dumps({'installed':['android','com.android.systemui','com.stock.home','com.ecojust.cleanyourtv','com.vendor.ads'], 'system':['android','com.android.systemui','com.stock.home','com.vendor.ads','com.vendor.removed'],'disabled':[],'home':'com.stock.home/.Main'}))
+        (root/'tv.json').write_text(json.dumps({'installed':['android','com.android.systemui','com.stock.home','com.ecojust.puretv','com.vendor.ads'], 'system':['android','com.android.systemui','com.stock.home','com.vendor.ads','com.vendor.removed'],'disabled':[],'home':'com.stock.home/.Main'}))
         (root/'default-apps.json').write_text(Path('../launcher/app/src/main/assets/apps.json').read_text())
         env={**os.environ,'XDG_DATA_HOME':str(root/'data'),'XDG_CONFIG_HOME':str(root/'config'),'XDG_CACHE_HOME':str(root/'cache'),'PURETV_ADB':str(adb),'PURETV_FAKE_ROOT':str(root)}
         with (root/'gui.log').open('w') as log:
@@ -123,13 +136,24 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==25,names
+                assert len(names)==31,names
                 assert client.call('get_state')['adbAvailable']
                 client.call('set_adb_path',{'path':str(adb)})
                 client.call('pair',{'host':'192.168.1.50','port':33111,'code':'123456'})
                 state=client.call('connect',{'host':'192.168.1.50','port':5555})
                 assert state['device']['model']=='MCP Test TV'
-                assert next(p for p in state['packages'] if p['packageName']=='com.ecojust.cleanyourtv')['apkSizeBytes']==1024
+                assert state['systemInfo']['memoryTotalBytes']==4194304
+                client.call('refresh_system_info')
+                client.call('start_live_view',{'fps':3})
+                for _ in range(50):
+                    if client.call('live_view_status')['frames']>0:break
+                    time.sleep(.1)
+                else:raise AssertionError('No live frame received')
+                frame=client.rpc('tools/call',{'name':'get_live_frame','arguments':{}});assert frame['result']['content'][0]['type']=='image'
+                assert client.call('pause_live_view')['paused']
+                client.call('start_live_view',{'fps':3})
+                client.call('stop_live_view')
+                assert next(p for p in state['packages'] if p['packageName']=='com.ecojust.puretv')['apkSizeBytes']==1024
                 client.call('set_enabled',{'packages':['com.vendor.ads'],'enabled':False})
                 assert next(p for p in client.call('get_state')['packages'] if p['packageName']=='com.vendor.ads')['enabled'] is False
                 client.call('set_enabled',{'packages':['com.vendor.ads'],'enabled':True})
@@ -141,7 +165,7 @@ def main():
                 client.call('install',{'paths':[str(apk)]})
                 assert client.call('get_launcher_layout')['supported'] is False
                 client.call('apply_launcher_layout',{'layoutJson':(root/'default-apps.json').read_text()},failure=True)
-                client.call('set_home',{'component':'com.ecojust.cleanyourtv/.MainActivity'})
+                client.call('set_home',{'component':'com.ecojust.puretv/.MainActivity'})
                 layout=client.call('get_launcher_layout');assert layout['supported'] is True
                 draft=layout['layout'];draft['columns']=3;draft['home'].reverse()
                 assert client.call('apply_launcher_layout',{'layoutJson':json.dumps(draft)})['layout']==draft
@@ -169,7 +193,14 @@ def main():
                 client.call('scan')
                 client.call('clear_history')
                 assert client.call('get_state')['history']==[]
+                client.call('start_live_view',{'fps':3})
                 client.call('disconnect')
+                for _ in range(30):
+                    if not client.call('live_view_status')['running']:break
+                    time.sleep(.1)
+                else:raise AssertionError('Live view did not stop on disconnect')
+                client.call('get_live_frame',failure=True)
+                client.call('stop_live_view')
                 assert client.call('get_state')['device'] is None
                 # Pairing code never reaches saved state.
                 saved=(session.parent/'state.json').read_text();assert '123456' not in saved

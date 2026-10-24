@@ -3,8 +3,8 @@ use crate::LauncherRequest;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use std::io::Read;
-const PACKAGE: &str = "com.ecojust.cleanyourtv";
-const URI: &str = "content://com.ecojust.cleanyourtv.layout";
+const PACKAGE: &str = "com.ecojust.puretv";
+const URI: &str = "content://com.ecojust.puretv.layout";
 const LAYOUT_LIMIT: usize = 48 * 1024;
 
 pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
@@ -192,6 +192,8 @@ impl Manager {
         let value = match self.layout_provider(&device, "status", None) {
             Ok(mut value) => {
                 value["component"] = json!(component);
+                value["serial"] = json!(device.serial);
+                value["userId"] = json!(device.user_id);
                 value
             }
             Err(error) => {
@@ -240,6 +242,8 @@ impl Manager {
             }
             let mut reread = reread;
             reread["component"] = json!(component);
+            reread["serial"] = json!(device.serial);
+            reread["userId"] = json!(device.user_id);
             reread["message"] = json!(if method == "reset" {
                 "默认布局已恢复并复查"
             } else {
@@ -329,7 +333,7 @@ impl Manager {
                 return Err("截图尺寸无效或过大".into());
             }
             Ok(
-                json!({"component":component,"image":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":width,"height":height,"message":"电视当前桌面截图"}),
+                json!({"serial":device.serial,"userId":device.user_id,"component":component,"image":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":width,"height":height,"message":"电视当前桌面截图"}),
             )
         })();
         self.defer_cancel = true;

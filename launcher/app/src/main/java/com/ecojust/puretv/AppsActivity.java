@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.app.Activity;
 import android.os.Bundle;

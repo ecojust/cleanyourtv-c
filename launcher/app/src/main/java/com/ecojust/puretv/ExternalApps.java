@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.content.ActivityNotFoundException;
 import android.content.Context;

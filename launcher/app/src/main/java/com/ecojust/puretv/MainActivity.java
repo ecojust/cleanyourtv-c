@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -78,9 +78,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * ({@link QuickSettingsActivity}) sends this, so the remote's Settings button can reach the wallpaper
      * and icon-per-row settings without a second settings screen.
      */
-    public static final String ACTION_DESKTOP_SETTINGS = "com.ecojust.cleanyourtv.action.DESKTOP_SETTINGS";
+    public static final String ACTION_DESKTOP_SETTINGS = "com.ecojust.puretv.action.DESKTOP_SETTINGS";
     /** Same route for the Favourites (dock) panel, so the quick settings overlay can offer it too. */
-    public static final String ACTION_DOCK_PICKER = "com.ecojust.cleanyourtv.action.DOCK_PICKER";
+    public static final String ACTION_DOCK_PICKER = "com.ecojust.puretv.action.DOCK_PICKER";
     private static final long MINUTE_MS = 60_000L;
     private String liveTvPkg;
 

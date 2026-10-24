@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
@@ -20,7 +20,7 @@ import android.view.accessibility.AccessibilityEvent;
  * hijacked until the user asks for it. Every other key passes straight through, untouched.
  *
  * Off by default. It only ever runs if the user turns it on in Settings > Accessibility (or over adb):
- *   settings put secure enabled_accessibility_services com.ecojust.cleanyourtv/.HomeKeyService
+ *   settings put secure enabled_accessibility_services com.ecojust.puretv/.HomeKeyService
  *   settings put secure accessibility_enabled 1
  * Declaring it costs nothing until it is enabled — no permission is requested at install.
  */

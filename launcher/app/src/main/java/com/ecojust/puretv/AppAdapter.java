@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.content.Context;
 import android.content.ActivityNotFoundException;
@@ -157,7 +157,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     private void launch(Entry entry) {
         if (entry.action == CUSTOM_APP) {
-            if (!openNative(entry.packageName)) Toast.makeText(context, R.string.custom_app_unavailable, Toast.LENGTH_LONG).show();
+            if (!openNative(entry.packageName)) Toast.makeText(context, R.string.not_available, Toast.LENGTH_LONG).show();
             return;
         }
         if (entry.action == MUSIC_WEBSITE) {

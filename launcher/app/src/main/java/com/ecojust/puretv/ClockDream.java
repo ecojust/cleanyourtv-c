@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;

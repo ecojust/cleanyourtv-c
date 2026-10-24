@@ -1,14 +1,15 @@
 import './styles.css';
 import * as api from './bridge';
-import { emptySnapshot, type Request, type PackageInfo, type PlatformToolsInfo, type DownloadProgress, type Snapshot, type LauncherLayout, type LauncherLayoutInfo, type LauncherPreview, type LauncherRequest } from './types';
+import { emptySnapshot, type Request, type PackageInfo, type PlatformToolsInfo, type DownloadProgress, type Snapshot, type LauncherLayout, type LauncherLayoutInfo, type LauncherPreview, type LauncherRequest, type LiveStatus, type LiveFrame } from './types';
 
-type Page = 'connect' | 'apps' | 'launchers' | 'install' | 'history';
+type Page = 'connect' | 'apps' | 'launchers' | 'install' | 'history' | 'live';
 type Filter = 'all' | 'system' | 'user' | 'disabled' | 'recoverable';
 const pages: Record<Page, [string, string, string]> = {
   connect: ['设备连接', '连接电视，开始管理你的应用和桌面', 'monitor'],
   apps: ['应用管理', '查看电视中的应用，按需停用或恢复', 'grid'],
   launchers: ['启动器', '选择电视的默认桌面，随时回到原来的启动器', 'home'],
-  install: ['安装应用', '添加本地安装包，选择后安装到当前电视', 'download'],
+  install: ['应用管理', '导入本地安装包，安装后可用于启动器排布', 'download'],
+  live: ['实时画面', '持续预览当前连接电视的屏幕', 'monitor'],
   history: ['操作记录', '逐项查看操作结果，确认电视上的实际变化', 'list'],
 };
 let snapshot = emptySnapshot();
@@ -21,14 +22,17 @@ function applySnapshot(value: Snapshot): boolean {
 let page: Page = api.demo ? 'apps' : 'connect';
 let filter: Filter = 'all', query = '', busy = false, busyLabel = '', cancelling = false;
 let notice = '', noticeKind: 'info' | 'success' | 'error' = 'info';
+let liveStatus: LiveStatus | null = null, liveFrame: LiveFrame | null = null, liveFps = 1;
 let host = api.demo ? '192.168.1.50' : '', port = '5555', pairHost = '', pairPort = '', pairCode = '', adbPath = '';
 let selected = new Set<string>();
 let apkPaths: string[] = [], selectedApks = new Set<string>();
 let toolsInfo: PlatformToolsInfo | null = null, toolsInfoError = '', toolsPreparing = false, downloadingTools = false;
 let toolsProgress: DownloadProgress | null = null;
 let launcherLayout: LauncherLayoutInfo | null = null, launcherPreview: LauncherPreview | null = null;
-let layoutComponent = '', layoutSection: 'home' | 'apps' = 'home', layoutJson = '', layoutApp = '';
-function layoutAvailable(): boolean { return !!launcherLayout?.supported && layoutComponent === snapshot.defaultHome; }
+let layoutDirty = false;
+let layoutComponent = '', layoutTarget = '', layoutSection: 'home' | 'apps' = 'home', layoutJson = '', layoutApp = '';
+function launcherTarget(serial = snapshot.device?.serial, userId = snapshot.device?.userId, component = snapshot.defaultHome): string { return `${serial || ''}/${userId ?? ''}/${component || ''}`; }
+function layoutAvailable(): boolean { return !!launcherLayout?.supported && layoutTarget === launcherTarget(); }
 function draftLayout(): LauncherLayout | null {
   try {
     const value = JSON.parse(layoutJson);
@@ -51,8 +55,8 @@ function draftLayout(): LauncherLayout | null {
   } catch { return null; }
 }
 function acceptLauncherResult(value: LauncherLayoutInfo | LauncherPreview): void {
-  if ('image' in value) { launcherPreview = value; return; }
-  launcherLayout = value; layoutComponent = snapshot.defaultHome || '';
+  if ('image' in value) { launcherPreview = {...value, serial:value.serial ?? snapshot.device?.serial, userId:value.userId ?? snapshot.device?.userId}; return; }
+  launcherLayout = value; layoutComponent = value.component || snapshot.defaultHome || ''; layoutTarget = launcherTarget(value.serial ?? snapshot.device?.serial,value.userId ?? snapshot.device?.userId,layoutComponent);
   if (value.layout) layoutJson = JSON.stringify(value.layout, null, 2);
 }
 const root = document.querySelector<HTMLDivElement>('#app')!;
@@ -124,7 +128,7 @@ function adbPanel(): string {
 }
 function shell(): string {
   const [label, status] = deviceStatus();
-  return `<aside class="sidebar"><a class="brand" href="#" aria-label="pureTV 电视管理器">pure<span>TV</span></a><p class="brand-caption">电视管理器</p><nav aria-label="主要页面">${(Object.entries(pages) as [Page, [string, string, string]][]).map(([key, data]) => `<button class="nav-item ${page === key ? 'active' : ''}" data-page="${key}" ${page === key ? 'aria-current="page"' : ''}>${icon(data[2])}<span>${data[0]}</span></button>`).join('')}</nav><div class="sidebar-foot">${icon('settings')}<span>本地管理<br><small>无需电视端常驻服务</small></span></div></aside><main class="${page === 'connect' ? '' : 'list-page'}"><header class="page-header"><div><h1>${pages[page][0]}</h1><p>${pages[page][1]}</p></div><div class="header-actions"><span class="device-badge"><i class="dot ${status}"></i>${esc(label)}</span>${page !== 'connect' ? actionButton('go-connect', icon('link') + '管理连接') : ''}</div></header>${api.demo ? '<div class="banner demo-banner">演示模式 · 示例设备和应用，所有操作仅用于预览，不会连接真实电视。</div>' : !api.desktop ? '<div class="banner warning-banner">这是浏览器预览。请运行桌面应用来连接电视和安装 APK。</div>' : ''}${notice ? `<div class="banner notice ${noticeKind}" role="status"><span>${esc(notice)}</span><button class="icon-button" aria-label="关闭提示" data-act="dismiss">${icon('close')}</button></div>` : ''}${busyIndicator()}<section id="page-content">${content()}</section><footer class="app-footer"><span>pureTV 电视管理器</span><span>${api.demo ? '演示数据 · 不执行 ADB' : snapshot.device ? `目标 ${esc(snapshot.device.serial)} · 用户 ${snapshot.device.userId}` : '选择设备后开始管理'}</span></footer></main>`;
+  return `<aside class="sidebar"><a class="brand" href="#" aria-label="pureTV 电视管理器">pure<span>TV</span></a><p class="brand-caption">电视管理器</p><nav aria-label="主要页面">${(Object.entries(pages) as [Page, [string, string, string]][]).filter(([key])=>key!=='install').map(([key, data]) => `<button class="nav-item ${page === key || page==='install' && key==='apps' ? 'active' : ''}" data-page="${key}" ${page === key || page==='install' && key==='apps' ? 'aria-current="page"' : ''}>${icon(data[2])}<span>${data[0]}</span></button>`).join('')}</nav><div class="sidebar-foot">${icon('settings')}<span>本地管理<br><small>无需电视端常驻服务</small></span></div></aside><main class="${page === 'connect' ? '' : 'list-page'}"><header class="page-header"><div><h1>${pages[page][0]}</h1><p>${pages[page][1]}</p></div><div class="header-actions"><span class="device-badge"><i class="dot ${status}"></i>${online() ? '已连接 · ' : ''}${esc(label)}</span></div></header>${api.demo ? '<div class="banner demo-banner">演示模式 · 示例设备和应用，所有操作仅用于预览，不会连接真实电视。</div>' : !api.desktop ? '<div class="banner warning-banner">这是浏览器预览。请运行桌面应用来连接电视和安装 APK。</div>' : ''}${notice ? `<div class="banner notice ${noticeKind}" role="status"><span>${esc(notice)}</span><button class="icon-button" aria-label="关闭提示" data-act="dismiss">${icon('close')}</button></div>` : ''}${busyIndicator()}<section id="page-content">${content()}</section><footer class="app-footer"><span>pureTV 电视管理器</span><span>${api.demo ? '演示数据 · 不执行 ADB' : snapshot.device ? (page === 'connect' ? `目标 ${esc(snapshot.device.serial)} · 用户 ${snapshot.device.userId}` : `当前 Android 用户 ${snapshot.device.userId}`) : '选择设备后开始管理'}</span></footer></main>`;
 }
 const scrollPositions = new Map<string, { top: number; left: number }>();
 function render(): void {
@@ -136,14 +140,37 @@ function render(): void {
 }
 function content(): string {
   switch (page) {
-    case 'connect': return connectionPage() + mcpPanel();
-    case 'apps': return appsPage();
+    case 'connect': return connectionPage() + deviceInfoPanel() + mcpPanel();
+    case 'apps': return appTabs() + appsPage();
     case 'launchers': return launchersPage();
-    case 'install': return installPage();
+    case 'install': return appTabs() + installPage();
+    case 'live': return livePage();
     case 'history': return historyPage();
   }
 }
+function appTabs(): string {
+  return `<div class="application-tabs" aria-label="应用管理视图">${actionButton('go-apps',`已安装应用 · ${snapshot.packages.filter(app=>app.installed).length}`,'',page==='apps'?'primary':'')}${actionButton('go-install',`待安装应用 · ${apkPaths.length}`,'',page==='install'?'primary':'')}</div>`;
+}
+function storageBytes(value: number | null | undefined): string {
+  if (value == null) return '未知'; const units=['B','KiB','MiB','GiB','TiB']; let unit=0;
+  while(value>=1024 && unit<units.length-1){value/=1024;unit++;}return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+}
+function deviceInfoPanel(): string {
+  if (!snapshot.device) return '';
+  const info=snapshot.systemInfo;
+  const rows: [string,unknown][]=[['设备',snapshot.device.model],['Android',snapshot.device.androidVersion],['制造商 / 品牌',info ? [info.manufacturer,info.brand].filter(Boolean).join(' / ') : null],['SDK / 安全补丁',info ? [info.sdkVersion,info.securityPatch].filter(Boolean).join(' / ') : null],['CPU / 架构',info ? [info.cpu,info.cpuAbi].filter(Boolean).join(' / ') : null],['内存（可用 / 总量）',`${storageBytes(info?.memoryAvailableBytes)} / ${storageBytes(info?.memoryTotalBytes)}`],['数据分区 /data（可用 / 总量）',`${storageBytes(info?.storageAvailableBytes)} / ${storageBytes(info?.storageTotalBytes)}`],['画面分辨率',info?.displayResolution],['已运行',info?.uptimeSeconds == null ? null : `${Math.floor(info.uptimeSeconds/3600)} 小时 ${Math.floor(info.uptimeSeconds/60)%60} 分钟`]];
+  return `<section class="panel device-info"><div class="section-title"><h2>电视系统信息</h2><div class="button-row">${actionButton('refresh-system','刷新信息',disabled(busy || !online()))}${actionButton('go-live','查看实时画面',disabled(!online()),'primary')}</div></div><dl>${rows.map(([key,value])=>`<div><dt>${esc(key)}</dt><dd>${esc(value || '未知')}</dd></div>`).join('')}</dl><p class="hint">内存与 /data 磁盘容量来自设备实际查询；固件限制时显示未知。${info?.queriedAt ? ` 最近查询：${esc(new Date(info.queriedAt*1000).toLocaleTimeString())}` : ''}</p></section>`;
+}
+function livePage(): string {
+  const status=liveStatus, same=liveFrame?.serial===snapshot.device?.serial && liveFrame?.userId===snapshot.device?.userId;
+  return `<section class="panel live-panel"><div class="live-toolbar"><div class="button-row">${actionButton('start-live',status?.paused?'继续预览':'开始预览',disabled(!online() || !!status?.running),'primary')}${actionButton('pause-live','暂停',disabled(!status?.running))}${actionButton('stop-live','停止',disabled(!status?.running && !status?.paused))}<label>目标 <select name="liveFps"${disabled(!!status?.running)}>${[1,2,3].map(fps=>`<option value="${fps}"${liveFps===fps?' selected':''}>${fps} 帧/秒</option>`).join('')}</select></label></div><span id="live-status">${esc(status?.message || '连接电视后点击开始预览')} · ${status?.actualFps || 0} 帧/秒</span></div><div class="live-image-area" data-scroll="live" tabindex="0" aria-label="电视实时画面"><img id="live-image" alt="当前连接电视的实时画面"${same && liveFrame ? ` src="${esc(liveFrame.image)}"` : ' hidden'}><p id="live-empty"${same && liveFrame ? ' hidden' : ''}>${online()?'等待电视画面…':'请先在首页连接电视'}</p></div><p class="hint">使用 ADB 连续截图进行低帧率实时预览，实际速度取决于电视与网络；不切换电视当前页面。暂停保留最后一帧，停止后释放画面。</p></section>`;
+}
+async function liveAction(action:'start'|'pause'|'stop'): Promise<void> {
+  try {liveStatus=await api.liveExecute(action,liveFps) as LiveStatus;if(action==='stop')liveFrame=null;render();}
+  catch(error){showNotice(error instanceof Error?error.message:String(error),'error');}
+}
 function connectionStrip(): string {
+  if (page !== 'connect') return '';
   const [label, status] = deviceStatus();
   return `<div class="connection-strip"><label>电视 IP<input name="host" autocomplete="off" placeholder="192.168.1.50" value="${esc(host)}"${disabled(busy)}></label><label class="port-field">端口<input name="port" inputmode="numeric" maxlength="5" value="${esc(port)}"${disabled(busy)}></label>${actionButton('connect', icon('link') + (snapshot.device ? '重新连接' : '连接电视'), disabled(busy || !available()))}<span class="connection-status"><i class="dot ${status}"></i>${online() ? `已连接 · Android ${esc(snapshot.device?.androidVersion)}` : esc(label)}</span>${snapshot.device ? actionButton('disconnect', '断开', disabled(busy), 'text-button') : '<span class="strip-hint">首次连接请在电视上允许调试</span>'}</div>`;
 }
@@ -156,7 +183,7 @@ function visiblePackages(): PackageInfo[] { const needle = query.trim().toLocale
 function selectedPackages(): PackageInfo[] { return snapshot.packages.filter(p => selected.has(p.packageName)); }
 function appIcon(p: PackageInfo): string {
   let color = 'slate', text = (p.label || p.packageName).slice(0, 1).toUpperCase();
-  if (p.packageName === 'com.ecojust.cleanyourtv') { color = 'green'; text = 'P'; }
+  if (p.packageName === 'com.ecojust.puretv') { color = 'green'; text = 'P'; }
   else if (p.packageName === 'com.ecojust.music') { color = 'rose'; text = '♪'; }
   else if (p.packageName === 'com.ecojust.webtv') { color = 'blue'; text = '▶'; }
   else if (p.packageName === 'com.ecojust.shortvideo') { color = 'charcoal'; text = '▶'; }
@@ -164,7 +191,7 @@ function appIcon(p: PackageInfo): string {
   return `<span class="app-icon ${color}" aria-hidden="true">${p.protectedReason ? icon('shield') : esc(text)}</span>`;
 }
 function packageSize(p: PackageInfo): string {
-  if (!p.installed || p.system) return '—';
+  if (!p.installed) return '—';
   if (p.apkSizeBytes == null) return '未能读取';
   const units = ['B', 'KiB', 'MiB', 'GiB']; let value = p.apkSizeBytes, unit = 0;
   while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
@@ -180,10 +207,10 @@ function selectionBar(): string {
   return `<div class="bulk-bar"><strong>已选择 ${items.length} 项</strong>${actionButton('clear-selection', '取消选择', disabled(!items.length || busy))}${actionButton('disable', '停用', disabled(!ready || items.some(p => !p.installed || !p.enabled)), 'primary')}${actionButton('enable', '启用', disabled(!ready || items.some(p => !p.installed || p.enabled)))}${actionButton('uninstall', '为当前用户卸载', disabled(!ready || items.some(p => !p.installed)), 'danger-outline')}${actionButton('restore', '恢复安装', disabled(!ready || items.some(p => p.installed)))}<p>操作前会列出所选应用；已完成的操作可在记录中查看。</p></div>`;
 }
 function appsPage(): string {
-  return `${connectionStrip()}<section class="panel app-panel"><div class="apps-toolbar"><label class="search">${icon('search')}<input name="search" aria-label="搜索应用名称或包名" value="${esc(query)}" placeholder="搜索应用名称或包名"></label><div class="toolbar-buttons">${actionButton('scan', icon('refresh') + '重新扫描', disabled(busy || !online()))}${actionButton('go-install', icon('plus') + '添加安装包', disabled(busy), 'primary')}</div></div><div class="filter-tabs" aria-label="应用分类">${filters.map(([f, label]) => `<button data-filter="${f}" class="${filter === f ? 'active' : ''}" aria-pressed="${filter === f}">${label}<span>${snapshot.packages.filter(p => inFilter(p, f)).length}</span></button>`).join('')}</div><div id="selection-bar">${selectionBar()}</div><div class="table-scroll" data-scroll="apps" tabindex="0" aria-label="应用列表"><table class="apps-table"><thead><tr><th class="check-cell"><input type="checkbox" data-select-all aria-label="选择当前列表中可操作的应用"${disabled(busy || !online() || !visiblePackages().some(p => !p.protectedReason))}></th><th>应用</th><th>类型</th><th>状态</th><th title="用户应用的主 APK 与分包 APK 合计，不含私有数据和缓存">安装包大小</th><th>操作</th></tr></thead><tbody id="app-rows">${appRows()}</tbody></table></div><div id="list-count" class="list-count">显示 ${visiblePackages().length} / ${snapshot.packages.filter(p => inFilter(p, filter)).length} 个应用</div></section><p class="hint">名称无法读取时显示完整包名。系统应用“卸载”仅针对当前用户，不会删除系统分区中的安装包。</p>`;
+  return `${connectionStrip()}<section class="panel app-panel"><div class="apps-toolbar"><label class="search">${icon('search')}<input name="search" aria-label="搜索应用名称或包名" value="${esc(query)}" placeholder="搜索应用名称或包名"></label><div class="toolbar-buttons">${actionButton('scan', icon('refresh') + '重新扫描', disabled(busy || !online()))}${actionButton('go-install', icon('plus') + '添加安装包', disabled(busy), 'primary')}</div></div><div class="filter-tabs" aria-label="应用分类">${filters.map(([f, label]) => `<button data-filter="${f}" class="${filter === f ? 'active' : ''}" aria-pressed="${filter === f}">${label}<span>${snapshot.packages.filter(p => inFilter(p, f)).length}</span></button>`).join('')}</div><div id="selection-bar">${selectionBar()}</div><div class="table-scroll" data-scroll="apps" tabindex="0" aria-label="应用列表"><table class="apps-table"><thead><tr><th class="check-cell"><input type="checkbox" data-select-all aria-label="选择当前列表中可操作的应用"${disabled(busy || !online() || !visiblePackages().some(p => !p.protectedReason))}></th><th>应用</th><th>类型</th><th>状态</th><th title="主 APK 与分包 APK 合计，不含私有数据和缓存">安装包大小</th><th>操作</th></tr></thead><tbody id="app-rows">${appRows()}</tbody></table></div><div id="list-count" class="list-count">显示 ${visiblePackages().length} / ${snapshot.packages.filter(p => inFilter(p, filter)).length} 个应用</div></section><p class="hint">名称无法读取时显示完整包名。系统应用“卸载”仅针对当前用户，不会删除系统分区中的安装包。</p>`;
 }
 function layoutEditor(): string {
-  if (!layoutAvailable()) return `<section class="panel layout-editor"><h3>当前启动器的自定义布局</h3><p class="hint">${esc(layoutComponent === snapshot.defaultHome && launcherLayout?.message ? launcherLayout.message : '读取当前启动器的能力后，支持 apps.json 的启动器可在这里修改首页、应用列表、图标和顺序；其他启动器继续使用自身设置。')}</p></section>`;
+  if (!layoutAvailable()) return `<section class="panel layout-editor"><h3>当前启动器的自定义布局</h3><p class="hint">${esc(layoutTarget === launcherTarget() && launcherLayout?.message ? launcherLayout.message : '读取当前启动器的能力后，支持 apps.json 的启动器可在这里修改首页、应用列表、图标和顺序；其他启动器继续使用自身设置。')}</p></section>`;
   const draft = draftLayout(), entries = draft?.[layoutSection] || [];
   const appOptions = launcherLayout?.apps || [];
   return `<section class="panel layout-editor"><div class="section-title"><div><h3>当前启动器 · 自定义布局</h3><p>应用到 ${esc(snapshot.defaultHome)}；未点击“应用布局”前不修改电视。</p></div><div class="button-row">${actionButton('import-layout', '导入 apps.json', disabled(busy))}${actionButton('apply-layout', '应用布局', disabled(busy || !draft), 'primary')}${actionButton('reset-layout', '恢复默认布局', disabled(busy))}</div></div><div class="layout-controls"><label>每行列数 <input name="layoutColumns" type="number" min="1" max="6" value="${draft?.columns || 4}"${disabled(busy || !draft)}></label><div class="button-row">${actionButton('layout-home','首页卡片',disabled(busy),layoutSection==='home'?'primary':'')}${actionButton('layout-apps','全部应用',disabled(busy),layoutSection==='apps'?'primary':'')}</div></div><div class="layout-draft-list" data-scroll="layout-draft" tabindex="0" aria-label="布局卡片列表">${entries.map((entry,i)=>{
@@ -192,10 +219,11 @@ function layoutEditor(): string {
     return `<div class="layout-entry" data-layout-index="${i}"><span class="layout-entry-icon">${iconImage}</span><div class="layout-entry-name"><strong>${esc(entry.label || app?.label || entry.packageName || entry.action)}</strong><code>${esc(entry.packageName || `内置入口：${entry.action}`)}</code></div><input aria-label="卡片显示名称 ${i+1}" data-layout-label="${i}" value="${esc(entry.label || '')}" placeholder="自定义名称" maxlength="100"${disabled(busy)}><select aria-label="卡片图标 ${i+1}" data-layout-icon="${i}"${disabled(busy)}>${['app','music','video','files','apps','picture','settings','input'].map(name=>`<option value="${name}"${(entry.icon || 'app')===name?' selected':''}>${esc({app:'应用原图标',music:'音乐',video:'视频',files:'文件',apps:'应用',picture:'图片',settings:'设置',input:'输入'}[name])}</option>`).join('')}</select><input type="color" aria-label="卡片颜色 ${i+1}" data-layout-color="${i}" value="${esc(entry.color || '#374959')}"${disabled(busy)}><div class="button-row">${actionButton('layout-up','↑',` data-index="${i}" aria-label="上移卡片 ${i+1}"${disabled(busy || i===0)}`,'small')}${actionButton('layout-down','↓',` data-index="${i}" aria-label="下移卡片 ${i+1}"${disabled(busy || i===entries.length-1)}`,'small')}${actionButton('layout-remove','移除',` data-index="${i}"${disabled(busy)}`,'small')}</div></div>`;
   }).join('') || '<p class="hint">当前列表为空，可从电视中的应用添加。</p>'}</div><div class="layout-add"><select name="layoutApp" aria-label="选择要添加的应用"${disabled(busy || !appOptions.length)}><option value="">选择电视中可启动的应用…</option>${appOptions.map(app=>`<option value="${esc(app.packageName)}"${layoutApp===app.packageName?' selected':''}>${esc(app.label)} · ${esc(app.packageName)}</option>`).join('')}</select>${actionButton('layout-add','添加到当前列表',disabled(busy || !layoutApp || !draft))}</div><details class="layout-json"><summary>apps.json 配置</summary><textarea name="layoutJson" aria-label="apps.json 配置" spellcheck="false"${disabled(busy)}>${esc(layoutJson)}</textarea><p class="hint">可编辑 JSON 后点击“解析配置”更新可视化列表；只接受应用包名、内置入口、名称、图标类型和颜色。</p>${actionButton('parse-layout','解析配置',disabled(busy))}</details></section>`;
 }
-async function launcherOperation(request: LauncherRequest): Promise<void> {
+async function launcherOperation(request: LauncherRequest, preserveDraft = false): Promise<void> {
+  const savedDraft = preserveDraft && layoutAvailable() ? layoutJson : null;
   if (busy || !online()) return;
   localBusy = true; busy = true; cancelling = false; busyLabel = request.action==='capturePreview'?'正在显示当前桌面并获取截图…':'读取／应用当前启动器布局…'; notice = ''; render();
-  try { const value = await api.launcherExecute(request); acceptLauncherResult(value); try {applySnapshot(await api.execute({action:'getState'}));} catch { /* Another operation may have started; its event supplies the new state. */ } notice = value.message || ('image' in value ? '已获取电视当前桌面截图' : value.supported ? '布局已读取，可调整后应用' : '此启动器暂不可编辑'); noticeKind = 'info'; }
+  try { const value = await api.launcherExecute(request); acceptLauncherResult(value); if (savedDraft && layoutAvailable()) layoutJson = savedDraft; if(request.action==='getLayout')layoutDirty=false; try {applySnapshot(await api.execute({action:'getState'}));} catch { /* Another operation may have started; its event supplies the new state. */ } notice = value.message || ('image' in value ? '已获取电视当前桌面截图' : value.supported ? '布局已读取，可调整后应用' : '此启动器暂不可编辑'); noticeKind = 'info'; }
   catch (error) { notice = error instanceof Error ? error.message : String(error); noticeKind = 'error'; }
   finally { localBusy = false; busy = !!agentOperation?.running; cancelling = false; render(); }
 }
@@ -205,7 +233,7 @@ function modifyLayout(change: (draft: LauncherLayout) => void): void {
   change(draft); layoutJson = JSON.stringify(draft, null, 2); render();
 }
 function launchersPage(): string {
-  return `${connectionStrip()}<div class="section-title launcher-toolbar"><div><h2>已安装的启动器</h2><p>读取当前桌面的自定义能力，或获取电视上的实际画面。</p></div><div class="button-row">${actionButton('read-layout','读取当前布局',disabled(busy || !online()))}${actionButton('capture-launcher','显示当前桌面并截图',disabled(busy || !online()))}${actionButton('scan', icon('refresh') + '重新扫描', disabled(busy || !online()))}${actionButton('add-launcher', icon('plus') + '添加启动器 APK', disabled(busy), 'primary')}</div></div><div class="launcher-grid" data-scroll="launchers" tabindex="0" aria-label="启动器列表">${layoutEditor()}${snapshot.launchers.length ? snapshot.launchers.map(l => `<article class="panel launcher-card ${l.isDefault ? 'current' : ''}"><div class="launcher-cover">${launcherPreview?.component===l.component ? `<img src="${esc(launcherPreview.image)}" alt="电视当前桌面截图">` : `<div class="launcher-cover-placeholder">${icon('home')}<span>暂无封面 · 设为当前桌面后可截图</span></div>`}</div><div class="launcher-top"><span class="large-icon">${icon('home')}</span>${l.isDefault ? '<span class="pill">当前默认桌面</span>' : ''}</div><h3>${esc(l.label || l.packageName)}</h3><code>${esc(l.component)}</code>${actionButton('set-home', l.isDefault ? '正在使用' : '设为默认桌面', ` data-component="${esc(l.component)}"${disabled(busy || !online() || l.isDefault)}`, l.isDefault ? '' : 'primary')}</article>`).join('') : `<section class="panel empty-state">${icon('home')}<h3>${online() ? '未查询到启动器' : '连接后查看启动器'}</h3><p>连接电视并扫描，即可选择已安装的桌面。</p></section>`}</div><section class="panel restore-panel"><div><h2>恢复原桌面</h2><p>${snapshot.originalHome ? esc(snapshot.originalHome) : '首次切换前会记录原来的默认桌面。'}</p></div>${actionButton('restore-home', '恢复原桌面', disabled(busy || !online() || !snapshot.originalHome || snapshot.originalHome === snapshot.defaultHome))}</section><p class="hint">安装自定义启动器后会刷新列表。部分电视固件限制更换默认桌面，工具会复查实际结果。</p>`;
+  return `${connectionStrip()}<div class="section-title launcher-toolbar"><div><h2>已安装的启动器</h2><p>读取当前桌面的自定义能力，或获取电视上的实际画面。</p></div><div class="button-row">${actionButton('read-layout','读取当前布局',disabled(busy || !online()))}${actionButton('capture-launcher','显示当前桌面并截图',disabled(busy || !online()))}${actionButton('scan', icon('refresh') + '重新扫描', disabled(busy || !online()))}${actionButton('add-launcher', icon('plus') + '添加启动器 APK', disabled(busy), 'primary')}</div></div><div class="launcher-grid" data-scroll="launchers" tabindex="0" aria-label="启动器列表">${layoutEditor()}${snapshot.launchers.length ? snapshot.launchers.map(l => `<article class="panel launcher-card ${l.isDefault ? 'current' : ''}"><div class="launcher-cover">${launcherPreview?.component===l.component && launcherTarget(launcherPreview.serial,launcherPreview.userId,l.component)===launcherTarget() ? `<img src="${esc(launcherPreview.image)}" alt="电视当前桌面截图">` : `<div class="launcher-cover-placeholder">${icon('home')}<span>暂无封面 · 设为当前桌面后可截图</span></div>`}</div><div class="launcher-top"><span class="large-icon">${icon('home')}</span>${l.isDefault ? '<span class="pill">当前默认桌面</span>' : ''}</div><h3>${esc(l.label || l.packageName)}</h3><code>${esc(l.component)}</code><p class="launcher-size">安装包大小：${l.apkSizeBytes != null ? storageBytes(l.apkSizeBytes) : packageSize(snapshot.packages.find(p=>p.packageName===l.packageName) || {packageName:l.packageName,label:l.label,installed:true,system:false,enabled:true,protectedReason:null})}</p>${actionButton('set-home', l.isDefault ? '正在使用' : '设为默认桌面', ` data-component="${esc(l.component)}"${disabled(busy || !online() || l.isDefault)}`, l.isDefault ? '' : 'primary')}</article>`).join('') : `<section class="panel empty-state">${icon('home')}<h3>${online() ? '未查询到启动器' : '连接后查看启动器'}</h3><p>连接电视并扫描，即可选择已安装的桌面。</p></section>`}</div><section class="panel restore-panel"><div><h2>恢复原桌面</h2><p>${snapshot.originalHome ? esc(snapshot.originalHome) : '首次切换前会记录原来的默认桌面。'}</p></div>${actionButton('restore-home', '恢复原桌面', disabled(busy || !online() || !snapshot.originalHome || snapshot.originalHome === snapshot.defaultHome))}</section><p class="hint">安装自定义启动器后会刷新列表。部分电视固件限制更换默认桌面，工具会复查实际结果。</p>`;
 }
 function installPage(): string {
   return `${connectionStrip()}<section class="panel install-panel"><div class="section-title"><div><h2>待安装的 APK</h2><p>从电脑导入安装包，勾选要安装的文件；添加不会立即安装。</p></div>${actionButton('add-apks', icon('plus') + '添加安装包', disabled(busy || (!api.desktop && !api.demo)), 'primary')}</div><div class="install-footer"><span>共 ${apkPaths.length} 个文件 · 已选择 ${selectedApks.size} 个</span><div class="button-row">${actionButton('select-apks', '全选', disabled(busy || !apkPaths.length))}${actionButton('clear-apks-selection', '取消选择', disabled(busy || !selectedApks.size))}${actionButton('install-apks', '安装所选', disabled(busy || !online() || !selectedApks.size), 'primary')}</div></div>${apkPaths.length ? `<div class="apk-list" data-scroll="apks" tabindex="0" aria-label="待安装 APK 列表">${apkPaths.map(path => `<div class="apk-item" data-apk="${esc(path)}"><input type="checkbox" data-select-apk="${esc(path)}" aria-label="选择 ${esc(fileName(path))}"${selectedApks.has(path) ? ' checked' : ''}${disabled(busy)}><span class="large-icon">${icon('box')}</span><div class="apk-name"><strong>${esc(fileName(path))}</strong><code>${esc(path)}</code></div>${actionButton('remove-apk', '移除', ` data-path="${esc(path)}"${disabled(busy)}`, 'text-button')}</div>`).join('')}</div>` : `<div class="empty-state upload-state">${icon('download')}<h3>添加你自己的安装包</h3><p>支持多次添加和多选 APK。移除列表项不会删除电脑文件。</p>${actionButton('add-apks', '选择本地 APK', disabled(busy || (!api.desktop && !api.demo)))}</div>`}</section><div class="two-columns install-notes"><section class="panel"><h2>获取 pureTV 应用</h2><p>启动器、Music TV、ShortVideo TV 和 WebTV 可分别下载安装。</p>${actionButton('releases', '打开官方下载页 ↗', '', 'text-button link-button')}</section><section class="panel"><h2>安装说明</h2><p>首版支持单个 APK 文件，可批量顺序安装多个应用。分包应用（APKS / XAPK）需使用其他安装方式。</p><p class="hint">同包名升级需签名一致。安装结束后会更新应用列表。</p></section></div>`;
@@ -241,6 +269,7 @@ async function run(request: Request, label: string): Promise<boolean> {
   try {
     const before = snapshot.device?.serial, previousEntries = new Set(snapshot.history.map(entry => entry.id));
     applySnapshot(await api.execute(request));
+    if(request.action==='install')layoutDirty=true;
     if (before !== snapshot.device?.serial) selected.clear(); cleanSelection();
     const failed = snapshot.history.some(entry => !previousEntries.has(entry.id) && !entry.success);
     const unready = request.action === 'connect' && !online();
@@ -322,7 +351,7 @@ async function downloadTools(): Promise<void> {
 function details(pkg: string): void {
   const p = snapshot.packages.find(p => p.packageName === pkg); if (!p) return;
   if (dialog.open) dialog.close();
-  dialog.innerHTML = `<div class="modal-heading"><h2>应用详情</h2><button class="icon-button" data-act="close-dialog" aria-label="关闭">${icon('close')}</button></div><div class="detail-identity">${appIcon(p)}<h3>${esc(p.label)}</h3></div><dl><dt>包名</dt><dd><code>${esc(p.packageName)}</code></dd><dt>类型</dt><dd>${p.system ? '系统应用' : '用户应用'}</dd><dt>安装包大小</dt><dd>${packageSize(p)}${!p.system && p.installed ? '（含分包，不含私有数据和缓存）' : ''}</dd><dt>当前用户状态</dt><dd>${!p.installed ? '未安装，可尝试恢复' : p.enabled ? '已安装，已启用' : '已安装，已停用'}</dd>${p.protectedReason ? `<dt>保护原因</dt><dd>${esc(p.protectedReason)}</dd>` : ''}</dl><p class="hint">名称无法读取时以包名显示；操作前请确认具体应用。</p><div class="modal-actions">${actionButton('close-dialog', '关闭')}</div>`;
+  dialog.innerHTML = `<div class="modal-heading"><h2>应用详情</h2><button class="icon-button" data-act="close-dialog" aria-label="关闭">${icon('close')}</button></div><div class="detail-identity">${appIcon(p)}<h3>${esc(p.label)}</h3></div><dl><dt>包名</dt><dd><code>${esc(p.packageName)}</code></dd><dt>类型</dt><dd>${p.system ? '系统应用' : '用户应用'}</dd><dt>安装包大小</dt><dd>${packageSize(p)}${p.installed ? '（含分包，不含私有数据和缓存）' : ''}</dd><dt>当前用户状态</dt><dd>${!p.installed ? '未安装，可尝试恢复' : p.enabled ? '已安装，已启用' : '已安装，已停用'}</dd>${p.protectedReason ? `<dt>保护原因</dt><dd>${esc(p.protectedReason)}</dd>` : ''}</dl><p class="hint">名称无法读取时以包名显示；操作前请确认具体应用。</p><div class="modal-actions">${actionButton('close-dialog', '关闭')}</div>`;
   dialog.setAttribute('aria-label', '应用详情'); dialog.showModal();
 }
 function checkedPackages(kind: 'disable' | 'enable' | 'uninstall' | 'restore', one?: string): PackageInfo[] {
@@ -363,6 +392,12 @@ async function addApks(): Promise<void> {
 async function doAction(button: HTMLButtonElement): Promise<void> {
   if (button.disabled) return; const action = button.dataset.act;
   switch (action) {
+    case 'go-apps': page='apps';render();break;
+    case 'go-live': page='live';render();break;
+    case 'start-live': await liveAction('start');break;
+    case 'pause-live': await liveAction('pause');break;
+    case 'stop-live': await liveAction('stop');break;
+    case 'refresh-system': await run({action:'refreshSystemInfo'},'刷新电视系统信息…');break;
     case 'go-connect': page = 'connect'; render(); break;
     case 'go-install': page = 'install'; render(); break;
     case 'dismiss': notice = ''; render(); break;
@@ -395,7 +430,11 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
     case 'install-apks': {
       const paths = apkPaths.filter(p => selectedApks.has(p)); if (!paths.length || busy || !online()) return;
       if (paths.length > 10) throw new Error('一次最多安装 10 个 APK，请减少所选数量；其他文件会保留在列表中');
-      if (await confirm(`安装 ${paths.length} 个应用`, '将按顺序安装以下 APK。同包名且签名一致的应用会尝试覆盖升级。', paths, '开始安装')) await run({ action: 'install', paths }, '正在安装所选 APK，完成后刷新应用…'); break;
+      if (await confirm(`安装 ${paths.length} 个应用`, '将按顺序安装以下 APK。同包名且签名一致的应用会尝试覆盖升级。', paths, '开始安装')) {
+        const complete=await run({ action: 'install', paths }, '正在安装所选 APK，完成后刷新应用…');
+        const installed=new Set(snapshot.installResults?.filter(result=>result.success && paths.includes(result.path)).map(result=>result.path) || (complete?paths:[]));
+        apkPaths=apkPaths.filter(path=>!installed.has(path));selectedApks=new Set([...selectedApks].filter(path=>!installed.has(path)));render();
+      } break;
     }
     case 'read-layout': await launcherOperation({action:'getLayout'}); break;
     case 'capture-launcher': await launcherOperation({action:'capturePreview'}); break;
@@ -427,7 +466,7 @@ document.addEventListener('click', event => {
   const target = event.target as HTMLElement;
   if (target.closest('.brand')) { event.preventDefault(); page = 'connect'; render(); return; }
   const nav = target.closest<HTMLButtonElement>('[data-page]');
-  if (nav) { page = nav.dataset.page as Page; render(); return; }
+  if (nav) { page = nav.dataset.page as Page; render(); if(page==='launchers' && layoutDirty && online() && !busy)void launcherOperation({action:'getLayout'},true); return; }
   const tab = target.closest<HTMLButtonElement>('[data-filter]');
   if (tab) { filter = tab.dataset.filter as Filter; selected.clear(); render(); return; }
   const button = target.closest<HTMLButtonElement>('button[data-act]');
@@ -449,6 +488,7 @@ document.addEventListener('input', event => {
 });
 document.addEventListener('change', event => {
   const control = event.target as HTMLInputElement;
+  if (control.name === 'liveFps') {liveFps=Number(control.value);return;}
   if (control.name === 'layoutApp') { layoutApp = control.value; render(); return; }
   if (control.name === 'layoutColumns') { const columns=Number(control.value); if(!Number.isInteger(columns) || columns<1 || columns>6){showNotice('每行列数应为 1–6','error');return;} modifyLayout(draft=>{draft.columns=columns;}); return; }
   for (const [attribute,field] of [['layoutLabel','label'],['layoutIcon','icon'],['layoutColor','color']] as const) {
@@ -491,7 +531,18 @@ void api.watchMcp(value => {
       notice = value.error || snapshot.message; noticeKind = value.error ? 'error' : 'info';
     }
   }
+  if (value.tool==='install' && !value.running) layoutDirty=true;
   if (value.launcherResult) acceptLauncherResult(value.launcherResult);
   if (!value.running) { agentProgress = null; void refreshToolsInfo().then(render); }
   render();
 }, value => { agentProgress = value; render(); }).catch(error => { mcpError = `无法订阅 Agent 状态：${String(error)}`; render(); });
+
+void api.watchLive(value=>{liveStatus=value;liveFps=value.targetFps || liveFps;if(!value.running && !value.paused)liveFrame=null;if(page==='live')render();},value=>{
+  const controlsChanged=!liveStatus || liveStatus.running!==value.status.running || liveStatus.serial!==value.status.serial;
+  liveStatus=value.status;liveFps=value.status.targetFps || liveFps;liveFrame=value.frame;
+  if(page!=='live' || value.frame.serial!==snapshot.device?.serial || value.frame.userId!==snapshot.device?.userId)return;
+  if(controlsChanged){render();return;}
+  const image=root.querySelector<HTMLImageElement>('#live-image');if(image){image.src=value.frame.image;image.hidden=false;}
+  const empty=root.querySelector<HTMLElement>('#live-empty');if(empty)empty.hidden=true;
+  const status=root.querySelector<HTMLElement>('#live-status');if(status)status.textContent=`${value.status.message} · ${value.status.actualFps || 0} 帧/秒`;
+}).catch(error=>{if(page==='live')showNotice(String(error),'error');});

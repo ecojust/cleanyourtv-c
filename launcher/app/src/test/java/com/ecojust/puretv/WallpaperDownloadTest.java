@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import org.junit.Test;
 import java.io.ByteArrayInputStream;

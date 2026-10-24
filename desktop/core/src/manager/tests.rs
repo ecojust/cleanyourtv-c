@@ -68,6 +68,12 @@ impl Runner for FakeRunner {
                     "pulled".into()
                 } else if args[2] == "install" {
                     assert!(Path::new(args.last().unwrap()).is_absolute());
+                    if tv.failure.as_deref() == args.last().map(String::as_str) {
+                        return Ok(Output {
+                            code: 0,
+                            text: "Failure [INSTALL_FAILED]".into(),
+                        });
+                    }
                     tv.installed.insert("com.imported.app".into());
                     "Success".into()
                 } else {
@@ -85,6 +91,10 @@ impl Runner for FakeRunner {
                             let value=serde_json::json!({"supported":true,"version":1,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
+                        "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},
+                        "df"=>"Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/data 4096 1024 3072 25% /data".into(),
+                        "wm"=>"Physical size: 1920x1080".into(),
+                        "getprop" if a.len()==1 => "[ro.product.manufacturer]: [Test Maker]\n[ro.product.brand]: [Test]\n[ro.build.version.sdk]: [33]\n[ro.build.version.security_patch]: [2026-10-01]\n[ro.board.platform]: [test-cpu]\n[ro.product.cpu.abi]: [arm64-v8a]".into(),
                         "getprop" => if a[1] == "ro.product.model" {
                             "Test TV"
                         } else {
@@ -96,6 +106,14 @@ impl Runner for FakeRunner {
                             tv.user,
                             tv.prior.get(&a[2]).copied().unwrap_or(0)
                         ),
+                        "sh" => {
+                            let script=&a[2];
+                            if let Some(names)=script.split("for p in ").nth(1).and_then(|v|v.split("; do").next()) {
+                                names.split_whitespace().map(|name|format!("@@puretv@@{name}\npackage:/data/app/{name}/base.apk\npackage:/data/app/{name}/split.apk\n")).collect::<String>()
+                            } else {
+                                script.split("@@puretv@@").skip(1).map(|tail|{let name=tail.split('\\').next().unwrap();format!("@@puretv@@{name}\n1024\n2048\n")}).collect::<String>()
+                            }
+                        },
                         "stat" => "1024\n2048".into(),
                         "pm" if a[1] == "path" => "package:/data/app/example/base.apk\npackage:/data/app/example/split.apk".into(),
                         "pm" if a[1] == "list" => {
@@ -203,7 +221,7 @@ fn fixture() -> (Manager, Arc<Mutex<FakeTv>>) {
             "android",
             "com.android.systemui",
             "com.stock.home",
-            "com.ecojust.cleanyourtv",
+            "com.ecojust.puretv",
             "com.vendor.ads",
             "com.user.app",
         ]
@@ -224,7 +242,7 @@ fn fixture() -> (Manager, Arc<Mutex<FakeTv>>) {
         default: "com.stock.home/.Main".into(),
         launchers: vec![
             "com.stock.home/.Main".into(),
-            "com.ecojust.cleanyourtv/.MainActivity".into(),
+            "com.ecojust.puretv/.MainActivity".into(),
         ],
         user: 0,
         status: "device".into(),
@@ -347,13 +365,10 @@ fn user_change_blocks_mutation_until_rescan() {
 fn protected_packages_and_fresh_home_are_never_removed() {
     let (mut m, tv) = fixture();
     connect(&mut m);
-    tv.lock().unwrap().default = "com.ecojust.cleanyourtv/.MainActivity".into();
+    tv.lock().unwrap().default = "com.ecojust.puretv/.MainActivity".into();
     let state = m
         .execute(Request::Uninstall {
-            packages: vec![
-                "com.android.systemui".into(),
-                "com.ecojust.cleanyourtv".into(),
-            ],
+            packages: vec!["com.android.systemui".into(), "com.ecojust.puretv".into()],
         })
         .unwrap();
     assert!(state.history.iter().all(|h| !h.success));
@@ -458,7 +473,7 @@ fn switching_home_saves_first_home_and_restores_it() {
     connect(&mut m);
     let state = m
         .execute(Request::SetHome {
-            component: "com.ecojust.cleanyourtv/.MainActivity".into(),
+            component: "com.ecojust.puretv/.MainActivity".into(),
         })
         .unwrap();
     assert_eq!(
@@ -485,7 +500,7 @@ fn home_command_success_requires_resolve_verification() {
     tv.lock().unwrap().ignore_change = true;
     assert!(m
         .execute(Request::SetHome {
-            component: "com.ecojust.cleanyourtv/.MainActivity".into()
+            component: "com.ecojust.puretv/.MainActivity".into()
         })
         .is_err());
     assert!(!m.state.history[0].success);
@@ -757,18 +772,18 @@ fn full_and_relative_home_components_compare_as_same_activity() {
     );
     let snapshot = manager
         .execute(Request::SetHome {
-            component: "com.ecojust.cleanyourtv/.MainActivity".into(),
+            component: "com.ecojust.puretv/.MainActivity".into(),
         })
         .unwrap();
     assert_eq!(
         snapshot.default_home.as_deref(),
-        Some("com.ecojust.cleanyourtv/com.ecojust.cleanyourtv.MainActivity")
+        Some("com.ecojust.puretv/com.ecojust.puretv.MainActivity")
     );
     assert!(
         snapshot
             .launchers
             .iter()
-            .find(|l| l.package_name == "com.ecojust.cleanyourtv")
+            .find(|l| l.package_name == "com.ecojust.puretv")
             .unwrap()
             .is_default
     );
@@ -849,7 +864,7 @@ fn home_retry_cannot_skip_failed_recovery_record_write() {
     for _ in 0..2 {
         assert!(manager
             .execute(Request::SetHome {
-                component: "com.ecojust.cleanyourtv/.MainActivity".into()
+                component: "com.ecojust.puretv/.MainActivity".into()
             })
             .is_err());
     }
@@ -879,7 +894,7 @@ fn snapshot_revisions_advance_on_success_and_failure_without_changing_old_snapsh
 }
 
 #[test]
-fn scanning_reports_user_apk_sizes_but_does_not_measure_system_packages() {
+fn scanning_reports_installed_app_and_launcher_apk_sizes() {
     let (mut manager, tv) = fixture();
     connect(&mut manager);
     let state = manager.snapshot();
@@ -899,8 +914,13 @@ fn scanning_reports_user_apk_sizes_but_does_not_measure_system_packages() {
             .find(|p| p.package_name == "android")
             .unwrap()
             .apk_size_bytes,
-        None
+        Some(3072)
     );
+    assert!(manager
+        .snapshot()
+        .launchers
+        .iter()
+        .all(|home| home.apk_size_bytes == Some(3072)));
     assert!(!tv
         .lock()
         .unwrap()
@@ -929,7 +949,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
             layout: layout.clone()
         })
         .is_err());
-    tv.lock().unwrap().default = "com.ecojust.cleanyourtv/.MainActivity".into();
+    tv.lock().unwrap().default = "com.ecojust.puretv/.MainActivity".into();
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::GetLayout)
@@ -989,4 +1009,58 @@ fn launcher_preview_returns_png_and_removes_temporary_files() {
         .calls
         .iter()
         .any(|args| args.iter().any(|a| a == "rm")));
+}
+
+#[test]
+fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
+    let (mut manager, _) = fixture();
+    connect(&mut manager);
+    let info = manager.snapshot().system_info.unwrap();
+    assert_eq!(info.memory_total_bytes, Some(4194304));
+    assert_eq!(info.storage_available_bytes, Some(3145728));
+    assert_eq!(info.manufacturer.as_deref(), Some("Test Maker"));
+    manager.execute(Request::Disconnect).unwrap();
+    assert!(manager.snapshot().system_info.is_none());
+}
+
+#[cfg(unix)]
+#[test]
+fn read_only_screen_capture_preserves_binary_png_and_observes_cancellation() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("puretv-screen-test-{}", std::process::id()));
+    fs::create_dir_all(&root).unwrap();
+    let adb = root.join("adb");
+    fs::write(&adb,"#!/usr/bin/env python3\nimport sys,base64\nassert sys.argv[1:]==['-s','tv:5555','exec-out','screencap','-p']\nsys.stdout.buffer.write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='))\n").unwrap();
+    fs::set_permissions(&adb, fs::Permissions::from_mode(0o755)).unwrap();
+    let bytes = crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(false)).unwrap();
+    assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+    assert!(crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(true)).is_err());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn install_results_distinguish_original_paths_even_when_basenames_match() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    let first = manager.data_dir.join("first/app.apk");
+    let second = manager.data_dir.join("second/app.apk");
+    for path in [&first, &second] {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, b"test APK").unwrap();
+    }
+    let paths = vec![
+        first.to_string_lossy().into_owned(),
+        second.to_string_lossy().into_owned(),
+    ];
+    tv.lock().unwrap().failure = Some(paths[1].clone());
+    let state = manager
+        .execute(Request::Install {
+            paths: paths.clone(),
+        })
+        .unwrap();
+    assert_eq!(state.install_results.len(), 2);
+    assert_eq!(state.install_results[0].path, paths[0]);
+    assert_eq!(state.install_results[1].path, paths[1]);
+    assert!(state.install_results[0].success);
+    assert!(!state.install_results[1].success);
 }

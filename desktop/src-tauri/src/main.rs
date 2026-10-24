@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod live_view;
 mod mcp;
 mod platform_tools;
 
@@ -15,6 +16,7 @@ use tauri_plugin_opener::OpenerExt;
 
 #[derive(Clone)]
 struct Bridge {
+    live: Arc<live_view::LiveView>,
     manager: Arc<Mutex<TvManager>>,
     cancel: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
@@ -45,6 +47,41 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
     .await;
     bridge.running.store(false, Ordering::Release);
     result.map_err(|_| "操作任务异常结束，请重新扫描设备状态".to_string())?
+}
+
+fn live_emit(app: &tauri::AppHandle) -> live_view::Emit {
+    let app = app.clone();
+    Arc::new(move |name, value| {
+        let _ = app.emit(name, value);
+    })
+}
+fn live_call(
+    app: &tauri::AppHandle,
+    bridge: &Bridge,
+    action: &str,
+    fps: Option<u8>,
+) -> Result<Value, String> {
+    let emit = live_emit(app);
+    match action {
+        "start" => Ok(json!(bridge.live.start(fps.unwrap_or(1), emit)?)),
+        "pause" => Ok(json!(bridge.live.stop(true, &emit)?)),
+        "stop" => Ok(json!(bridge.live.stop(false, &emit)?)),
+        "status" => Ok(json!(bridge.live.status()?)),
+        "frame" => bridge.live.frame(),
+        _ => Err("实时画面操作无效".into()),
+    }
+}
+#[tauri::command]
+async fn live_execute(
+    action: String,
+    fps: Option<u8>,
+    app: tauri::AppHandle,
+    bridge: tauri::State<'_, Bridge>,
+) -> Result<Value, String> {
+    let bridge = bridge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || live_call(&app, &bridge, &action, fps))
+        .await
+        .map_err(|_| "实时画面任务异常结束".to_string())?
 }
 
 #[tauri::command]
@@ -248,6 +285,17 @@ fn mcp_call(
     name: &str,
     args: Value,
 ) -> Result<Value, String> {
+    let live_action = match name {
+        "start_live_view" => Some("start"),
+        "pause_live_view" => Some("pause"),
+        "stop_live_view" => Some("stop"),
+        "live_view_status" => Some("status"),
+        "get_live_frame" => Some("frame"),
+        _ => None,
+    };
+    if let Some(action) = live_action {
+        return live_call(app, bridge, action, args["fps"].as_u64().map(|v| v as u8));
+    }
     if name == "get_state" {
         return serde_json::to_value(bridge.snapshot.lock().map_err(|_| "状态不可用")?.clone())
             .map_err(|e| e.to_string());
@@ -388,11 +436,13 @@ fn main() {
             app.manage(lock);
             let manager = TvManager::new(directory.clone(), cancel.clone());
             let snapshot = manager.snapshot();
+            let snapshot = Arc::new(Mutex::new(snapshot));
             let bridge = Bridge {
+                live: live_view::LiveView::new(snapshot.clone()),
                 manager: Arc::new(Mutex::new(manager)),
                 cancel,
                 running: Arc::new(AtomicBool::new(false)),
-                snapshot: Arc::new(Mutex::new(snapshot)),
+                snapshot: snapshot.clone(),
                 progress: Arc::new(Mutex::new(None)),
             };
             let handle = app.handle().clone();
@@ -407,6 +457,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             execute,
+            live_execute,
             launcher_execute,
             choose_launcher_json,
             cancel,
@@ -417,6 +468,13 @@ fn main() {
             open_resource,
             mcp_info
         ])
-        .run(tauri::generate_context!())
-        .expect("无法启动 pureTV 电视管理器");
+        .build(tauri::generate_context!())
+        .expect("无法启动 pureTV 电视管理器")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+                if let Some(bridge) = app.try_state::<Bridge>() {
+                    let _ = bridge.live.stop(false, &live_emit(app));
+                }
+            }
+        });
 }

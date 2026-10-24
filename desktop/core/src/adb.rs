@@ -25,14 +25,14 @@ pub(crate) trait Runner: Send {
     ) -> Result<Output, String>;
 }
 pub(crate) struct ProcessRunner;
-fn collect(mut reader: impl Read, overflow: Arc<AtomicBool>) -> Vec<u8> {
+fn collect(mut reader: impl Read, overflow: Arc<AtomicBool>, limit: usize) -> Vec<u8> {
     let mut data = Vec::new();
     let mut bytes = [0u8; 8192];
     loop {
         match reader.read(&mut bytes) {
             Ok(0) | Err(_) => break,
             Ok(count) => {
-                let remaining = OUTPUT_LIMIT.saturating_sub(data.len());
+                let remaining = limit.saturating_sub(data.len());
                 data.extend_from_slice(&bytes[..count.min(remaining)]);
                 if count > remaining {
                     overflow.store(true, Ordering::Relaxed);
@@ -42,15 +42,16 @@ fn collect(mut reader: impl Read, overflow: Arc<AtomicBool>) -> Vec<u8> {
     }
     data
 }
-impl Runner for ProcessRunner {
-    fn run(
+impl ProcessRunner {
+    fn run_raw(
         &mut self,
         program: &Path,
         args: &[String],
         stdin: Option<&str>,
         cancel: &AtomicBool,
         timeout: Duration,
-    ) -> Result<Output, String> {
+        limit: usize,
+    ) -> Result<(i32, Vec<u8>, Vec<u8>), String> {
         if cancel.load(Ordering::Relaxed) {
             return Err("操作已取消".into());
         }
@@ -97,10 +98,10 @@ impl Runner for ProcessRunner {
         let (out_sender, out_receiver) = mpsc::sync_channel(1);
         let (err_sender, err_receiver) = mpsc::sync_channel(1);
         thread::spawn(move || {
-            let _ = out_sender.send(collect(stdout, out_overflow));
+            let _ = out_sender.send(collect(stdout, out_overflow, limit));
         });
         thread::spawn(move || {
-            let _ = err_sender.send(collect(stderr, err_overflow));
+            let _ = err_sender.send(collect(stderr, err_overflow, limit));
         });
         let started = Instant::now();
         let mut failure = None;
@@ -136,8 +137,21 @@ impl Runner for ProcessRunner {
         let out = out.map_err(|_| "ADB 输出未正常关闭，请重试")?;
         let err = err.map_err(|_| "ADB 输出未正常关闭，请重试")?;
         if overflow.load(Ordering::Relaxed) {
-            return Err("ADB 输出超过 4 MiB 上限".into());
+            return Err(format!("ADB 输出超过 {} MiB 上限", limit / 1024 / 1024));
         }
+        Ok((status.and_then(|s| s.code()).unwrap_or(-1), out, err))
+    }
+}
+impl Runner for ProcessRunner {
+    fn run(
+        &mut self,
+        program: &Path,
+        args: &[String],
+        stdin: Option<&str>,
+        cancel: &AtomicBool,
+        timeout: Duration,
+    ) -> Result<Output, String> {
+        let (code, out, err) = self.run_raw(program, args, stdin, cancel, timeout, OUTPUT_LIMIT)?;
         let stdout = String::from_utf8_lossy(&out);
         let stderr = String::from_utf8_lossy(&err);
         let text = if stderr.trim().is_empty() {
@@ -145,12 +159,53 @@ impl Runner for ProcessRunner {
         } else {
             format!("{stdout}\n{stderr}")
         };
-        Ok(Output {
-            code: status.and_then(|s| s.code()).unwrap_or(-1),
-            text,
-        })
+        Ok(Output { code, text })
     }
 }
+/// A read-only fixed ADB command. It never opens HOME or sends device input.
+pub fn capture_screen(
+    program: &Path,
+    serial: &str,
+    cancel: &AtomicBool,
+) -> Result<Vec<u8>, String> {
+    if serial.is_empty() || serial.len() > 300 || serial.contains('\0') {
+        return Err("设备序列号无效".into());
+    }
+    let args = vec![
+        "-s".into(),
+        serial.into(),
+        "exec-out".into(),
+        "screencap".into(),
+        "-p".into(),
+    ];
+    let (code, bytes, _) = ProcessRunner.run_raw(
+        program,
+        &args,
+        None,
+        cancel,
+        Duration::from_secs(8),
+        8 * 1024 * 1024,
+    )?;
+    if code != 0
+        || bytes.len() < 24
+        || !bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        || &bytes[12..16] != b"IHDR"
+    {
+        return Err("电视未返回有效画面，请检查截图权限及 ADB 连接".into());
+    }
+    let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+    let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+    if width == 0
+        || height == 0
+        || width > 7680
+        || height > 7680
+        || u64::from(width) * u64::from(height) > 40_000_000
+    {
+        return Err("电视画面尺寸无效或过大".into());
+    }
+    Ok(bytes)
+}
+
 pub(crate) fn discover(configured: Option<&str>) -> Option<PathBuf> {
     if let Some(value) = configured.filter(|s| !s.is_empty()) {
         let path = PathBuf::from(value);

@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace 'com.ecojust.cleanyourtv'
+    namespace 'com.ecojust.puretv'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.ecojust.cleanyourtv'
+        applicationId 'com.ecojust.puretv'
         minSdk 26
         targetSdk 29
-        versionCode 6
-        versionName '0.1.5'
+        versionCode 7
+        versionName '0.2.0'
     }
 
     // Release credentials are supplied locally or through GitHub Actions secrets.

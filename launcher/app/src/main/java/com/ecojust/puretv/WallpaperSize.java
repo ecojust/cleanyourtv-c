@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 /**
  * How big a wallpaper may be and what size it is decoded at. A 1 GB TV cannot afford a picture

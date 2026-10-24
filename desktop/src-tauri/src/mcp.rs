@@ -42,6 +42,12 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
+        tool("refresh_system_info","Refresh connected TV manufacturer, Android SDK/security patch, CPU/ABI, RAM, /data storage, resolution and uptime. Unavailable values remain null.",json!({}),&[],true),
+        tool("start_live_view","Start read-only continuous screen preview of the connected TV without opening HOME. Target 1–3fps; actual rate depends on device/network.",json!({"fps":{"type":"integer","minimum":1,"maximum":3,"default":1}}),&[],true),
+        tool("pause_live_view","Pause continuous preview and retain the last frame.",json!({}),&[],true),
+        tool("stop_live_view","Stop continuous preview, cancel screen capture and release the last frame.",json!({}),&[],true),
+        tool("live_view_status","Get preview running/paused state, target and actual frame rate and last-frame timestamp; no image data.",json!({}),&[],true),
+        tool("get_live_frame","Get the latest preview frame as MCP PNG image content. Start preview first; paused frames remain available for the same TV/user.",json!({}),&[],true),
         tool("choose_launcher_json","Open the manager's apps.json file picker and return UTF-8 configuration text; does not apply it.",json!({}),&[],true),
         tool("get_launcher_layout","Read the CURRENT default launcher's verified apps.json capability, layout and launchable apps with icons. Unsupported launchers remain read-only.",json!({}),&[],true),
         tool("apply_launcher_layout","Apply a data-only apps.json layout to the current supported launcher, then read it back. Layout is a JSON string; columns 1–6, home 1–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
@@ -138,6 +144,7 @@ pub fn launcher_request(
 pub fn core_request(name: &str, mut args: Value) -> Result<puretv_core::Request, String> {
     let action = match name {
         "get_state" => "getState",
+        "refresh_system_info" => "refreshSystemInfo",
         "set_adb_path" => "setAdbPath",
         "set_enabled" => "setEnabled",
         "set_home" => "setHome",
@@ -425,7 +432,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 25);
+        assert_eq!(tools().len(), 31);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {

@@ -50,7 +50,7 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `choose_adb` | 无 | 在管理器打开原生可执行文件对话框，只返回路径，不配置 |
 | `open_resource` | `resource` | 打开 `releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
 
-用户应用的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
+已安装应用及启动器的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
 
 新增的当前启动器工具：
 
@@ -62,7 +62,20 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `capture_launcher_preview` | 无 | 在电视上打开当前 HOME，返回实际 PNG 图片 |
 | `choose_launcher_json` | 无 | 原生 JSON 文件选择器，只返回文本，不应用 |
 
-配置格式和支持条件见[启动器布局](launcher-layout.md)。当前适配本次新增接口的 pureTV，旧电视 APK 需先更新，未适配启动器不会被写入。
+配置格式和支持条件见[启动器布局](launcher-layout.md)。当前适配本次新增接口的 pureTV，旧包名 APK 需安装 `com.ecojust.puretv` 并选为默认桌面，未适配启动器不会被写入。
+
+系统与实时画面工具：
+
+| 工具 | 参数 | 行为 |
+| --- | --- | --- |
+| `refresh_system_info` | 无 | 刷新内存、磁盘、CPU、SDK／补丁、分辨率和运行时间 |
+| `start_live_view` | 可选 `fps: 1–3` | 开始当前屏幕连续截图，不打开 HOME |
+| `pause_live_view` | 无 | 暂停并保留最后一帧 |
+| `stop_live_view` | 无 | 取消捕获并释放最后一帧 |
+| `live_view_status` | 无 | 目标／实际帧率、状态、时间戳，不含图片 |
+| `get_live_frame` | 无 | 返回最近一帧标准 PNG 图片内容 |
+
+实时预览是目标 1–3 帧／秒的连续截图，实际速度取决于设备与网络。切换或断开设备时停止旧预览，暂停帧也只对同一设备／用户可用。
 
 应用筛选、搜索、查看记录可基于 `get_state` 的 `packages`、`launchers`、`history` 完成；Agent 可直接提交选定的包名或 APK 路径，不需要模拟勾选界面。文件选择器需要用户在窗口操作，自动化时直接提供本机完整路径更方便。
 

@@ -13,11 +13,11 @@ case "$IMG" in
   *.[jJ][pP][gG]|*.[jJ][pP][eE][gG]|*.[pP][nN][gG]|*.[wW][eE][bB][pP]) ;;
   *) echo "只支持 jpg / png / webp" >&2; exit 1 ;;
 esac
-DIR="/sdcard/Android/data/com.ecojust.cleanyourtv/files"
+DIR="/sdcard/Android/data/com.ecojust.puretv/files"
 adb connect "$TV_SERIAL"
 adb_tv shell "mkdir -p $DIR"
 # BitmapFactory 按文件内容解码，固定文件名与桌面内的壁纸管理保持一致。
 adb_tv push "$IMG" "$DIR/wallpaper.jpg"
-adb_tv shell am force-stop com.ecojust.cleanyourtv
-adb_tv shell am start -n com.ecojust.cleanyourtv/.MainActivity
+adb_tv shell am force-stop com.ecojust.puretv
+adb_tv shell am start -n com.ecojust.puretv/.MainActivity
 echo "壁纸已更新。可在桌面设置中移除壁纸。"

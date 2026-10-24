@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 import android.content.Context;
 import android.content.pm.ProviderInfo;
 import android.os.Bundle;
@@ -25,7 +25,7 @@ public class LauncherLayoutTest {
     @After public void clear(){LauncherLayout.reset(context());}
     @Test public void validLayoutChangesActualGridAndInvalidChangesPreserveIt() throws Exception {
         JSONObject draft=LauncherLayout.defaults(context()).json;
-        draft.put("columns",3).put("home",new JSONArray().put(new JSONObject().put("packageName","com.ecojust.cleanyourtv").put("label","我的入口").put("icon","settings").put("color","#112233")).put(new JSONObject().put("action","music")));
+        draft.put("columns",3).put("home",new JSONArray().put(new JSONObject().put("packageName","com.ecojust.puretv").put("label","我的入口").put("icon","settings").put("color","#112233")).put(new JSONObject().put("action","music")));
         LauncherLayout.apply(context(),draft);
         assertEquals(3,LauncherLayout.override(context()).columns);
         try(ActivityController<MainActivity> controller=Robolectric.buildActivity(MainActivity.class).setup()) {
@@ -41,7 +41,7 @@ public class LauncherLayoutTest {
         }
     }
     @Test public void providerIsShellProtectedAndReturnsReadBackConfiguration() throws Exception {
-        ProviderInfo info=context().getPackageManager().resolveContentProvider("com.ecojust.cleanyourtv.layout",0);
+        ProviderInfo info=context().getPackageManager().resolveContentProvider("com.ecojust.puretv.layout",0);
         assertNotNull(info);assertTrue(info.exported);assertEquals("android.permission.DUMP",info.readPermission);assertEquals("android.permission.DUMP",info.writePermission);
         LauncherLayoutProvider provider=Robolectric.buildContentProvider(LauncherLayoutProvider.class).create().get();
         JSONObject draft=LauncherLayout.defaults(context()).json;draft.put("columns",2);

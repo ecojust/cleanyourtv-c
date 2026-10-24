@@ -220,4 +220,4 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "pureTV Manager ${RELEASE_TAG#desktop-v}" --notes-file release-notes.txt
           fi
           gh release upload "$RELEASE_TAG" release/*.exe release/*.dmg release/*.deb release/SHA256SUMS.txt --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          gh release edit "$RELEASE_TAG" --draft=false --latest

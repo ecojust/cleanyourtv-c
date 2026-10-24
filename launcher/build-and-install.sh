@@ -9,6 +9,6 @@ TV_SERIAL="$TV_HOST"
 [[ "$TV_SERIAL" == *:* ]] || TV_SERIAL="$TV_SERIAL:5555"
 adb connect "$TV_SERIAL"
 adb -s "$TV_SERIAL" install -r app/build/outputs/apk/debug/app-debug.apk
-adb -s "$TV_SERIAL" shell cmd package set-home-activity --user 0 com.ecojust.cleanyourtv/.MainActivity
-adb -s "$TV_SERIAL" shell am start -n com.ecojust.cleanyourtv/.MainActivity
+adb -s "$TV_SERIAL" shell cmd package set-home-activity --user 0 com.ecojust.puretv/.MainActivity
+adb -s "$TV_SERIAL" shell am start -n com.ecojust.puretv/.MainActivity
 echo "Installed. Press Home to open pureTV."

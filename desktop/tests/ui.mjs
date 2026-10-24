@@ -11,7 +11,7 @@ const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'previe
 let serverLog = ''; server.stdout.on('data', d => serverLog += d); server.stderr.on('data', d => serverLog += d);
 let browser, passed = 0;
 const act = (p, action) => p.locator(`[data-act="${action}"]`).first();
-const nav = (p, page) => p.locator(`[data-page="${page}"]`).click();
+const nav = async (p, page) => {if(page==='install'){await p.locator('[data-page="apps"]').click();await p.locator('[data-act="go-install"]').first().click();}else await p.locator(`[data-page="${page}"]`).click();};
 const requests = p => p.evaluate(() => window.__requests);
 const box = (p, pkg) => p.locator(`input[data-select-package="${pkg}"]`);
 const settled = p => p.waitForFunction(() => !document.querySelector('.busy-bar'));
@@ -93,8 +93,8 @@ try {
   await check('user APK sizes are explicit and missing sizes are not invented', async p => {
     await nav(p,'apps');
     assert.match(await p.locator('tr[data-package="com.ecojust.webtv"] .size-cell').innerText(),/12.0 MiB/);
-    assert.equal(await p.locator('tr[data-package="com.ecojust.cleanyourtv"] .size-cell').innerText(),'未能读取');
-    assert.equal(await p.locator('tr[data-package="com.android.settings"] .size-cell').innerText(),'—');
+    assert.equal(await p.locator('tr[data-package="com.ecojust.puretv"] .size-cell').innerText(),'未能读取');
+    assert.equal(await p.locator('tr[data-package="com.android.settings"] .size-cell').innerText(),'未能读取');
     await p.locator('tr[data-package="com.ecojust.webtv"] [data-act="details"]').click();
     assert.match(await p.locator('dialog').innerText(),/不含私有数据和缓存/);
   });
@@ -147,7 +147,7 @@ try {
     await p.locator('.launcher-cover img[src^="data:image/png;base64,"]').waitFor();
     assert.deepEqual(await p.evaluate(()=>window.__launcherRequests.map(r=>r.action)),['getLayout','capturePreview']);
   });
-  const customHome = snapshot(); customHome.defaultHome='com.ecojust.cleanyourtv/.MainActivity';
+  const customHome = snapshot(); customHome.defaultHome='com.ecojust.puretv/.MainActivity';
   customHome.launchers.forEach(l=>l.isDefault=l.component===customHome.defaultHome);
   await check('supported current launcher edits real layout, icons and app order only on apply', async p => {
     await nav(p,'launchers');await act(p,'read-layout').click();await settled(p);
@@ -169,7 +169,45 @@ try {
     assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,4);
     await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'apply_launcher_layout',snapshot:value,launcherResult:{supported:true,component:value.defaultHome,layout:{version:1,columns:5,home:[{action:'music',icon:'music'}],apps:[]},apps:[]}}),customHome);
     assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'5','Agent layout changes reach the editor');
+    const another=structuredClone(customHome);another.device.serial='192.168.1.51:5555';another.revision=1;
+    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'connect',snapshot:value}),another);
+    assert.equal(await act(p,'apply-layout').count(),0,'Capabilities from another TV must not enable writes');
   },customHome,{layoutSupported:true});
+  await check('system information is visible at home and connection controls stay only there', async p => {
+    assert.match(await p.locator('.device-info').innerText(),/Test Maker/);
+    assert.match(await p.locator('.device-info').innerText(),/4.0 GiB/);
+    assert.match(await p.locator('.device-info').innerText(),/32.0 GiB/);
+    assert.equal(await p.locator('[data-page="install"]').count(),0,'No separate install navigation');
+    for(const page of ['apps','launchers','install','history','live']) {
+      await nav(p,page);assert.equal(await p.locator('.connection-strip').count(),0,`No connection form on ${page}`);
+      assert.match(await p.locator('.device-badge').innerText(),/已连接/);
+    }
+    await nav(p,'connect');assert.equal(await p.locator('[name="host"]').count(),1);
+  });
+  await check('live screen receives frames without rebuilding controls and supports pause and stop', async p => {
+    await nav(p,'live');await act(p,'start-live').click();
+    await p.waitForFunction(()=>window.__liveRequests.some(r=>r.action==='start'));
+    await p.evaluate(()=>window.__emitMcp('live-frame',{frame:{serial:'192.168.1.50:5555',userId:0,image:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII=',timestampMs:123},status:{running:true,paused:false,serial:'192.168.1.50:5555',userId:0,targetFps:1,actualFps:1,frames:1,timestampMs:123,message:'正在显示电视画面'}}));
+    assert.equal(await p.locator('#live-image').isVisible(),true);
+    assert.match(await p.locator('#live-status').innerText(),/1 帧/);
+    await act(p,'pause-live').click();assert.equal(await p.locator('#live-image').isVisible(),true);
+    await act(p,'stop-live').click();assert.equal(await p.locator('#live-image').isVisible(),false);
+    assert.equal(await p.locator('#live-empty').isVisible(),true);
+  });
+  await check('pending APKs install inside app management and new apps become layout choices', async p => {
+    await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
+    await act(p,'install-apks').click();await confirmOperation(p);
+    assert.equal(await p.locator('.apk-item').count(),0,'Successful installs leave the pending queue');
+    await act(p,'go-apps').click();assert.equal(await box(p,'com.imported.app').count(),1);
+    await nav(p,'launchers');await p.locator('[name="layoutApp"]').waitFor();
+    assert.match(await p.locator('[name="layoutApp"]').innerText(),/新安装应用/);
+  },customHome,{layoutSupported:true});
+  await check('partial installation removes only successful paths and retains failures', async p => {
+    await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
+    await act(p,'install-apks').click();await confirmOperation(p);
+    assert.equal(await p.locator('.apk-item').count(),1);assert.match(await p.locator('.apk-item').innerText(),/failed.apk/);
+    assert.match(await p.locator('.notice.error').innerText(),/失败 1 项/);
+  },snapshot(),{apkPaths:['/tmp/success.apk','/tmp/failed.apk'],partialInstall:true});
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');
@@ -289,21 +327,21 @@ try {
     await confirmOperation(p);
     assert.deepEqual(await requests(p),[{action:'install',paths:['C:\\我的安装包\\custom music.apk']}]);
     await p.locator('.apk-item').filter({hasText:'second.apk'}).locator('[data-act="remove-apk"]').click();
-    assert.equal(await p.locator('.apk-item').count(),1);
+    assert.equal(await p.locator('.apk-item').count(),0);
     assert.equal((await requests(p)).length,1,'Remove only edits local list');
   });
   await check('launcher selection and original HOME recovery', async p => {
     await nav(p,'launchers');
     await p.locator('[data-act="set-home"]:enabled').click();
     await confirmOperation(p);
-    assert.deepEqual((await requests(p))[0],{action:'setHome',component:'com.ecojust.cleanyourtv/.MainActivity'});
+    assert.deepEqual((await requests(p))[0],{action:'setHome',component:'com.ecojust.puretv/.MainActivity'});
     assert.equal(await act(p,'restore-home').isEnabled(),true);
     await act(p,'restore-home').click(); await confirmOperation(p);
     assert.deepEqual((await requests(p))[1],{action:'restoreHome'});
     assert.equal(await act(p,'restore-home').isDisabled(),true);
     await act(p,'add-launcher').click();
     await p.locator('.apk-item').first().waitFor();
-    assert.equal(await p.locator('[data-page="install"]').getAttribute('aria-current'),'page');
+    assert.equal(await p.locator('[data-page="apps"]').getAttribute('aria-current'),'page');
   });
   await check('failed mutation shows error and retains actual package state', async p => {
     await nav(p,'apps'); await box(p,'com.vendor.recommendations').check();

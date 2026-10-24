@@ -44,7 +44,7 @@
 
 配置最多 48 KiB；不接受 shell、任意 Intent、远程脚本或图标 URL。错误配置不会覆盖已保存的有效配置，读取损坏文件时退回默认桌面，避免首页无法打开。
 
-电视端每次首页恢复／配置应用时重新读取 apps.json，不需要重新编译应用。管理器通过受 `android.permission.DUMP` 保护的 ContentProvider 访问私有配置；普通电视应用不能据此改写桌面。也保留外部应用目录 `Android/data/com.ecojust.cleanyourtv/files/apps.json` 的手动覆盖方式；管理器写入的私有配置优先，恢复默认会删除这两处 apps.json 覆盖。默认模板位于 `launcher/app/src/main/assets/apps.json`，管理器也提供 `desktop/public/apps.json` 示例。
+电视端每次首页恢复／配置应用时重新读取 apps.json，不需要重新编译应用。管理器通过受 `android.permission.DUMP` 保护的 ContentProvider 访问私有配置；普通电视应用不能据此改写桌面。也保留外部应用目录 `Android/data/com.ecojust.puretv/files/apps.json` 的手动覆盖方式；管理器写入的私有配置优先，恢复默认会删除这两处 apps.json 覆盖。默认模板位于 `launcher/app/src/main/assets/apps.json`，管理器也提供 `desktop/public/apps.json` 示例。
 
 ## MCP
 

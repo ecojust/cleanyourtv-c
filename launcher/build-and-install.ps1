@@ -12,5 +12,5 @@ $tvSerial = $env:TV_HOST
 if ($tvSerial -notmatch ':') { $tvSerial += ':5555' }
 Invoke-Checked 'adb' @('connect', $tvSerial)
 Invoke-Checked 'adb' @('-s', $tvSerial, 'install', '-r', 'app/build/outputs/apk/debug/app-debug.apk')
-Invoke-Checked 'adb' @('-s', $tvSerial, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', 'com.ecojust.cleanyourtv/.MainActivity')
-Invoke-Checked 'adb' @('-s', $tvSerial, 'shell', 'am', 'start', '-n', 'com.ecojust.cleanyourtv/.MainActivity')
+Invoke-Checked 'adb' @('-s', $tvSerial, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', 'com.ecojust.puretv/.MainActivity')
+Invoke-Checked 'adb' @('-s', $tvSerial, 'shell', 'am', 'start', '-n', 'com.ecojust.puretv/.MainActivity')

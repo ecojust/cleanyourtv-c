@@ -1,4 +1,4 @@
-package com.ecojust.cleanyourtv;
+package com.ecojust.puretv;
 
 import android.view.View;
 import androidx.recyclerview.widget.RecyclerView;
