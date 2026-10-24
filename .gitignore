@@ -19,3 +19,8 @@ venv/
 
 # Public, verified APK resource catalog
 !resource/**/*.apk
+
+# Generated release verification and staging output
+launcher/release-output/
+launcher/release-metadata.json
+release-staging/

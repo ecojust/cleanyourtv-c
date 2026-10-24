@@ -4,11 +4,13 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
+import java.lang.ref.WeakReference;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 /** Companion app shortcuts followed by a small set of placeholders. */
 public class AppsActivity extends Activity implements AppAdapter.TileListener {
+    private static WeakReference<AppsActivity> live;
     private RecyclerView grid;
     private AppAdapter adapter;
     private int columns;
@@ -40,16 +42,30 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
         });
         if (state != null) focusedPosition = state.getInt("focusedPosition", 0);
         CardFocus.request(grid, focusedPosition);
+        live=new WeakReference<>(this);
     }
 
     @Override protected void onResume() {
         super.onResume();
+        reloadCustomLayout();
+    }
+    static void reloadLayoutFromManager() {
+        AppsActivity activity=live==null?null:live.get();
+        if(activity!=null)activity.runOnUiThread(()->{if(!activity.isFinishing() && !activity.isDestroyed())activity.reloadCustomLayout();});
+    }
+    private void reloadCustomLayout() {
         LauncherLayout layout=LauncherLayout.effective(this);String signature=layout==null?"":layout.json.toString();
         if(!signature.equals(layoutSignature)) {
             layoutSignature=signature;columns=layout==null?(getResources().getConfiguration().screenWidthDp>=800?4:3):layout.columns("apps");
             adapter.clear();adapter=new AppAdapter(this,this,columns,layout==null?AppAdapter.applicationEntries():layout.entries(this,"apps"));
             grid.setLayoutManager(new GridLayoutManager(this,columns));grid.setAdapter(adapter);CardFocus.request(grid,focusedPosition);
         }
+    }
+
+    @Override protected void onDestroy() {
+        if(live!=null && live.get()==this)live.clear();
+        if(adapter!=null)adapter.clear();
+        super.onDestroy();
     }
 
     @Override public void onTileFocused(int position, View card) { focusedPosition = position; }

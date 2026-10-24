@@ -105,4 +105,16 @@ public class LauncherLayoutTest {
         }
     }
 
+    @Test public void applyingAndResettingLayoutRefreshesAlreadyOpenAppsPage() throws Exception {
+        try(ActivityController<AppsActivity> controller=Robolectric.buildActivity(AppsActivity.class).setup()) {
+            RecyclerView grid=controller.get().findViewById(R.id.appsGrid);
+            JSONObject draft=LauncherLayout.defaults(context()).json;
+            draft.getJSONObject("apps").put("columns",2).put("items",new JSONArray().put(new JSONObject().put("action","music")));
+            LauncherLayout.apply(context(),draft);org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            assertEquals(2,((GridLayoutManager)grid.getLayoutManager()).getSpanCount());assertEquals(1,grid.getAdapter().getItemCount());
+            LauncherLayout.reset(context());org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            assertEquals(4,((GridLayoutManager)grid.getLayoutManager()).getSpanCount());assertEquals(8,grid.getAdapter().getItemCount());
+        }
+    }
+
 }

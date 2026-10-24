@@ -28,6 +28,7 @@ if os.environ.get('GITHUB_REF','').startswith('refs/tags/v'):
     assert resource,'Prepare and commit the signed resource APK for this launcher source before publishing'
 selected=root/resource['path'] if resource else paths[0]
 info=apk_info(selected,tools,allow_unsigned=not bool(resource))
+assert info['bytes']<=5*1024*1024
 info.update(requiresSigning=not bool(info['certificateSha256']),sourceSha=os.environ.get('GITHUB_SHA'),sourceTreeSha=source_tree,buildSourceSha=resource['sourceCommit'] if resource else os.environ.get('GITHUB_SHA'),releaseName=f"pureTV-{built['versionName']}.apk")
 output=root/'launcher/release-output';output.mkdir(exist_ok=True);shutil.copyfile(selected,output/info['releaseName'])
 (root/'launcher/release-metadata.json').write_text(json.dumps({'launcher':info},indent=2)+'\n')

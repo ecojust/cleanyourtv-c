@@ -3,6 +3,7 @@ import traditional from './locales/zh-TW.json';
 
 export type Locale = 'zh-CN' | 'zh-TW' | 'en';
 export type Theme = 'emerald' | 'ocean' | 'graphite';
+const hasOwn=(object:object,key:PropertyKey)=>Object.prototype.hasOwnProperty.call(object,key);
 const preferenceKey='puretv.preferences';
 const localeNames:Record<Locale,string>={'zh-CN':'简体中文','zh-TW':'繁體中文',en:'English'};
 const themeNames:Record<Theme,string>={emerald:'青绿',ocean:'深蓝',graphite:'石墨'};
@@ -11,18 +12,18 @@ const phrase=/[\u3400-\u9fff][\u3400-\u9fffA-Za-z0-9_ ·／/…（）「」“�
 let saved:Record<string,unknown>={};
 try{saved=JSON.parse(localStorage.getItem(preferenceKey) || '{}') || {};}catch{/* Preferences are optional. */}
 const language=navigator.language.toLowerCase();
-let currentLocale:Locale=saved.locale && Object.hasOwn(localeNames,String(saved.locale))?saved.locale as Locale:language.startsWith('zh')?(language.includes('tw') || language.includes('hk') || language.includes('hant')?'zh-TW':'zh-CN'):'en';
-let currentTheme:Theme=saved.theme && Object.hasOwn(themeNames,String(saved.theme))?saved.theme as Theme:'emerald';
+let currentLocale:Locale=saved.locale && hasOwn(localeNames,String(saved.locale))?saved.locale as Locale:language.startsWith('zh')?(language.includes('tw') || language.includes('hk') || language.includes('hant')?'zh-TW':'zh-CN'):'en';
+let currentTheme:Theme=saved.theme && hasOwn(themeNames,String(saved.theme))?saved.theme as Theme:'emerald';
 function apply(){document.documentElement.lang=currentLocale;document.documentElement.dataset.theme=currentTheme;document.documentElement.style.colorScheme=currentTheme==='graphite'?'dark':'light';}
 function persist(){try{localStorage.setItem(preferenceKey,JSON.stringify({locale:currentLocale,theme:currentTheme}));}catch{/* Continue with in-memory preferences. */}}
 export function locale(){return currentLocale;}
-export function setLocale(value:string){if(Object.hasOwn(localeNames,value)){currentLocale=value as Locale;apply();persist();}}
-export function setTheme(value:string){if(Object.hasOwn(themeNames,value)){currentTheme=value as Theme;apply();persist();}}
+export function setLocale(value:string){if(hasOwn(localeNames,value)){currentLocale=value as Locale;apply();persist();}}
+export function setTheme(value:string){if(hasOwn(themeNames,value)){currentTheme=value as Theme;apply();persist();}}
 /** Translate only source text. User app names, paths and other interpolated values never pass here. */
 export function t(source:string):string {
  if(currentLocale==='zh-CN')return source;
  const catalog=catalogs[currentLocale];
- if(Object.hasOwn(catalog,source))return catalog[source];
+ if(hasOwn(catalog,source))return catalog[source];
  return source.replace(phrase,part=>{const key=part.trimEnd();return (catalog[key] ?? key)+part.slice(key.length);});
 }
 /** Static template fragments are translated before values are interpolated. */
