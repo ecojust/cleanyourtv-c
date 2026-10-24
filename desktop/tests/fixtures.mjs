@@ -108,6 +108,7 @@ export async function mockBridge(page, initial = snapshot(), options = {}) {
           }
           if(!state.packages.some(p=>p.packageName==='com.imported.app'))state.packages.push({packageName:'com.imported.app',label:'新安装应用',installed:true,enabled:true,system:false,protectedReason:null,apkSizeBytes:1048576});
         }
+        if (r.action === 'connect') state.device={serial:`${r.host}:${r.port}`,model:'测试电视',androidVersion:'12',userId:0,status:'device'};
         if (r.action === 'setHome') { state.originalHome ??= state.defaultHome; state.defaultHome = r.component; }
         if (r.action === 'restoreHome') state.defaultHome = state.originalHome;
         if (r.action === 'setHome' || r.action === 'restoreHome') {

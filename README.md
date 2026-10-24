@@ -49,7 +49,7 @@
 
 ### 新包名
 
-电视端 pureTV 的新包名为 **`com.ecojust.puretv`**。旧版使用 `com.ecojust.cleanyourtv`；Android 将它们视为两个应用，需安装新 APK 后重新选择默认桌面，不能直接覆盖旧包。签名证书与包名是独立事项，本次不因此更换证书。
+电视端 pureTV 的新包名为 **`com.ecojust.puretv`**。旧版使用 `com.ecojust.cleanyourtv`；Android 将它们视为两个应用，需安装新 APK 后重新选择默认桌面，不能直接覆盖旧包。新包使用独立的 pureTV 发布证书，后续版本保持同一证书以支持升级。
 
 推荐先保留原桌面，安装并切换到新版，确认布局和操作正常后再决定如何处理旧应用。
 

@@ -208,6 +208,14 @@ try {
     assert.equal(await p.locator('.apk-item').count(),1);assert.match(await p.locator('.apk-item').innerText(),/failed.apk/);
     assert.match(await p.locator('.notice.error').innerText(),/失败 1 项/);
   },snapshot(),{apkPaths:['/tmp/success.apk','/tmp/failed.apk'],partialInstall:true});
+  await check('connecting stays at home and immediately presents system information', async p => {
+    await p.locator('[name="host"]').fill('192.168.1.50');await act(p,'connect').click();
+    await p.waitForFunction(()=>window.__requests.some(r=>r.action==='connect'));await settled(p);
+    assert.equal(await p.locator('[data-page="connect"]').getAttribute('aria-current'),'page');
+    await p.locator('.device-info').waitFor();
+    const info=await p.locator('.device-info').boundingBox();assert.ok(info.y<400,'System information is near the top after connecting');
+    assert.match(await p.locator('.device-info').innerText(),/32.0 GiB/);
+  },{...snapshot(),device:null,packages:[],launchers:[],defaultHome:null});
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');
