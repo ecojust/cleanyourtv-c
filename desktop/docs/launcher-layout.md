@@ -1,41 +1,23 @@
-# 启动器安装、背景图与布局画布
+# 启动器背景与布局场景
 
-在「启动器」添加本地 APK 后，可直接在该页面逐项安装。安装成功刷新电视列表，失败保留待安装项。不会自动更换默认桌面。
+在「启动器」添加 APK 后，可直接逐项安装。安装成功刷新列表；设置为默认后，成功检测布局接口的启动器显示「调整布局」。切换桌面无需重启电视，按遥控器 Home 键进入即可。
 
-## 可选背景图
+## 两种背景
 
-启动器卡片默认没有封面区域。提供 PNG、JPEG 或 WebP（最多 4 MiB）后，图片作为整张卡片的背景，文字和按钮位于其上。导入 APK 时优先读取同目录 `APK名.thumb.png`，再读取 `thumb.png`（也支持 jpg/jpeg/webp）。新安装启动器继承该图片。已安装卡片也可「选择背景图」或「移除背景」，本地保存，重启后仍可使用。没有电视截图或实时画面功能。
+启动器列表的封面与电视桌面背景分别保存：列表卡片在提供 thumb.png／APK名.thumb.png 或手动选择图片后显示背景。电视桌面背景定义在 layout.json 的 scene.background，由电视与画布共同使用；在画布选择「背景」可改颜色、导入或移除图片。电视自带的桌面壁纸选择器也会写入同一份场景 JSON。
 
-## 调整布局
+## 编辑
 
-管理器检测当前默认启动器的布局接口。pureTV Launcher 0.3.0 使用版本 2 接口，成功握手后，当前激活卡片显示「调整布局」；其他卡片不显示该按钮。0.2.0 旧接口或未适配的第三方启动器不可编辑。
+pureTV Launcher 0.3.4 使用版本 3 场景接口。Home / Apps 各自保存背景、固定元素和卡片。画布上点击元素，或从「页面元素」列表选择（包括已隐藏的元素），即可拖动位置、输入 x/y/宽/高、调整图层或显示状态。右上角按钮继续使用原有功能，不能修改为任意命令。
 
-按钮打开全局电视画布弹窗，以 16:9 画布显示卡片。Home 与 Apps 各自设置列数；拖动卡片或使用前移／后移按钮排序，可修改名称、图标和颜色、移除或添加卡片。应用来源限制为当前用户已安装、启用、具有启动入口的非系统应用，前端、管理器和电视接口都进行校验；系统应用、已卸载应用不会成为候选。启动器默认的内置导航入口保留在默认模板中。
+卡片显示实际打开目标，支持从已安装且可启动的用户应用中选择；显示名称与图标不改变目标。更改列数会自动重新排布卡片；显式坐标决定最终显示位置。编辑器保留隐藏元素的淡色轮廓方便找回，电视上则真正隐藏。
 
-编辑和导入只改变本地草稿，「取消」放弃草稿。「应用到电视」确认后才写入，随后两次读取核对；切换设备或默认启动器时关闭旧画布。恢复默认只移除布局覆盖，保留壁纸、天气等设置。
+编辑／导入仅修改本地草稿，「取消」放弃；「应用到电视」确认后才写入并读回核对。切换设备或默认启动器会关闭旧画布。恢复默认移除布局覆盖并恢复模板背景，天气、收藏等其他偏好保留。
 
-## layout.json
+## 格式与兼容性
 
-```json
-{
-  "version": 2,
-  "home": {
-    "columns": 4,
-    "items": [
-      {"packageName":"com.ecojust.music","label":"音乐","icon":"app","color":"#303338"}
-    ]
-  },
-  "apps": {
-    "columns": 5,
-    "items": [
-      {"packageName":"com.ecojust.webtv","label":"直播","icon":"app","color":"#3B4C46"}
-    ]
-  }
-}
-```
+完整[字段规范、文件与画面对照](../../README.md#layoutjson-规范与画面对照)，以及[默认 JSON](../../resource/launcher/layout.example.json)。固定 960×540 坐标，电视和画布按相同比例缩放；时钟／天气预览使用示例内容，实际内容由电视实时更新。卡片 frame 包含整个图标卡片与下方名称。
 
-`version` 固定为 2，home/apps 必须各含 `columns`（1–6）与 `items`。首页最多 24 项，应用页最多 100 项，均可为空。同页不允许重复包名。`label` 最多 100 字；`icon` 支持 app/music/video/files/apps/picture/settings/input；`color` 是 #RRGGBB。
+管理器保留对旧版启动器版本 2 网格编辑的支持；旧 APK 不支持固定控件定位。更新电视启动器后使用版本 3，自定义版本 2 文件不会自动转换；无有效版本 3 配置时使用安全默认模板。不读取旧 apps.json。
 
-整个文件最多 48 KiB，不支持命令、任意 Intent 或远程图标 URL。无效写入不会覆盖有效配置。电视每次页面恢复重新加载配置。私有 `files/layout.json` 优先，其次 `Android/data/com.ecojust.puretv/files/layout.json`；默认模板在 `resource/launcher/app/src/main/assets/layout.json`，电脑端示例在 `desktop/public/layout.json`。**不读取、不迁移旧版 apps.json**。
-
-接口由 `android.permission.DUMP` 保护，普通应用不能改写。MCP 的 get_launcher_layout、apply_launcher_layout、reset_launcher_layout 和 choose_launcher_json 使用同一格式、设备与当前 HOME 检查；背景图通过 get_launcher_covers、set_launcher_cover 管理。
+接口由 android.permission.DUMP 保护。MCP get_launcher_layout、apply_launcher_layout、reset_launcher_layout 使用相同结构和用户应用限制，Agent 也可调整所有场景元素。整个文件最多 48 KiB，无任意 Intent、shell 或外部脚本。无效配置不覆盖有效配置。

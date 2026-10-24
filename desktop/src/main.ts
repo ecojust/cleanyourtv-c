@@ -271,7 +271,7 @@ function sceneEditor(markup:string,draft:LauncherLayout):string {
  draw(scene.background,bg,scene.background.frame!);
  const sample:Record<string,string>={clock:'12:00',date:t('星期一 · 10月24日'),weather:t('天气 · 由电视实时更新'),title:t('其他应用'),subtitle:t('已安装应用与常用入口')};
  for(const node of scene.elements){const el=document.createElement('button');el.type='button';el.dataset.sceneNode=node.id;el.className=`scene-control scene-${node.id}`;el.textContent=sample[node.id] || t(sceneLabels[node.id]);el.setAttribute('aria-label',t(sceneLabels[node.id]));if(layoutNode===node.id)el.classList.add('selected');draw(node,el,node.frame);}
- tiles.forEach((el,i)=>{const entry=page.items[i];el.draggable=false;el.style.setProperty('--tile-color',entry.color || '#374959');draw(entry,el,entry.frame || autoFrame(layoutSection,i,page.columns,page.items.length));});
+ tiles.forEach((el,i)=>{const entry=page.items[i];el.draggable=false;el.style.setProperty('--tile-color',entry.color || '#374959');const frame=entry.frame || autoFrame(layoutSection,i,page.columns,page.items.length);el.style.setProperty('--tile-icon',`${Math.min(38,frame.height*.3)/9.6}cqw`);el.style.setProperty('--tile-font',`${Math.min(14,frame.height*14/150)/9.6}cqw`);draw(entry,el,frame);});
  const toolbar=template.content.querySelector('.layout-modal-heading p')!;toolbar.textContent=t('同一份 layout.json 驱动电视与画布；拖动元素或输入坐标调整位置。');
  const inspector=template.content.querySelector('.layout-inspector')!;
  const target=sceneNode(draft,layoutSection,layoutNode,layoutSelected);

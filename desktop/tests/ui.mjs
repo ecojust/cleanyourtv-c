@@ -483,6 +483,7 @@ try {
   await check('scene JSON positions every control and tile, supports geometry, visibility, background and drag',async p=>{
     await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
     assert.equal(await p.locator('.scene-canvas').count(),1);
+    await shot(p,'layout-scene-default-home-034');await act(p,'layout-apps').click();await shot(p,'layout-scene-default-apps-034');await act(p,'layout-home').click();
     const canvas=p.locator('.scene-canvas'),clock=p.locator('[data-scene-node="clock"]');
     const rect=await canvas.boundingBox(),before=await clock.boundingBox();
     assert.ok(Math.abs((before.x-rect.x)/rect.width-48/960)<.005);
