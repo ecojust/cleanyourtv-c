@@ -25,17 +25,15 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 
 `--mcp` 是当前窗口的代理，不创建第二套电视连接或管理状态。管理器内部仅监听 `127.0.0.1` 的随机端口，每次启动生成随机凭据；代理自动读取受保护的本机会话文件，不需要把令牌放到 Agent 配置。拒绝浏览器 Origin 请求，不允许跨电脑访问。重启窗口后请重新连接 MCP；关闭窗口后调用会明确报错。
 
-## 全部工具（29 个）
+## 全部工具
 
 | 工具 | 参数 | 行为 |
 | --- | --- | --- |
-| `get_local_network` | 无 | 刷新当前电脑的局域网 IPv4、网卡与子网前缀；无需 ADB 或电视连接，返回共享状态 |
-| `get_interface_preferences` | 无 | 读取当前窗口的语言和主题偏好 |
-| `set_interface_preferences` | 可选 `locale`、`theme` | 保存偏好并立即同步窗口；语言 zh-CN / zh-TW / en，主题 emerald / ocean / graphite |
 | `get_state` | 无 | 当前设备、ADB 状态、应用、启动器、原桌面、最近 200 项记录和消息；忙碌时返回最近快照 |
 | `get_status` | 无 | 是否正在操作、是否请求取消、最近下载进度和快照 |
 | `set_adb_path` | `path` | 设置本机 ADB 可执行文件；空字符串自动寻找，需先断开电视 |
 | `connect` | `host`, `port` | 连接电视，已授权时自动扫描；电视首次授权仍在电视上完成 |
+| `pair` | `host`, `port`, `code` | 使用六位配对码及配对端口；配对后用调试端口连接，配对码不保存 |
 | `disconnect` | 无 | 断开当前电视 |
 | `scan` | 无 | 刷新当前 Android 用户的应用、恢复候选和启动器 |
 | `set_enabled` | `packages`, `enabled` | 对明确列出的包启用／停用，最多 100 项 |
@@ -47,10 +45,10 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `clear_history` | 无 | 清空保存的操作记录 |
 | `cancel` | 无 | 取消扫描／下载，或跳过后续批量项；正在修改的一项会完成并复查 |
 | `platform_tools_info` | 无 | 查询固定版本、大小、缓存及系统支持情况，不下载 |
-| `install_platform_tools` | `acceptedLicense: true`，可选 `forceDownload: true` | 下载、校验并配置 ADB；默认复用已校验缓存，强制模式重新下载；失败或取消保留当前配置，需先断开电视 |
+| `install_platform_tools` | `acceptedLicense: true` | 校验离线缓存或从 Google／腾讯镜像下载安装并配置 ADB；需先断开电视，且用户已同意 SDK 许可 |
 | `choose_apks` | 无 | 在管理器打开原生多选 APK 对话框，只返回路径，不安装 |
 | `choose_adb` | 无 | 在管理器打开原生可执行文件对话框，只返回路径，不配置 |
-| `open_resource` | `resource` | 打开 `catalog`、`releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
+| `open_resource` | `resource` | 打开 `releases`、`platformTools` 或 `platformToolsLicense` 对应的固定网页 |
 
 已安装应用及启动器的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
 
@@ -61,17 +59,23 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `get_launcher_layout` | 无 | 检测当前默认启动器，返回支持状态、布局及应用列表／图标 |
 | `apply_launcher_layout` | `layoutJson` | 应用 JSON 文本并读回核对；只允许已成功握手的当前启动器 |
 | `reset_launcher_layout` | 无 | 恢复默认布局并复查 |
-| `get_launcher_covers` | 无 | 读取用户提供的本地启动器背景图 |
-| `set_launcher_cover` | `key`, 可选 `path` | 为组件选择本地 PNG/JPEG/WebP 图片（≤4 MiB）；省略 path 移除背景 |
+| `capture_launcher_preview` | 无 | 在电视上打开当前 HOME，返回实际 PNG 图片 |
 | `choose_launcher_json` | 无 | 原生 JSON 文件选择器，只返回文本，不应用 |
 
 配置格式和支持条件见[启动器布局](launcher-layout.md)。当前适配本次新增接口的 pureTV，旧包名 APK 需安装 `com.ecojust.puretv` 并选为默认桌面，未适配启动器不会被写入。
 
-系统信息工具：
+系统与实时画面工具：
 
 | 工具 | 参数 | 行为 |
 | --- | --- | --- |
 | `refresh_system_info` | 无 | 刷新内存、磁盘、CPU、SDK／补丁、分辨率和运行时间 |
+| `start_live_view` | 可选 `fps: 1–3` | 开始当前屏幕连续截图，不打开 HOME |
+| `pause_live_view` | 无 | 暂停并保留最后一帧 |
+| `stop_live_view` | 无 | 取消捕获并释放最后一帧 |
+| `live_view_status` | 无 | 目标／实际帧率、状态、时间戳，不含图片 |
+| `get_live_frame` | 无 | 返回最近一帧标准 PNG 图片内容 |
+
+实时预览是目标 1–3 帧／秒的连续截图，实际速度取决于设备与网络。切换或断开设备时停止旧预览，暂停帧也只对同一设备／用户可用。
 
 应用筛选、搜索、查看记录可基于 `get_state` 的 `packages`、`launchers`、`history` 完成；Agent 可直接提交选定的包名或 APK 路径，不需要模拟勾选界面。文件选择器需要用户在窗口操作，自动化时直接提供本机完整路径更方便。
 
@@ -107,4 +111,4 @@ Linux 原生构建后，在 Xvfb 中运行：
 xvfb-run -a python scripts/verify-mcp.py --binary src-tauri/target/x86_64-unknown-linux-gnu/release/puretv-desktop
 ```
 
-此检查启动真实管理器与 stdio 代理，使用隔离的应用数据目录和模拟 ADB，验证设备操作、部分失败、保护、取消、关闭窗口错误；不连接真实电视。
+此检查启动真实管理器与 stdio 代理，使用隔离的应用数据目录和模拟 ADB，验证设备操作、部分失败、保护、取消、关闭窗口错误和配对码不落盘；不连接真实电视。

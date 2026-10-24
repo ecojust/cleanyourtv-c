@@ -1,13 +1,12 @@
-# pureTV Manager 0.3.2
+# pureTV Manager 0.3.3 · 0.2.0 回退验证包
 
-- 左下角 Logo 下方显示当前管理器版本，直接读取项目版本配置。
-- ADB 工具区域新增「重新下载」，就绪状态下仍可主动重新获取完整官方工具包，强制跳过有效缓存。
-- Google 下载失败时自动尝试腾讯镜像；全部来源验证同一字节数与 SHA256。校验和配置成功后才切换到新副本，下载失败、配置失败或取消均保留原工具与配置。
-- 连接电视期间禁止更换工具；MCP 的 install_platform_tools 支持 forceDownload 参数，GUI 与 Agent 共用保护和下载流程。
-- 修复同一 ADB 错误重复显示，保留不同的错误详情；成功命令的数据输出保持原样。
+本包按用户要求恢复电脑管理器 0.2.0 的原始代码，仅将版本号改为 0.3.3，验证 macOS Apple Silicon 上从 0.3.0 开始出现的 No route to host 连接回归。
 
-重新下载可排除工具副本／配置损坏，但 No route to host 的实际连接根因尚未确认。
+- 连接、端口解析、ADB 子进程调用、工具下载安装、原版界面和 macOS 配置均来自 desktop-v0.2.0。
+- 未加入 0.3.0 之后的多语言、主题、新 Logo、IP 记忆、本机 IP、重新下载、版本角标或 TCP 检测／ADB 重启代码。
+- 保留 Intel Mac 构建支持；测试数据改放管理器自身测试目录，内容仍来自 0.2.0。以上均不改变原版连接行为。
+- 仓库 resource/launcher 与 resource/apps 保持原目录和 APK，不回退电视端软件，也不创建电视 APK Release。
 
-提供 Windows x64 安装版与便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG、Linux x64 DEB。校验值见 SHA256SUMS.txt。macOS 使用 ad-hoc 签名，未进行 Apple 公证；Windows 尚未使用商业代码签名。
+这是回退验证测试版，最新稳定版仍保留为 0.3.2。安装后请完全退出其他 pureTV 版本，再用相同的 192.168.0.191:5555 测试连接和系统信息读取；暂未在受影响的实体 Mac／电视上验证。
 
-电视端下载：[启动器 APK 与源码](https://github.com/ecojust/pureTV/tree/master/resource/launcher) · [应用 APK 与源码](https://github.com/ecojust/pureTV/tree/master/resource/apps)。Release 只发布电脑管理器。
+提供 Windows x64 安装版／便携版、macOS Apple Silicon ARM64／Intel x86_64 DMG、Linux x64 DEB，SHA256 见附件。macOS 沿用 0.2.0 的 ad-hoc 签名配置。

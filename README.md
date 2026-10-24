@@ -1,3 +1,5 @@
+> **0.3.3 回退验证分支**：电脑管理器恢复 0.2.0 原版代码，仅升级版本标识并保留 Intel 打包支持，用于验证 ADB 连接回归。功能与界面以 0.2.0 为准；下文主分支的新功能说明不代表本测试包。电视 APK 资源保持现状。[下载回退验证包](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.3)。
+
 <div align="center">
   <img src="docs/branding/puretv-logo.png" width="112" alt="pureTV Logo">
   <h1>pureTV</h1>
