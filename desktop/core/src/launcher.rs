@@ -165,6 +165,9 @@ fn validate_scene(scene: &Value, section: &str) -> Result<(), String> {
     {
         return Err("背景含未知字段".into());
     }
+    if bg.get("frame").is_none() {
+        return Err("背景缺少 frame".into());
+    }
     validate_geometry(bg)?;
     let c = bg["color"].as_str().ok_or("背景颜色无效")?;
     if c.len() != 7 || !c.starts_with('#') || !c[1..].bytes().all(|b| b.is_ascii_hexdigit()) {

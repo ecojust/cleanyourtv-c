@@ -597,6 +597,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Drop the picture from the desk straight away; a wallpaper that stays on screen after
             // the user asked to remove it looks like the button did nothing.
             removeWallpaper();
+            if(layoutScene!=null)try{LauncherLayout.wallpaper(this,null);}catch(Exception error){toast(getString(R.string.wallpaper_bad));}
             toast(getString(removed ? R.string.wallpaper_removed : R.string.wallpaper_none_toast));
         });
 
@@ -610,7 +611,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** One line telling the user what the wallpaper is right now. */
     private String wallpaperStatus() {
-        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         if (wall.hasWallpaper()) {
             long kb = Math.max(1, wall.sizeBytes() / 1024);
@@ -630,7 +630,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (requestCode != REQ_PICK_WALLPAPER || resultCode != RESULT_OK || data == null) return;
         Uri uri = data.getData();
         if (uri == null) return;
-        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         if (wall.importFrom(uri)) {
             toast(getString(R.string.wallpaper_set));
@@ -689,9 +688,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Re-apply whatever wallpaper is on disk now, adding or dropping it as needed. */
     private void applyWallpaper() {
-        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         java.io.File f = wall.file();
+        if (layoutScene != null) {
+            try { LauncherLayout.wallpaper(this,f); } catch(Exception error) { toast(getString(R.string.wallpaper_bad)); }
+            return;
+        }
         if (f != null && f.isFile() && f.length() > 0) showWallpaper(f);
         else removeWallpaper();
     }

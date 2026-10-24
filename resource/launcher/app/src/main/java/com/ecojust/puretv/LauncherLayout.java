@@ -74,7 +74,7 @@ final class LauncherLayout {
         if(f.getInt("x")<0 || f.getInt("y")<0 || f.getInt("width")<1 || f.getInt("height")<1 || f.getInt("x")+f.getInt("width")>960 || f.getInt("y")+f.getInt("height")>540) throw new IllegalArgumentException("Frame outside 960x540 canvas");
     }
     static void validateScene(JSONObject scene,String section) throws Exception {
-        keys(scene,"background","elements");JSONObject bg=scene.getJSONObject("background");keys(bg,"color","image","frame","visible","zIndex");geometry(bg);
+        keys(scene,"background","elements");JSONObject bg=scene.getJSONObject("background");keys(bg,"color","image","frame","visible","zIndex");if(!bg.has("frame"))throw new IllegalArgumentException("Missing background frame");geometry(bg);
         if(!bg.getString("color").matches("#[0-9a-fA-F]{6}"))throw new IllegalArgumentException("Invalid background color");
         if(bg.has("image")) {
             String image=bg.getString("image");
@@ -163,6 +163,28 @@ final class LauncherLayout {
                 title,pkg,item.optString("icon","app").equals("app")));
         }
         return result;
+    }
+    /** Desktop wallpaper picker writes the very same JSON scene the manager reads. */
+    static void wallpaper(Context ctx,File file) throws Exception {
+        LauncherLayout current=effective(ctx);JSONObject draft=new JSONObject(current.json.toString());
+        JSONObject bg=draft.getJSONObject("home").getJSONObject("scene").getJSONObject("background");
+        if(file==null || !file.isFile())bg.remove("image");
+        else {
+            android.graphics.BitmapFactory.Options opts=new android.graphics.BitmapFactory.Options();opts.inJustDecodeBounds=true;android.graphics.BitmapFactory.decodeFile(file.getPath(),opts);
+            int sample=1;while(opts.outWidth/sample>960 || opts.outHeight/sample>540)sample*=2;opts.inJustDecodeBounds=false;opts.inSampleSize=sample;
+            Bitmap bitmap=android.graphics.BitmapFactory.decodeFile(file.getPath(),opts);if(bitmap==null)throw new IllegalArgumentException("Invalid wallpaper");
+            try {
+                String encoded="";
+                for(int width:new int[]{960,640,480,320}) {
+                    float ratio=Math.min(1f,Math.min(width/(float)bitmap.getWidth(),540f/bitmap.getHeight()));
+                    Bitmap reduced=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(bitmap.getWidth()*ratio)),Math.max(1,Math.round(bitmap.getHeight()*ratio)),true);
+                    try {for(int quality:new int[]{75,50,30}){ByteArrayOutputStream output=new ByteArrayOutputStream();reduced.compress(Bitmap.CompressFormat.WEBP,quality,output);encoded="data:image/webp;base64,"+Base64.encodeToString(output.toByteArray(),Base64.NO_WRAP);if(encoded.length()<=33000)break;}} finally {if(reduced!=bitmap)reduced.recycle();}
+                    if(encoded.length()<=33000)break;
+                }
+                if(encoded.length()>33000)throw new IllegalArgumentException("Wallpaper too large");bg.put("image",encoded);
+            }finally{bitmap.recycle();}
+        }
+        apply(ctx,draft);
     }
     static boolean isUserApp(Context ctx,String packageName) {
         try {
