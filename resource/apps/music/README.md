@@ -1,5 +1,11 @@
 # Music TV
 
+<!-- apk-resource:start -->
+[下载 APK](music-0.1.1.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
+
+此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+<!-- apk-resource:end -->
+
 面向 Android TV 遥控器的独立原生音乐播放器。Android 8.0（API 26）及以上，包名 `com.ecojust.music`，当前版本 `0.1.1`。
 
 ![原生 TV 界面渲染预览，曲目为测试示例，非线上搜索结果或电视实机截图](docs/music-tv.png)
@@ -24,7 +30,7 @@
 - 封面最多缓存 **1 MiB**，解码尺寸最多 160 × 160，单张下载最多 512 KiB；页面离开或系统要求回收时清理缓存。
 - 最多 50 首队列、100 首收藏、30 条最近记录；不保存音频文件或临时音频地址。
 - 网络搜索和封面下载使用有界任务队列；旧搜索结果不会覆盖新搜索，播放请求可取消，音频加载会超时退出。
-- Release 启用 R8 和资源压缩；CI 检查 APK 不超过 **5 MiB**。0.1.1 已签名 Release 实测 **33,484 字节（约 33 KiB）**；安装后占用会因系统 dex 优化而增加。内存峰值及启动速度仍需在目标电视实测。
+- Release 启用 R8 和资源压缩；CI 检查 APK 不超过 **5 MiB**。当前目录已签名 APK 为 **37,675 字节（约 36.8 KiB）**；安装后占用会因系统 dex 优化而增加。内存峰值及启动速度仍需在目标电视实测。
 
 ## 构建
 
@@ -36,7 +42,7 @@ cd launcher
 ./gradlew :music:verifyReleaseSize :music:lintDebug :music:testDebugUnitTest
 ```
 
-Debug：`apps/music/build/outputs/apk/debug/music-debug.apk`。Release：`apps/music/build/outputs/apk/release/music-release-unsigned.apk`；设置根 README 中的签名环境变量后生成 `music-release.apk`。测试依赖只用于开发，不打进 APK。
+Debug：`resource/apps/music/build/outputs/apk/debug/music-debug.apk`。Release：`resource/apps/music/build/outputs/apk/release/music-release-unsigned.apk`；正式签名与目录内 APK 更新见[资源维护说明](../../../docs/resource-maintenance.md)。测试依赖只用于开发，不打进 APK。
 
 ```bash
 adb install -r apps/music/build/outputs/apk/release/music-release.apk

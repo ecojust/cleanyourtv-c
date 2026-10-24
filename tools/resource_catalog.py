@@ -17,22 +17,41 @@ def child(directory,name):
     path=directory/name;assert path.is_file() and not path.is_symlink(),f'Missing regular resource file: {path}'
     return path
 
+# Only build inputs participate in the source fingerprint; APKs and resource metadata do not.
+LAUNCHER_INPUTS=('FONT-LICENSE-OFL.txt','app','build-and-install.ps1','build-and-install.sh','build.gradle','gradle.properties','gradle','gradlew','gradlew.bat','settings.gradle')
+def launcher_source_tree(root,ref='HEAD'):
+    tree=subprocess.check_output(['git','ls-tree',ref+':resource/launcher'],cwd=root)
+    selected=b''.join(line+b'\n' for line in tree.splitlines() if line.split(b'\t',1)[1].decode() in LAUNCHER_INPUTS)
+    assert len(selected.splitlines())==len(LAUNCHER_INPUTS),'Missing launcher build inputs'
+    return subprocess.check_output(['git','mktree'],cwd=root,input=selected).decode().strip()
+
+def catalog_directories(root):
+    assert {p.name for p in (root/'resource').iterdir() if p.is_dir()}=={'launcher','apps'},'Classify software under resource/launcher or resource/apps'
+    launcher=root/'resource/launcher'
+    assert launcher.is_dir() and (root/'resource/apps').is_dir(),'Expected resource/launcher and resource/apps'
+    yield launcher
+    for directory in sorted((root/'resource/apps').iterdir()):
+        if directory.is_dir() and not directory.name.startswith('.'):
+            yield directory
+
 def verify_catalog(root,tools):
     entries=[]
-    for directory in sorted((root/'resource').iterdir()):
-        if not directory.is_dir():continue
+    for directory in catalog_directories(root):
         info=json.loads(child(directory,'resource.json').read_text())
-        assert info['kind'] in ('launcher','app') and info['name'] and info['author']
+        assert info['kind']==('launcher' if directory.name=='launcher' else 'app') and info['name'] and info['author']
         assert isinstance(info['supportsLayoutJson'],bool)
         apk=child(directory,info['apk']);assert apk.suffix=='.apk' and 0<apk.stat().st_size<100*1024*1024
         actual=apk_info(apk,tools)
         for key in ('packageName','versionCode','certificateSha256','sha256'):assert actual[key]==info[key],f'{directory.name}: {key} mismatch'
         assert actual['versionName']==info['version'] and actual['bytes']==info['apkBytes']
-        source=child(directory,info['sourceArchive']);assert digest(source)==info['sourceArchiveSha256']
+        if info.get('sourceArchive'):
+            source=child(directory,info['sourceArchive']);assert digest(source)==info['sourceArchiveSha256']
+        else:assert (directory/'src').is_dir(),'Provide corresponding source or an archive'
         child(directory,'LICENSE');child(directory,'README.md')
         if info.get('cover'):child(directory,info['cover'])
-        if actual['packageName']=='com.ecojust.puretv':
+        if actual['packageName'] in ('com.ecojust.puretv','com.ecojust.music','com.ecojust.shortvideo','com.ecojust.webtv'):
             assert actual['certificateSha256']==(root/'tools/puretv-release-certificate.sha256').read_text().strip()
+        if actual['packageName']=='com.ecojust.puretv':
             assert info.get('sourceTreeSha') and info.get('sourceCommit')
         info['path']=str(apk.relative_to(root));entries.append(info)
     assert entries,'No APK resources found'

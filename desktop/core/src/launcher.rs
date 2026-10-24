@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn layout_validation_and_provider_response_are_bounded_and_data_only() {
         let valid: Value = serde_json::from_str(include_str!(
-            "../../../launcher/app/src/main/assets/layout.json"
+            "../../../resource/launcher/app/src/main/assets/layout.json"
         ))
         .unwrap();
         validate_layout(&valid).unwrap();

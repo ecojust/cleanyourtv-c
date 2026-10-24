@@ -6,11 +6,11 @@
 
 pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连接电视，查看系统信息，安装、卸载、启停应用，选择启动器，并用可视化画布自定义支持的桌面。也可通过 MCP 让 Agent 控制已打开的管理器。
 
-![管理器界面示例，使用模拟设备数据](docs/previews/manager-030.png)
+![管理器界面示例，使用模拟设备数据](docs/previews/manager-031.png)
 
 ## 下载
 
-[下载 pureTV Manager 0.3.0](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.0)
+[下载 pureTV Manager 0.3.1](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.1)
 
 | 系统 | 安装包 |
 | --- | --- |
@@ -19,7 +19,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 | macOS Apple Intel | x86_64 DMG，macOS 11+ |
 | Linux x64 | DEB |
 
-管理器安装在**电脑**上。电视开启 ADB／网络调试并接受授权后，即可使用应用管理，不需要安装电视端常驻服务。自定义桌面需另行安装[配套 pureTV Launcher 0.3.0](https://github.com/ecojust/pureTV/releases/tag/v0.3.0)。包大小与 SHA256 见发布附件；macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
+管理器安装在**电脑**上。电视开启 ADB／网络调试并接受授权后，即可使用应用管理，不需要安装电视端常驻服务。自定义桌面需另行安装[配套 pureTV Launcher 0.3.0](resource/launcher/)。电视端 APK 直接在资源目录下载，包大小与 SHA256 见各目录；管理器校验值见发布附件；macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
 
 ## 连接与应用管理
 
@@ -47,9 +47,20 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 ## 启动器与电视应用资源
 
-公共目录为 [resource/](resource/)。每个软件文件夹至少包含一个实际 APK，可同时提供对应版本源码、封面、作者、许可证及 SHA256。点击软件名称进入对应文件夹。
+公共目录为 [resource/](resource/)，分为 [launcher/](resource/launcher/) 与 [apps/](resource/apps/)，原根目录的启动器和应用源码已整体移入。以后 Release 只发布电脑管理器；启动器和电视应用 APK 直接放在各自软件目录。每个软件文件夹至少包含一个实际 APK，可同时提供对应版本源码、封面、作者、许可证及 SHA256。点击软件名称进入对应文件夹。
 
 启动器表格的“支持自定义”指支持本管理器的 **layout.json 版本 2 画布接口**。卡片背景仅在提供 `thumb.png`／`APK名.thumb.png` 等图片，或手动选择图片后显示。
+
+```text
+resource/
+├── launcher/          # 启动器源码、pureTV-0.3.0.apk、layout 示例和封面
+└── apps/
+    ├── music/         # Music TV 源码与 APK
+    ├── shortvideo/    # ShortVideo TV 源码与 APK
+    ├── webtv/         # WebTV 源码与 APK
+    ├── tvbro/         # TV Bro APK 与对应源码
+    └── jellyfin-tv/   # Jellyfin TV APK 与对应源码
+```
 
 <!-- resource-index:start -->
 
@@ -57,24 +68,27 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 | 名称 | 作者 | 版本 | 支持自定义 | 封面截图 |
 | --- | --- | --- | --- | --- |
-| [pureTV Launcher](resource/puretv-launcher/) | ecojust / 桔子桑 | 0.3.0 | 是 | <img src="resource/puretv-launcher/thumb.png" width="180" alt="pureTV Launcher 界面"> |
+| [pureTV Launcher](resource/launcher/) | ecojust / 桔子桑 | 0.3.0 | 是 | <img src="resource/launcher/thumb.png" width="180" alt="pureTV Launcher 界面"> |
 
 ### 电视应用
 
 | 名称 | 作者 | 版本 | 用途 | 封面截图 |
 | --- | --- | --- | --- | --- |
-| [Jellyfin for Android TV](resource/jellyfin-tv/) | Jellyfin contributors | 0.19.10 | Jellyfin 媒体服务器的 Android TV 客户端 | <img src="resource/jellyfin-tv/thumb.png" width="180" alt="Jellyfin for Android TV 界面"> |
-| [TV Bro](resource/tvbro/) | Fedir Tsapana (truefedex) | 2.1.6 | 适配遥控器的电视浏览器，使用系统 WebView | <img src="resource/tvbro/thumb.png" width="180" alt="TV Bro 界面"> |
+| [Jellyfin for Android TV](resource/apps/jellyfin-tv/) | Jellyfin contributors | 0.19.10 | Jellyfin 媒体服务器的 Android TV 客户端 | <img src="resource/apps/jellyfin-tv/thumb.png" width="180" alt="Jellyfin for Android TV 界面"> |
+| [Music TV](resource/apps/music/) | ecojust / 桔子桑 | 0.1.1 | 原生电视音乐播放器 | <img src="resource/apps/music/thumb.png" width="180" alt="Music TV 界面"> |
+| [ShortVideo TV](resource/apps/shortvideo/) | ecojust / 桔子桑 | 0.1.0 | 遥控器短视频播放器 | <img src="resource/apps/shortvideo/thumb.png" width="180" alt="ShortVideo TV 界面"> |
+| [TV Bro](resource/apps/tvbro/) | Fedir Tsapana (truefedex) | 2.1.6 | 适配遥控器的电视浏览器，使用系统 WebView | <img src="resource/apps/tvbro/thumb.png" width="180" alt="TV Bro 界面"> |
+| [WebTV](resource/apps/webtv/) | ecojust / 桔子桑 | 0.1.0 | 电视直播与 M3U 播放器 | <img src="resource/apps/webtv/thumb.png" width="180" alt="WebTV 界面"> |
 
 <!-- resource-index:end -->
 
-其他电视应用的源码工程见 [apps/](apps/)。第三方资源保留各自作者、原始签名和许可证，不纳入 pureTV 的 MIT 授权范围。
+所有电视应用的 APK 与源码见 [resource/apps/](resource/apps/)。第三方资源保留各自作者、原始签名和许可证，不纳入 pureTV 的 MIT 授权范围。
 
 ## layout.json 规范与画面对照
 
 在当前默认且支持接口的启动器卡片上点击「调整布局」，打开全局电视画布。Home 与 Apps 分别设置列数，拖动卡片或用前移／后移按钮排序，再修改名称、图标和颜色。「应用到电视」确认后才保存，并读回核验；「取消」放弃草稿。
 
-**只能添加当前用户已安装、启用且可启动的非系统应用。** 下例使用资源目录中的 TV Bro 和 Jellyfin TV，需要先安装这两个应用。示例文件：[layout.example.json](resource/puretv-launcher/layout.example.json)。
+**只能添加当前用户已安装、启用且可启动的非系统应用。** 下例使用资源目录中的 TV Bro 和 Jellyfin TV，需要先安装这两个应用。示例文件：[layout.example.json](resource/launcher/layout.example.json)。
 
 ```json
 {
@@ -143,4 +157,4 @@ cd launcher
 
 ## 许可与致谢
 
-pureTV 使用 [MIT](LICENSE) 许可。部分电视端启动器代码参考 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)，原作者版权与许可保留于 [NOTICE.md](NOTICE.md)。字体见 [OFL 许可](launcher/FONT-LICENSE-OFL.txt)。第三方 APK、截图与源码使用各资源文件夹内的许可证。
+pureTV 使用 [MIT](LICENSE) 许可。部分电视端启动器代码参考 [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv)，原作者版权与许可保留于 [NOTICE.md](NOTICE.md)。字体见 [OFL 许可](resource/launcher/FONT-LICENSE-OFL.txt)。第三方 APK、截图与源码使用各资源文件夹内的许可证。

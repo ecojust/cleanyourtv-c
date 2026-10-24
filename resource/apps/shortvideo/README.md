@@ -1,5 +1,11 @@
 # ShortVideo TV
 
+<!-- apk-resource:start -->
+[下载 APK](shortvideo-0.1.0.apk?raw=1) · [校验值](SHA256SUMS.txt) · [签名及构建来源](resource.json) · [源码](src/)
+
+此目录内 APK 使用 pureTV 发布证书签名。若设备中存在使用旧证书的同包应用，Android 无法直接覆盖安装；需先备份数据并卸载旧包。
+<!-- apk-resource:end -->
+
 面向遥控器的轻量原生 Android TV 短视频播放器。Android 8.0（API 26）以上，包名 `com.ecojust.shortvideo`，版本 `0.1.0`。不需要账号或 API Key。
 
 ![原生控件渲染预览，SurfaceView 视频层不包含在此截图中，非电视实机截图](docs/controls-preview.png)
@@ -39,7 +45,7 @@
 - 一个网络工作线程、有界任务队列；JSON 响应最多 64 KiB、地址最多 8192 字符。
 - 视频源请求至少间隔 1.5 秒，重复地址最多再请求一次；切换源会清空本次历史。网络请求可取消，媒体加载／缓冲 25 秒超时后停止。
 - 无封面图片、模糊背景或常驻动画；离开页面释放媒体解码器和媒体会话。
-- 首版已签名 Release 为 **24,160 字节（约 24 KiB）**；使用 R8 和资源压缩，CI 限制 APK 不超过 5 MiB。安装后 dex 优化占用、峰值内存和硬件解码兼容性仍需在目标电视实测。
+- 当前目录已签名 APK 为 **29,427 字节（约 28.7 KiB）**；使用 R8 和资源压缩，CI 限制 APK 不超过 5 MiB。安装后 dex 优化占用、峰值内存和硬件解码兼容性仍需在目标电视实测。
 
 ## 构建
 
@@ -49,7 +55,7 @@ cd launcher
 ./gradlew :shortvideo:verifyReleaseSize :shortvideo:lintDebug :shortvideo:testDebugUnitTest
 ```
 
-Debug 输出 `apps/shortvideo/build/outputs/apk/debug/shortvideo-debug.apk`。未配置签名时 Release 输出 `shortvideo-release-unsigned.apk`；设置根 README 的签名环境变量后输出 `apps/shortvideo/build/outputs/apk/release/shortvideo-release.apk`。测试依赖不打入 APK，设计图和文档也不打入 APK。
+Debug 输出 `resource/apps/shortvideo/build/outputs/apk/debug/shortvideo-debug.apk`。未配置签名时 Release 输出 `shortvideo-release-unsigned.apk`；正式签名与目录内 APK 更新见[资源维护说明](../../../docs/resource-maintenance.md)。测试依赖不打入 APK，设计图和文档也不打入 APK。
 
 ```bash
 adb install -r apps/shortvideo/build/outputs/apk/release/shortvideo-release.apk
