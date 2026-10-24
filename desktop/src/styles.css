@@ -1501,3 +1501,6 @@ input[type="checkbox"]:checked::after { border-color:var(--on-accent); }
 .scene-visible input { width:auto; }
 .scene-clock,.scene-title,.scene-date,.scene-weather,.scene-subtitle { justify-content:flex-start; padding-inline:0; }
 .scene-clock,.scene-title { align-items:flex-start; line-height:1.1; }
+
+/* Intrinsic ratio fallback for WebKit versions without aspect-ratio support. */
+.scene-canvas::after { content:""; display:block; padding-top:56.25%; pointer-events:none; }

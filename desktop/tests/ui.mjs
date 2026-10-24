@@ -497,6 +497,12 @@ try {
     assert.equal(await p.locator('[data-scene-node="settings"].scene-hidden').count(),1);
     await p.locator('[name="sceneSelection"]').selectOption('background');await p.locator('[data-scene-background]').fill('#223344');await p.locator('[data-scene-background]').dispatchEvent('change');
     draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.background.color,'#223344');
+    // WebKit has no WebP canvas encoder; exercise that path and an older decoder.
+    const png=await p.evaluate(()=>{const original=HTMLCanvasElement.prototype.toDataURL;HTMLCanvasElement.prototype.toDataURL=function(type,quality){return original.call(this,type==='image/webp'?'image/png':type,quality);};window.createImageBitmap=undefined;const canvas=document.createElement('canvas');canvas.width=32;canvas.height=18;const c=canvas.getContext('2d');c.fillStyle='#cc8844';c.fillRect(0,0,32,18);return canvas.toDataURL('image/png').split(',')[1];});
+    await p.locator('[data-scene-image]').setInputFiles({name:'background.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+    await p.waitForFunction(()=>JSON.parse(document.querySelector('[name="layoutJson"]').value).home.scene.background.image?.startsWith('data:image/jpeg;base64,'));
+    await canvas.evaluate(el=>el.style.aspectRatio='auto');const fallback=await canvas.boundingBox();assert.ok(fallback.height>0 && Math.abs(fallback.width/fallback.height-16/9)<.02,'Old WebKit retains a 16:9 canvas');
+
     const tile=p.locator('[data-layout-tile="0"]'),at=await tile.boundingBox();
     await p.mouse.move(at.x+at.width/2,at.y+at.height/2);await p.mouse.down();await p.mouse.move(at.x+at.width/2+40,at.y+at.height/2-20,{steps:8});await p.mouse.up();
     draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.ok(draft.home.items[0].frame.x>sceneLayout.home.items[0].frame.x);assert.ok(draft.home.items[0].frame.y<sceneLayout.home.items[0].frame.y);
