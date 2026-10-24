@@ -4,6 +4,8 @@
 
 仓库：[ecojust/pureTV](https://github.com/ecojust/pureTV)
 
+![pureTV Manager 界面示例（模拟设备数据）](docs/previews/manager-020.png)
+
 ## 下载与安装
 
 [pureTV Manager 0.2.0 · 电脑端管理器](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.2.0)
@@ -42,6 +44,8 @@
 管理器会先读取**当前默认启动器的自定义能力**。支持已适配接口时，可编辑首页和应用列表的顺序、列数、名称、图标与卡片颜色，通过 `apps.json` 应用并读回核对。图标来自电视实际安装的应用，也可选择内置图标。
 
 当前适配 **pureTV 0.2.0 的布局接口**。其他启动器需适配其可靠接口后才能编辑；未适配时明确显示不可编辑，不猜测和改写未知配置。详见[启动器布局与 apps.json](desktop/docs/launcher-layout.md)。
+
+![启动器布局编辑示例（模拟接口，非电视实机截图）](docs/previews/launcher-layout-020.png)
 
 ### 新包名
 

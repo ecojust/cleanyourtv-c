@@ -45,7 +45,9 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         working-directory: launcher
         run: ./gradlew --no-daemon assembleDebug assembleRelease lintDebug testDebugUnitTest :music:verifyReleaseSize :shortvideo:verifyReleaseSize :webtv:verifyReleaseSize
-      - name: Verify package identity and unchanged release signing
+      - name: Verify package identity and existing release signing
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: python tools/verify-release-apks.py
       - uses: actions/upload-artifact@v4
         with:
