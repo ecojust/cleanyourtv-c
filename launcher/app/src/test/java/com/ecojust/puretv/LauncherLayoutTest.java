@@ -117,4 +117,10 @@ public class LauncherLayoutTest {
         }
     }
 
+    @Test @Config(qualifiers="en-rUS-w960dp-h540dp-land")
+    public void defaultPlaceholdersUseTheTelevisionLanguage() throws Exception {
+        AppAdapter.Entry placeholder=LauncherLayout.defaults(context()).entries(context(),"apps").get(3);
+        assertEquals(context().getString(R.string.placeholder_app,4),placeholder.title(context()));
+    }
+
 }
