@@ -100,6 +100,10 @@ The Tauri dispatcher resets the cancellation flag once before enqueueing a task.
 
 ## MCP bridge
 
-The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 20 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
+The desktop starts an authenticated loopback MCP service sharing the same Manager, cached snapshot, busy/cancel guard and protected device operations. `mcp_info` returns a stdio client configuration; `puretv-desktop --mcp <session-file>` relays to that running window without creating a Manager. The 25 tools, protocol behavior and validation are documented in [docs/mcp.md](docs/mcp.md). The native integration test runs against the actual GUI and stdio process with isolated simulated ADB.
 
 User APK sizes are measured during scans (and refreshed after APK installation) using validated `pm path --user` paths and bounded `stat` calls; normal batch catalogue checks reuse the measured values. Unavailable, unsupported or incomplete results are null, never invented zeroes. Metadata collection has a 30-second scheduling budget, 8-second command timeouts and shares cancellation. System and uninstalled recovery entries have null sizes.
+
+## Current-launcher layout API
+
+`launcher_execute` accepts `getLayout`, `applyLayout { layout }`, `resetLayout`, `capturePreview`; it shares the same busy/cancel guard. `choose_launcher_json` returns UTF-8 JSON text (48 KiB maximum) without writing to the TV. Core `Manager::execute_launcher` only edits the current verified HOME via an explicitly adapted, shell-permission-protected provider; unsupported launchers stay read-only. Configuration schema, Android provider and preview limits are specified in [docs/launcher-layout.md](docs/launcher-layout.md). MCP exposes all five operations; screenshots are image content rather than large base64 text.

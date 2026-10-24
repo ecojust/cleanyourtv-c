@@ -105,4 +105,5 @@
     <string name="wx_aqi_unhealthy">Unhealthy</string>
     <string name="wx_aqi_very_unhealthy">Very unhealthy</string>
     <string name="wx_aqi_hazardous">Hazardous</string>
+    <string name="custom_app_unavailable">This app is not installed or has no launchable activity.</string>
 </resources>

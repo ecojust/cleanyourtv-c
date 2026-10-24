@@ -139,6 +139,37 @@ try {
     await nav(p,'apps');
     await shot(p,'scrolling-lists');
   },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
+  await check('unsupported launchers are not editable but current HOME can be previewed', async p => {
+    await nav(p,'launchers'); await act(p,'read-layout').click(); await settled(p);
+    await p.locator('.layout-editor').getByText('此启动器尚未接入可验证的布局接口，请使用它自身的设置。').waitFor();
+    assert.equal(await act(p,'apply-layout').count(),0);
+    await act(p,'capture-launcher').click();await settled(p);
+    await p.locator('.launcher-cover img[src^="data:image/png;base64,"]').waitFor();
+    assert.deepEqual(await p.evaluate(()=>window.__launcherRequests.map(r=>r.action)),['getLayout','capturePreview']);
+  });
+  const customHome = snapshot(); customHome.defaultHome='com.ecojust.cleanyourtv/.MainActivity';
+  customHome.launchers.forEach(l=>l.isDefault=l.component===customHome.defaultHome);
+  await check('supported current launcher edits real layout, icons and app order only on apply', async p => {
+    await nav(p,'launchers');await act(p,'read-layout').click();await settled(p);
+    await act(p,'apply-layout').waitFor();
+    await p.locator('[name="layoutColumns"]').fill('3');await p.locator('[name="layoutColumns"]').dispatchEvent('change');
+    await p.locator('[data-act="layout-up"][data-index="1"]').click();
+    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home[0].action,'files');
+    await p.locator('[data-layout-label="0"]').fill('文件入口');await p.locator('[data-layout-label="0"]').dispatchEvent('change');
+    await p.locator('[data-layout-icon="0"]').selectOption('video');
+    await p.locator('[name="layoutApp"]').selectOption('com.ecojust.webtv');await act(p,'layout-add').click();
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.columns,3);assert.equal(draft.home.length,4);assert.equal(draft.home[0].icon,'video');
+    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),1,'Draft edits do not touch the TV');
+    await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='applyLayout'));await settled(p);
+    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));
+    assert.equal(applied.layout.columns,3);assert.equal(applied.layout.home[0].label,'文件入口');
+    await act(p,'import-layout').click();assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,2);
+    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),2,'Import is local until applied');
+    await act(p,'reset-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='resetLayout'));await settled(p);
+    assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,4);
+    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'apply_launcher_layout',snapshot:value,launcherResult:{supported:true,component:value.defaultHome,layout:{version:1,columns:5,home:[{action:'music',icon:'music'}],apps:[]},apps:[]}}),customHome);
+    assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'5','Agent layout changes reach the editor');
+  },customHome,{layoutSupported:true});
   await check('official ADB setup requires explicit license consent and configures automatically', async p => {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');

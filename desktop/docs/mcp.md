@@ -52,6 +52,18 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 
 用户应用的 `apkSizeBytes` 返回主 APK 和分包合计字节数，不含私有数据与缓存；无法读取时为 `null`，重新扫描会刷新。
 
+新增的当前启动器工具：
+
+| 工具 | 参数 | 行为 |
+| --- | --- | --- |
+| `get_launcher_layout` | 无 | 检测当前默认启动器，返回支持状态、布局及应用列表／图标 |
+| `apply_launcher_layout` | `layoutJson` | 应用 JSON 文本并读回核对；只允许已成功握手的当前启动器 |
+| `reset_launcher_layout` | 无 | 恢复默认布局并复查 |
+| `capture_launcher_preview` | 无 | 在电视上打开当前 HOME，返回实际 PNG 图片 |
+| `choose_launcher_json` | 无 | 原生 JSON 文件选择器，只返回文本，不应用 |
+
+配置格式和支持条件见[启动器布局](launcher-layout.md)。当前适配本次新增接口的 pureTV，旧电视 APK 需先更新，未适配启动器不会被写入。
+
 应用筛选、搜索、查看记录可基于 `get_state` 的 `packages`、`launchers`、`history` 完成；Agent 可直接提交选定的包名或 APK 路径，不需要模拟勾选界面。文件选择器需要用户在窗口操作，自动化时直接提供本机完整路径更方便。
 
 ## 调试示例

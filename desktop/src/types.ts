@@ -24,3 +24,8 @@ export type Request =
   | { action: 'install'; paths: string[] }
   | { action: 'setHome'; component: string };
 export const emptySnapshot = (): Snapshot => ({ revision: 0, adbPath: null, adbAvailable: false, device: null, packages: [], launchers: [], defaultHome: null, originalHome: null, history: [], message: '' });
+export interface LayoutEntry { action?: string; packageName?: string; label?: string; icon?: string; color?: string }
+export interface LauncherLayout { version: 1; columns: number; home: LayoutEntry[]; apps: LayoutEntry[] }
+export interface LauncherLayoutInfo { supported: boolean; component?: string; message?: string; custom?: boolean; layout?: LauncherLayout; apps?: {packageName: string; label: string; iconPng?: string}[] }
+export interface LauncherPreview { component: string; image: string; width: number; height: number; message: string }
+export type LauncherRequest = { action:'getLayout'|'resetLayout'|'capturePreview' } | { action:'applyLayout'; layout: LauncherLayout };

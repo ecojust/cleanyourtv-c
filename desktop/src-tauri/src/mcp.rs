@@ -42,6 +42,11 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
+        tool("choose_launcher_json","Open the manager's apps.json file picker and return UTF-8 configuration text; does not apply it.",json!({}),&[],true),
+        tool("get_launcher_layout","Read the CURRENT default launcher's verified apps.json capability, layout and launchable apps with icons. Unsupported launchers remain read-only.",json!({}),&[],true),
+        tool("apply_launcher_layout","Apply a data-only apps.json layout to the current supported launcher, then read it back. Layout is a JSON string; columns 1–6, home 1–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
+        tool("reset_launcher_layout","Remove the supported current launcher's apps.json override and verify defaults. Does not reset wallpaper or other settings.",json!({}),&[],false),
+        tool("capture_launcher_preview","Open the current default HOME on the TV and capture a PNG preview. Does not switch the default launcher. Returns MCP image content.",json!({}),&[],false),
         tool("get_state","Get current TV, apps, launchers and history. Cached state remains available during operations.",json!({}),&[],true),
         tool("get_status","Get operation busy/cancellation state, download progress and latest snapshot.",json!({}),&[],true),
         tool("set_adb_path","Select a local adb executable. Empty path automatically discovers ADB; disconnect TV first.",json!({"path":{"type":"string"}}),&["path"],false),
@@ -103,6 +108,30 @@ fn valid_arguments(tool: &Value, arguments: &Value) -> bool {
             && rule
                 .get("enum")
                 .is_none_or(|e| e.as_array().unwrap().contains(v))
+    })
+}
+
+pub fn launcher_request(
+    name: &str,
+    args: Value,
+) -> Result<Option<puretv_core::LauncherRequest>, String> {
+    use puretv_core::LauncherRequest;
+    Ok(match name {
+        "get_launcher_layout" => Some(LauncherRequest::GetLayout),
+        "apply_launcher_layout" => {
+            let text = args["layoutJson"]
+                .as_str()
+                .ok_or("layoutJson 应为 JSON 字符串")?;
+            if text.len() > 48 * 1024 {
+                return Err("apps.json 不能超过 48 KiB".into());
+            }
+            Some(LauncherRequest::ApplyLayout {
+                layout: serde_json::from_str(text).map_err(|_| "apps.json 格式无效")?,
+            })
+        }
+        "reset_launcher_layout" => Some(LauncherRequest::ResetLayout),
+        "capture_launcher_preview" => Some(LauncherRequest::CapturePreview),
+        _ => None,
     })
 }
 
@@ -169,6 +198,17 @@ pub fn dispatch(
             }
             match call(name, args) {
                 Ok(value) => {
+                    if let Some(image) = value["image"]
+                        .as_str()
+                        .and_then(|s| s.strip_prefix("data:image/png;base64,"))
+                    {
+                        let image = image.to_string();
+                        let mut metadata = value;
+                        metadata.as_object_mut().unwrap().remove("image");
+                        return Some(
+                            json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"image","mimeType":"image/png","data":image},{"type":"text","text":metadata.to_string()}],"structuredContent":{"result":metadata},"isError":false}}),
+                        );
+                    }
                     let failed = value
                         .get("failedTargets")
                         .and_then(Value::as_array)
@@ -385,7 +425,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 20);
+        assert_eq!(tools().len(), 25);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {
@@ -561,5 +601,28 @@ mod tests {
             );
         }
         fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn launcher_tools_parse_layouts_and_return_images_without_base64_in_text() {
+        let layout =
+            serde_json::json!({"version":1,"columns":4,"home":[{"action":"music"}],"apps":[]});
+        assert!(launcher_request(
+            "apply_launcher_layout",
+            json!({"layoutJson":layout.to_string()})
+        )
+        .unwrap()
+        .is_some());
+        assert!(
+            launcher_request("apply_launcher_layout", json!({"layoutJson":"invalid"})).is_err()
+        );
+        let response=dispatch(json!({"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"capture_launcher_preview"}}),&|_,_|Ok(json!({"image":"data:image/png;base64,AQID","component":"com.example.home/.Main","width":1,"height":1}))).unwrap();
+        assert_eq!(response["result"]["content"][0]["type"], "image");
+        assert!(response["result"]["structuredContent"]["result"]
+            .get("image")
+            .is_none());
+        assert!(!response["result"]["content"][1]["text"]
+            .as_str()
+            .unwrap()
+            .contains("AQID"));
     }
 }

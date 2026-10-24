@@ -115,7 +115,7 @@ export async function openResource(resource: 'releases' | 'platformTools' | 'pla
 }
 
 export interface McpInfo { config: { mcpServers: Record<string, { command: string; args: string[] }> }; sessionPath: string }
-export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string }
+export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo | import('./types').LauncherPreview }
 export async function mcpInfo(): Promise<McpInfo | null> {
   if (!desktop || demo) return null;
   return invoke<McpInfo>('mcp_info');
@@ -124,4 +124,12 @@ export async function watchMcp(operation: (value: McpOperation) => void, progres
   if (!desktop || demo) return;
   await listen<McpOperation>('mcp-operation', event => operation(event.payload));
   await listen<DownloadProgress>('mcp-progress', event => progress(event.payload));
+}
+export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo | import('./types').LauncherPreview> {
+  if (!desktop || demo) throw new Error('请在真实桌面管理器中连接电视，读取启动器布局接口。');
+  return invoke('launcher_execute', { request });
+}
+export async function chooseLauncherJson(): Promise<string | null> {
+  if (!desktop || demo) throw new Error('请在桌面管理器中选择 apps.json。');
+  return invoke('choose_launcher_json');
 }

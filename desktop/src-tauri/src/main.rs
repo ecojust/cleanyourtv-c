@@ -3,7 +3,7 @@
 mod mcp;
 mod platform_tools;
 
-use puretv_core::{Manager as TvManager, Request, Snapshot};
+use puretv_core::{LauncherRequest, Manager as TvManager, Request, Snapshot};
 use serde_json::{json, Value};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -45,6 +45,71 @@ async fn execute(request: Request, bridge: tauri::State<'_, Bridge>) -> Result<S
     .await;
     bridge.running.store(false, Ordering::Release);
     result.map_err(|_| "操作任务异常结束，请重新扫描设备状态".to_string())?
+}
+
+#[tauri::command]
+async fn launcher_execute(
+    request: LauncherRequest,
+    bridge: tauri::State<'_, Bridge>,
+) -> Result<Value, String> {
+    if bridge
+        .running
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("已有操作正在执行，请等待完成或取消".into());
+    }
+    bridge.cancel.store(false, Ordering::Release);
+    let manager = bridge.manager.clone();
+    let cache = bridge.snapshot.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut manager = manager.lock().map_err(|_| "管理状态不可用")?;
+        let result = manager.execute_launcher(request);
+        *cache.lock().map_err(|_| "状态缓存不可用")? = manager.snapshot();
+        result
+    })
+    .await;
+    bridge.running.store(false, Ordering::Release);
+    result.map_err(|_| "启动器操作异常结束，请重新读取状态".to_string())?
+}
+
+#[tauri::command]
+async fn choose_launcher_json(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || pick_launcher_json(&app))
+        .await
+        .map_err(|_| "无法读取布局文件".to_string())?
+}
+fn pick_launcher_json(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    let Some(file) = app
+        .dialog()
+        .file()
+        .set_title("导入 apps.json 布局")
+        .add_filter("JSON", &["json"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    read_launcher_json(&file.into_path().map_err(|_| "请选择本地 JSON 文件")?).map(Some)
+}
+fn read_launcher_json(path: &std::path::Path) -> Result<String, String> {
+    use std::io::Read;
+    if !path.is_absolute()
+        || !path
+            .extension()
+            .is_some_and(|v| v.eq_ignore_ascii_case("json"))
+    {
+        return Err("请选择本地 JSON 文件完整路径".into());
+    }
+    let mut data = Vec::new();
+    std::fs::File::open(path)
+        .map_err(|_| "无法打开布局文件")?
+        .take(48 * 1024 + 1)
+        .read_to_end(&mut data)
+        .map_err(|_| "无法读取布局文件")?;
+    if data.len() > 48 * 1024 {
+        return Err("apps.json 不能超过 48 KiB".into());
+    }
+    String::from_utf8(data).map_err(|_| "apps.json 应使用 UTF-8 编码".into())
 }
 
 #[tauri::command]
@@ -218,6 +283,7 @@ fn mcp_call(
     let _ = app.emit("mcp-operation", json!({"running":true,"tool":name}));
     let result = (|| -> Result<Value, String> {
         match name {
+            "choose_launcher_json" => return Ok(json!(pick_launcher_json(app)?)),
             "choose_apks" => return Ok(json!(pick_apks(app)?)),
             "choose_adb" => return Ok(json!(pick_adb(app)?)),
             "open_resource" => {
@@ -227,6 +293,11 @@ fn mcp_call(
             _ => {}
         }
         let mut manager = bridge.manager.lock().map_err(|_| "管理状态不可用")?;
+        if let Some(request) = mcp::launcher_request(name, args.clone())? {
+            let result = manager.execute_launcher(request);
+            *bridge.snapshot.lock().map_err(|_| "状态不可用")? = manager.snapshot();
+            return result;
+        }
         let prior_ids: std::collections::BTreeSet<_> = manager
             .snapshot()
             .history
@@ -280,7 +351,7 @@ fn mcp_call(
     let snapshot = bridge.snapshot.lock().map_err(|_| "状态不可用")?.clone();
     let _ = app.emit(
         "mcp-operation",
-        json!({"running":false,"tool":name,"snapshot":snapshot,"error":result.as_ref().err()}),
+        json!({"running":false,"tool":name,"snapshot":snapshot,"error":result.as_ref().err(),"launcherResult":if ["get_launcher_layout","apply_launcher_layout","reset_launcher_layout","capture_launcher_preview"].contains(&name){result.as_ref().ok()}else{None}}),
     );
     drop(guard);
     result
@@ -336,6 +407,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             execute,
+            launcher_execute,
+            choose_launcher_json,
             cancel,
             choose_apks,
             choose_adb,

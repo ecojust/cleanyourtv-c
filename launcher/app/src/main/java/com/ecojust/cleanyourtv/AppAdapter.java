@@ -25,7 +25,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         boolean onTileVerticalKey(int position, int keyCode);
     }
 
-    static final int PLACEHOLDER = 0, APP_STORE = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, FILES = 4, SHORTVIDEO = 5, WEBTV = 6;
+    static final int PLACEHOLDER = 0, APP_STORE = 1, BILIBILI = 2, MUSIC_WEBSITE = 3, FILES = 4, SHORTVIDEO = 5, WEBTV = 6, CUSTOM_APP = 7;
     static final float FOCUS_SCALE = 1.03f;
     static final float DESIGN_W_DP = 190f, DESIGN_H_DP = 94f;
     static boolean reducedMotion;
@@ -33,8 +33,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     static final class Entry {
         final String key;
         final int label, icon, color, action, number;
+        final String customTitle, packageName;
+        final boolean packageIcon;
 
         Entry(String key, int label, int icon, int color, int action, int number) {
+            this(key,label,icon,color,action,number,"","",false);
+        }
+        Entry(String key,int label,int icon,int color,int action,int number,String title,String pkg,boolean packageIcon) {
+            this.customTitle=title;this.packageName=pkg;this.packageIcon=packageIcon;
             this.key = key;
             this.label = label;
             this.icon = icon;
@@ -44,6 +50,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
 
         String title(Context context) {
+            if (!customTitle.isEmpty()) return customTitle;
             return number > 0 ? context.getString(label, number) : context.getString(label);
         }
     }
@@ -135,6 +142,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         String title = entry.title(context);
         holder.name.setText(title);
         holder.icon.setImageResource(entry.icon);
+        if (entry.packageIcon && !entry.packageName.isEmpty()) {
+            try {holder.icon.setImageDrawable(context.getPackageManager().getApplicationIcon(entry.packageName));}catch(Exception ignored) { /* Keep vector fallback. */ }
+        }
         GradientDrawable surface = new GradientDrawable();
         surface.setColor(entry.color);
         surface.setCornerRadius(8 * context.getResources().getDisplayMetrics().density);
@@ -146,6 +156,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     private void launch(Entry entry) {
+        if (entry.action == CUSTOM_APP) {
+            if (!openNative(entry.packageName)) Toast.makeText(context, R.string.custom_app_unavailable, Toast.LENGTH_LONG).show();
+            return;
+        }
         if (entry.action == MUSIC_WEBSITE) {
             if (openNative("com.ecojust.music")) return;
             openWebsite(R.string.music_website_url, R.string.music_browser_unavailable);

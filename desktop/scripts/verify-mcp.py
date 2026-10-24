@@ -14,7 +14,7 @@ import threading
 import time
 
 FAKE_ADB = r'''#!/usr/bin/env python3
-import json, os, sys, time
+import json, os, sys, time, base64
 from pathlib import Path
 root=Path(os.environ['PURETV_FAKE_ROOT'])
 p=root/'tv.json';tv=json.loads(p.read_text());args=sys.argv[1:]
@@ -25,10 +25,18 @@ elif args[0]=='pair':
  assert sys.stdin.read().strip()=='123456';print('Successfully paired to 192.168.1.50:33111')
 elif args[0] in ['connect','disconnect']:print('connected' if args[0]=='connect' else 'disconnected')
 elif args[:2]==['-s','192.168.1.50:5555']:
- if args[2]=='install':tv['installed'].append('com.imported.app');save();print('Success')
+ if args[2]=='pull':Path(args[-1]).write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='));print('pulled')
+ elif args[2]=='install':tv['installed'].append('com.imported.app');save();print('Success')
  else:
   a=args[3:]
-  if a[0]=='am':print('0')
+  if a[0]=='am':print('Starting HOME' if a[1]=='start' else '0')
+  elif a[0] in ['screencap','rm']:print('')
+  elif a[0]=='content':
+   method=a[a.index('--method')+1]
+   if method=='apply':tv['layout']=json.loads(base64.b64decode(a[a.index('--arg')+1]));tv['customLayout']=True;save()
+   elif method=='reset':tv['layout']=json.loads((root/'default-apps.json').read_text());tv['customLayout']=False;save()
+   result={'supported':True,'version':1,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-apps.json').read_text())),'apps':[{'packageName':'com.ecojust.cleanyourtv','label':'pureTV'}]}
+   print('Bundle[{result='+base64.b64encode(json.dumps(result).encode()).decode()+'}]')
   elif a[0]=='getprop':
    if (root/'slow').exists():time.sleep(3)
    print('MCP Test TV' if a[1]=='ro.product.model' else '13')
@@ -99,6 +107,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='puretv-mcp-smoke-') as temp:
         root=Path(temp);adb=root/'adb';adb.write_text(FAKE_ADB);adb.chmod(0o755)
         (root/'tv.json').write_text(json.dumps({'installed':['android','com.android.systemui','com.stock.home','com.ecojust.cleanyourtv','com.vendor.ads'], 'system':['android','com.android.systemui','com.stock.home','com.vendor.ads','com.vendor.removed'],'disabled':[],'home':'com.stock.home/.Main'}))
+        (root/'default-apps.json').write_text(Path('../launcher/app/src/main/assets/apps.json').read_text())
         env={**os.environ,'XDG_DATA_HOME':str(root/'data'),'XDG_CONFIG_HOME':str(root/'config'),'XDG_CACHE_HOME':str(root/'cache'),'PURETV_ADB':str(adb),'PURETV_FAKE_ROOT':str(root)}
         with (root/'gui.log').open('w') as log:
             gui=subprocess.Popen([str(binary)],env=env,stdout=log,stderr=log)
@@ -114,7 +123,7 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==20,names
+                assert len(names)==25,names
                 assert client.call('get_state')['adbAvailable']
                 client.call('set_adb_path',{'path':str(adb)})
                 client.call('pair',{'host':'192.168.1.50','port':33111,'code':'123456'})
@@ -130,7 +139,16 @@ def main():
                 client.call('restore',{'packages':['com.vendor.ads']})
                 apk=root/'example.apk';apk.write_bytes(b'fake APK for simulated ADB')
                 client.call('install',{'paths':[str(apk)]})
+                assert client.call('get_launcher_layout')['supported'] is False
+                client.call('apply_launcher_layout',{'layoutJson':(root/'default-apps.json').read_text()},failure=True)
                 client.call('set_home',{'component':'com.ecojust.cleanyourtv/.MainActivity'})
+                layout=client.call('get_launcher_layout');assert layout['supported'] is True
+                draft=layout['layout'];draft['columns']=3;draft['home'].reverse()
+                assert client.call('apply_launcher_layout',{'layoutJson':json.dumps(draft)})['layout']==draft
+                assert client.call('get_launcher_layout')['layout']['columns']==3
+                assert client.call('reset_launcher_layout')['custom'] is False
+                preview=client.rpc('tools/call',{'name':'capture_launcher_preview','arguments':{}})
+                assert preview['result']['content'][0]['type']=='image' and preview['result']['content'][0]['mimeType']=='image/png'
                 assert client.call('get_state')['originalHome']=='com.stock.home/com.stock.home.Main'
                 client.call('restore_home')
                 assert client.call('get_state')['defaultHome']=='com.stock.home/com.stock.home.Main'

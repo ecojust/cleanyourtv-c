@@ -52,6 +52,9 @@ impl Action {
     }
 }
 
+#[path = "launcher.rs"]
+mod launcher;
+
 pub struct Manager {
     data_dir: PathBuf,
     saved: Saved,

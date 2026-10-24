@@ -18,6 +18,8 @@ struct FakeTv {
     ignore_change: bool,
     calls: Vec<Vec<String>>,
     prior: BTreeMap<String, u8>,
+    launcher_layout: Option<serde_json::Value>,
+    layout_provider: bool,
 }
 struct FakeRunner {
     tv: Arc<Mutex<FakeTv>>,
@@ -59,14 +61,30 @@ impl Runner for FakeRunner {
             }
             "-s" => {
                 assert_eq!(args[1], "192.168.1.50:5555");
-                if args[2] == "install" {
+                if args[2] == "pull" {
+                    use base64::Engine;
+                    let bytes=base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII=").unwrap();
+                    fs::write(args.last().unwrap(), bytes).unwrap();
+                    "pulled".into()
+                } else if args[2] == "install" {
                     assert!(Path::new(args.last().unwrap()).is_absolute());
                     tv.installed.insert("com.imported.app".into());
                     "Success".into()
                 } else {
                     let a = &args[3..];
                     match a[0].as_str() {
-                        "am" => tv.user.to_string(),
+                        "am" => if a[1]=="start" {"Starting HOME".into()} else {tv.user.to_string()},
+                        "screencap" | "rm" => "".into(),
+                        "content" => {
+                            if !tv.layout_provider {return Ok(Output{code:1,text:"No content provider".into()})}
+                            use base64::Engine;
+                            let method=&a[a.iter().position(|arg|arg=="--method").unwrap()+1];
+                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/apps.json")).unwrap();
+                            if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
+                            else if method=="reset" {tv.launcher_layout=None;}
+                            let value=serde_json::json!({"supported":true,"version":1,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
+                            format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
+                        },
                         "getprop" => if a[1] == "ro.product.model" {
                             "Test TV"
                         } else {
@@ -889,4 +907,86 @@ fn scanning_reports_user_apk_sizes_but_does_not_measure_system_packages() {
         .calls
         .iter()
         .any(|args| args.windows(2).any(|pair| pair == ["path", "android"])));
+}
+
+#[test]
+fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_changes() {
+    use crate::LauncherRequest;
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    assert_eq!(
+        manager
+            .execute_launcher(LauncherRequest::GetLayout)
+            .unwrap()["supported"],
+        false
+    );
+    let layout: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../launcher/app/src/main/assets/apps.json"
+    ))
+    .unwrap();
+    assert!(manager
+        .execute_launcher(LauncherRequest::ApplyLayout {
+            layout: layout.clone()
+        })
+        .is_err());
+    tv.lock().unwrap().default = "com.ecojust.cleanyourtv/.MainActivity".into();
+    assert_eq!(
+        manager
+            .execute_launcher(LauncherRequest::GetLayout)
+            .unwrap()["supported"],
+        false
+    );
+    tv.lock().unwrap().layout_provider = true;
+    let status = manager
+        .execute_launcher(LauncherRequest::GetLayout)
+        .unwrap();
+    assert_eq!(status["supported"], true);
+    let mut draft = layout;
+    draft["columns"] = serde_json::json!(3);
+    assert_eq!(
+        manager
+            .execute_launcher(LauncherRequest::ApplyLayout {
+                layout: draft.clone()
+            })
+            .unwrap()["layout"],
+        draft
+    );
+    assert_eq!(
+        manager
+            .execute_launcher(LauncherRequest::GetLayout)
+            .unwrap()["layout"]["columns"],
+        3
+    );
+    assert_eq!(
+        manager
+            .execute_launcher(LauncherRequest::ResetLayout)
+            .unwrap()["custom"],
+        false
+    );
+    assert_eq!(manager.snapshot().history[0].action, "启动器布局");
+}
+#[test]
+fn launcher_preview_returns_png_and_removes_temporary_files() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    let preview = manager
+        .execute_launcher(crate::LauncherRequest::CapturePreview)
+        .unwrap();
+    assert!(preview["image"]
+        .as_str()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
+    assert_eq!(preview["width"], 1);
+    assert_eq!(
+        fs::read_dir(manager.data_dir.join("previews"))
+            .unwrap()
+            .count(),
+        0
+    );
+    assert!(tv
+        .lock()
+        .unwrap()
+        .calls
+        .iter()
+        .any(|args| args.iter().any(|a| a == "rm")));
 }
