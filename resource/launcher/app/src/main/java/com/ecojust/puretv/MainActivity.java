@@ -87,6 +87,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private AppAdapter adapter;
     private RecyclerView grid;
     private FrameLayout root;
+    private LayoutScene layoutScene;
     private TextView btnWifi;
     // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
     // or Developer options → "Don't keep activities"); they only reset when the process dies.
@@ -170,6 +171,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // jump to a tile far below when there is nothing in that direction.
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (layoutScene != null) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
                 // Back to the dock tile Up came from, not wherever the focus finder happens to land.
@@ -249,10 +251,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             adapter.clear();
             adapter=new AppAdapter(this,this,layoutColumns,layout==null?AppAdapter.homeEntries():layout.entries(this,"home"));
             grid.setLayoutManager(new GridLayoutManager(this,layoutColumns));grid.setAdapter(adapter);
+            if(layoutScene==null)layoutScene=new LayoutScene(this,root,grid,"home");
+            removeWallpaper();
+            layoutScene.apply(layout,"home");
+            /* Grid geometry is now owned by the shared scene.
             boolean multipleRows=adapter.getItemCount()>layoutColumns;
             findViewById(R.id.homeSpacer).setVisibility(multipleRows?View.GONE:View.VISIBLE);
             android.widget.LinearLayout.LayoutParams params=(android.widget.LinearLayout.LayoutParams)grid.getLayoutParams();
-            params.height=multipleRows?0:android.view.ViewGroup.LayoutParams.WRAP_CONTENT;params.weight=multipleRows?1:0;grid.setLayoutParams(params);
+            params.height=multipleRows?0:android.view.ViewGroup.LayoutParams.WRAP_CONTENT;params.weight=multipleRows?1:0;grid.setLayoutParams(params); */
             grid.post(()->focusTile(Math.min(lastFocused,adapter.getItemCount()-1)));
         } else adapter.reload();
     }
@@ -604,6 +610,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** One line telling the user what the wallpaper is right now. */
     private String wallpaperStatus() {
+        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         if (wall.hasWallpaper()) {
             long kb = Math.max(1, wall.sizeBytes() / 1024);
@@ -623,6 +630,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (requestCode != REQ_PICK_WALLPAPER || resultCode != RESULT_OK || data == null) return;
         Uri uri = data.getData();
         if (uri == null) return;
+        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         if (wall.importFrom(uri)) {
             toast(getString(R.string.wallpaper_set));
@@ -681,6 +689,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Re-apply whatever wallpaper is on disk now, adding or dropping it as needed. */
     private void applyWallpaper() {
+        if (layoutScene != null) { removeWallpaper(); return; }
         if (wall == null) wall = new Wallpaper(this);
         java.io.File f = wall.file();
         if (f != null && f.isFile() && f.length() > 0) showWallpaper(f);
@@ -1002,6 +1011,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
+        if (layoutScene != null) return false;
         if (keyCode==KeyEvent.KEYCODE_DPAD_UP) {
             if(position<layoutColumns)findViewById(R.id.btnWallpaper).requestFocus();
             else focusTile(position-layoutColumns);
