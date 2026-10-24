@@ -162,6 +162,50 @@ impl Runner for ProcessRunner {
         Ok(Output { code, text })
     }
 }
+/// A read-only fixed ADB command. It never opens HOME or sends device input.
+pub fn capture_screen(
+    program: &Path,
+    serial: &str,
+    cancel: &AtomicBool,
+) -> Result<Vec<u8>, String> {
+    if serial.is_empty() || serial.len() > 300 || serial.contains('\0') {
+        return Err("设备序列号无效".into());
+    }
+    let args = vec![
+        "-s".into(),
+        serial.into(),
+        "exec-out".into(),
+        "screencap".into(),
+        "-p".into(),
+    ];
+    let (code, bytes, _) = ProcessRunner.run_raw(
+        program,
+        &args,
+        None,
+        cancel,
+        Duration::from_secs(8),
+        8 * 1024 * 1024,
+    )?;
+    if code != 0
+        || bytes.len() < 24
+        || !bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        || &bytes[12..16] != b"IHDR"
+    {
+        return Err("电视未返回有效画面，请检查截图权限及 ADB 连接".into());
+    }
+    let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+    let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+    if width == 0
+        || height == 0
+        || width > 7680
+        || height > 7680
+        || u64::from(width) * u64::from(height) > 40_000_000
+    {
+        return Err("电视画面尺寸无效或过大".into());
+    }
+    Ok(bytes)
+}
+
 pub(crate) fn discover(configured: Option<&str>) -> Option<PathBuf> {
     if let Some(value) = configured.filter(|s| !s.is_empty()) {
         let path = PathBuf::from(value);

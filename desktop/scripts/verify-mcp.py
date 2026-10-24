@@ -36,8 +36,8 @@ elif args[:2]==['-s','192.168.1.50:5555']:
   elif a[0]=='content':
    method=a[a.index('--method')+1]
    if method=='apply':tv['layout']=json.loads(base64.b64decode(a[a.index('--arg')+1]));tv['customLayout']=True;save()
-   elif method=='reset':tv['layout']=json.loads((root/'default-layout.json').read_text());tv['customLayout']=False;save()
-   result={'supported':True,'version':2,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-layout.json').read_text())),'apps':[{'packageName':'com.ecojust.puretv','label':'pureTV'}]}
+   elif method=='reset':tv['layout']=json.loads((root/'default-apps.json').read_text());tv['customLayout']=False;save()
+   result={'supported':True,'version':1,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-apps.json').read_text())),'apps':[{'packageName':'com.ecojust.puretv','label':'pureTV'}]}
    print('Bundle[{result='+base64.b64encode(json.dumps(result).encode()).decode()+'}]')
   elif a[0]=='cat':print('MemTotal: 4096 kB\nMemAvailable: 1024 kB' if a[1]=='/proc/meminfo' else '3600.25 20.0')
   elif a[0]=='df':print('Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/data 4096 1024 3072 25% /data')
@@ -120,7 +120,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='puretv-mcp-smoke-') as temp:
         root=Path(temp);adb=root/'adb';adb.write_text(FAKE_ADB);adb.chmod(0o755)
         (root/'tv.json').write_text(json.dumps({'installed':['android','com.android.systemui','com.stock.home','com.ecojust.puretv','com.vendor.ads'], 'system':['android','com.android.systemui','com.stock.home','com.vendor.ads','com.vendor.removed'],'disabled':[],'home':'com.stock.home/.Main'}))
-        (root/'default-layout.json').write_text(Path('../resource/launcher/app/src/main/assets/layout.json').read_text())
+        (root/'default-apps.json').write_text(Path('core/tests/fixtures/020-apps.json').read_text())
         env={**os.environ,'XDG_DATA_HOME':str(root/'data'),'XDG_CONFIG_HOME':str(root/'config'),'XDG_CACHE_HOME':str(root/'cache'),'PURETV_ADB':str(adb),'PURETV_FAKE_ROOT':str(root)}
         with (root/'gui.log').open('w') as log:
             gui=subprocess.Popen([str(binary)],env=env,stdout=log,stderr=log)
@@ -136,18 +136,23 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==29,names
-                network=client.call('get_local_network')['localNetwork']
-                assert isinstance(network['addresses'],list)
-                for row in network['addresses']:assert row['interfaceName'] and not row['ip'].startswith('127.') and 0<=row['prefixLength']<=32
-                client.call('set_interface_preferences',{'locale':'en','theme':'ocean'})
-                assert client.call('get_interface_preferences')['theme']=='ocean'
+                assert len(names)==31,names
                 assert client.call('get_state')['adbAvailable']
                 client.call('set_adb_path',{'path':str(adb)})
+                client.call('pair',{'host':'192.168.1.50','port':33111,'code':'123456'})
                 state=client.call('connect',{'host':'192.168.1.50','port':5555})
                 assert state['device']['model']=='MCP Test TV'
                 assert state['systemInfo']['memoryTotalBytes']==4194304
                 client.call('refresh_system_info')
+                client.call('start_live_view',{'fps':3})
+                for _ in range(50):
+                    if client.call('live_view_status')['frames']>0:break
+                    time.sleep(.1)
+                else:raise AssertionError('No live frame received')
+                frame=client.rpc('tools/call',{'name':'get_live_frame','arguments':{}});assert frame['result']['content'][0]['type']=='image'
+                assert client.call('pause_live_view')['paused']
+                client.call('start_live_view',{'fps':3})
+                client.call('stop_live_view')
                 assert next(p for p in state['packages'] if p['packageName']=='com.ecojust.puretv')['apkSizeBytes']==1024
                 client.call('set_enabled',{'packages':['com.vendor.ads'],'enabled':False})
                 assert next(p for p in client.call('get_state')['packages'] if p['packageName']=='com.vendor.ads')['enabled'] is False
@@ -159,20 +164,20 @@ def main():
                 apk=root/'example.apk';apk.write_bytes(b'fake APK for simulated ADB')
                 client.call('install',{'paths':[str(apk)]})
                 assert client.call('get_launcher_layout')['supported'] is False
-                client.call('apply_launcher_layout',{'layoutJson':(root/'default-layout.json').read_text()},failure=True)
+                client.call('apply_launcher_layout',{'layoutJson':(root/'default-apps.json').read_text()},failure=True)
                 client.call('set_home',{'component':'com.ecojust.puretv/.MainActivity'})
                 layout=client.call('get_launcher_layout');assert layout['supported'] is True
-                draft=layout['layout'];draft['home']['columns']=3;draft['home']['items'].reverse()
+                draft=layout['layout'];draft['columns']=3;draft['home'].reverse()
                 assert client.call('apply_launcher_layout',{'layoutJson':json.dumps(draft)})['layout']==draft
-                assert client.call('get_launcher_layout')['layout']['home']['columns']==3
+                assert client.call('get_launcher_layout')['layout']['columns']==3
                 assert client.call('reset_launcher_layout')['custom'] is False
-                assert client.call('get_launcher_covers')=={}
+                preview=client.rpc('tools/call',{'name':'capture_launcher_preview','arguments':{}})
+                assert preview['result']['content'][0]['type']=='image' and preview['result']['content'][0]['mimeType']=='image/png'
                 assert client.call('get_state')['originalHome']=='com.stock.home/com.stock.home.Main'
                 client.call('restore_home')
                 assert client.call('get_state')['defaultHome']=='com.stock.home/com.stock.home.Main'
                 assert client.call('platform_tools_info')['version']=='37.0.1'
                 client.call('install_platform_tools',{'acceptedLicense':True},failure=True) # TV is connected: never downloads.
-                client.call('install_platform_tools',{'acceptedLicense':True,'forceDownload':True},failure=True) # Same connected-TV guard for forced replacement.
                 invalid=client.rpc('tools/call',{'name':'install_platform_tools','arguments':{'acceptedLicense':False}})
                 assert invalid['error']['code']==-32602
                 (root/'slow').touch()
@@ -188,7 +193,14 @@ def main():
                 client.call('scan')
                 client.call('clear_history')
                 assert client.call('get_state')['history']==[]
+                client.call('start_live_view',{'fps':3})
                 client.call('disconnect')
+                for _ in range(30):
+                    if not client.call('live_view_status')['running']:break
+                    time.sleep(.1)
+                else:raise AssertionError('Live view did not stop on disconnect')
+                client.call('get_live_frame',failure=True)
+                client.call('stop_live_view')
                 assert client.call('get_state')['device'] is None
                 # Pairing code never reaches saved state.
                 saved=(session.parent/'state.json').read_text();assert '123456' not in saved

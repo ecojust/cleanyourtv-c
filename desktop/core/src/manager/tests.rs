@@ -13,7 +13,6 @@ struct FakeTv {
     status: String,
     failure: Option<String>,
     connect_auth_failure: bool,
-    connect_error: Option<String>,
     home_failure: bool,
     home_cancelled: bool,
     ignore_change: bool,
@@ -47,12 +46,6 @@ impl Runner for FakeRunner {
                 tv.status
             ),
             "connect" => {
-                if let Some(error) = tv.connect_error.clone() {
-                    return Ok(Output {
-                        code: 1,
-                        text: error,
-                    });
-                }
                 if tv.connect_auth_failure {
                     return Ok(Output {
                         code: 1,
@@ -92,10 +85,10 @@ impl Runner for FakeRunner {
                             if !tv.layout_provider {return Ok(Output{code:1,text:"No content provider".into()})}
                             use base64::Engine;
                             let method=&a[a.iter().position(|arg|arg=="--method").unwrap()+1];
-                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../resource/launcher/app/src/main/assets/layout.json")).unwrap();
+                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../tests/fixtures/020-apps.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
-                            let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
+                            let value=serde_json::json!({"supported":true,"version":1,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
                         "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},
@@ -948,7 +941,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         false
     );
     let layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../resource/launcher/app/src/main/assets/layout.json"
+        "../../tests/fixtures/020-apps.json"
     ))
     .unwrap();
     assert!(manager
@@ -969,7 +962,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         .unwrap();
     assert_eq!(status["supported"], true);
     let mut draft = layout;
-    draft["home"]["columns"] = serde_json::json!(3);
+    draft["columns"] = serde_json::json!(3);
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::ApplyLayout {
@@ -981,7 +974,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::GetLayout)
-            .unwrap()["layout"]["home"]["columns"],
+            .unwrap()["layout"]["columns"],
         3
     );
     assert_eq!(
@@ -993,6 +986,32 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     assert_eq!(manager.snapshot().history[0].action, "启动器布局");
 }
 #[test]
+fn launcher_preview_returns_png_and_removes_temporary_files() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    let preview = manager
+        .execute_launcher(crate::LauncherRequest::CapturePreview)
+        .unwrap();
+    assert!(preview["image"]
+        .as_str()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
+    assert_eq!(preview["width"], 1);
+    assert_eq!(
+        fs::read_dir(manager.data_dir.join("previews"))
+            .unwrap()
+            .count(),
+        0
+    );
+    assert!(tv
+        .lock()
+        .unwrap()
+        .calls
+        .iter()
+        .any(|args| args.iter().any(|a| a == "rm")));
+}
+
+#[test]
 fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
     let (mut manager, _) = fixture();
     connect(&mut manager);
@@ -1002,6 +1021,21 @@ fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
     assert_eq!(info.manufacturer.as_deref(), Some("Test Maker"));
     manager.execute(Request::Disconnect).unwrap();
     assert!(manager.snapshot().system_info.is_none());
+}
+
+#[cfg(unix)]
+#[test]
+fn read_only_screen_capture_preserves_binary_png_and_observes_cancellation() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("puretv-screen-test-{}", std::process::id()));
+    fs::create_dir_all(&root).unwrap();
+    let adb = root.join("adb");
+    fs::write(&adb,"#!/usr/bin/env python3\nimport sys,base64\nassert sys.argv[1:]==['-s','tv:5555','exec-out','screencap','-p']\nsys.stdout.buffer.write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII='))\n").unwrap();
+    fs::set_permissions(&adb, fs::Permissions::from_mode(0o755)).unwrap();
+    let bytes = crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(false)).unwrap();
+    assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+    assert!(crate::capture_screen(&adb, "tv:5555", &AtomicBool::new(true)).is_err());
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -1035,171 +1069,4 @@ fn install_results_distinguish_original_paths_even_when_basenames_match() {
     assert_eq!(state.install_results[1].path, paths[1]);
     assert!(state.install_results[0].success);
     assert!(!state.install_results[1].success);
-}
-
-#[test]
-fn layout_writes_reject_system_disabled_or_missing_user_apps() {
-    let (mut manager, tv) = fixture();
-    connect(&mut manager);
-    {
-        let mut tv = tv.lock().unwrap();
-        tv.default = "com.ecojust.puretv/.MainActivity".into();
-        tv.layout_provider = true;
-    }
-    let mut layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../resource/launcher/app/src/main/assets/layout.json"
-    ))
-    .unwrap();
-    for package in ["com.vendor.ads", "com.user.app", "com.example.missing"] {
-        layout["home"]["items"] = serde_json::json!([{"packageName":package}]);
-        assert!(manager
-            .execute_launcher(crate::LauncherRequest::ApplyLayout {
-                layout: layout.clone()
-            })
-            .is_err());
-        assert!(tv.lock().unwrap().launcher_layout.is_none());
-    }
-    layout["home"]["items"] = serde_json::json!([{"packageName":"com.ecojust.puretv"}]);
-    assert!(manager
-        .execute_launcher(crate::LauncherRequest::ApplyLayout { layout })
-        .is_ok());
-}
-
-#[test]
-fn connection_addresses_survive_failed_attempts_restart_and_validation() {
-    let (mut manager, tv) = fixture();
-    tv.lock().unwrap().connect_error =
-        Some("failed to connect to '192.168.0.191:5555': No route to host".into());
-    let error = manager
-        .execute(Request::Connect {
-            host: " 192.168.0.191 ".into(),
-            port: 5555,
-        })
-        .unwrap_err();
-    assert!(
-        error.contains("无法通过局域网到达 192.168.0.191:5555")
-            && error.contains("本地网络")
-            && error.contains("No route to host"),
-        "{error}"
-    );
-    assert!(manager.snapshot().device.is_none());
-    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
-    let address = reloaded.snapshot().last_connection.unwrap();
-    assert_eq!(address.host, "192.168.0.191");
-    assert_eq!(address.port, 5555);
-    assert!(
-        reloaded.snapshot().device.is_none(),
-        "Restoring an address never auto-connects"
-    );
-    assert!(manager
-        .execute(Request::Connect {
-            host: "new-tv.local".into(),
-            port: 37777
-        })
-        .is_err());
-    assert!(manager
-        .execute(Request::Connect {
-            host: "bad;host".into(),
-            port: 5555
-        })
-        .is_err());
-    assert!(manager
-        .execute(Request::Connect {
-            host: "other-tv.local".into(),
-            port: 0
-        })
-        .is_err());
-    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
-    let address = reloaded.snapshot().last_connection.unwrap();
-    assert_eq!(address.host, "new-tv.local");
-    assert_eq!(address.port, 37777);
-    let calls = &tv.lock().unwrap().calls;
-    assert_eq!(calls.iter().filter(|a| a[0] == "connect").count(), 2);
-}
-#[test]
-fn remembered_address_survives_disconnect_and_invalid_saved_address_is_ignored() {
-    let (mut manager, _) = fixture();
-    connect(&mut manager);
-    manager.execute(Request::Disconnect).unwrap();
-    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
-    assert_eq!(
-        reloaded.snapshot().last_connection.unwrap().host,
-        "192.168.1.50"
-    );
-    assert!(reloaded.snapshot().device.is_none());
-    let path = manager.data_dir.join("state.json");
-    let mut saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-    saved["last_connection"] = serde_json::json!({"host":"bad;host","port":5555});
-    fs::write(&path, saved.to_string()).unwrap();
-    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
-    assert!(reloaded.snapshot().last_connection.is_none());
-    assert_eq!(reloaded.saved.adb_path, manager.saved.adb_path);
-}
-#[test]
-fn connection_failures_explain_network_port_and_timeout_without_hiding_details() {
-    for (error, expected) in [
-        ("No route to host", "无法通过局域网到达"),
-        ("unreachable host. (10065)", "无法通过局域网到达"),
-        ("Connection refused", "拒绝了 ADB 连接"),
-        ("Connection timed out", "超时"),
-    ] {
-        let message = connection_error("tv.local:5555", error.into());
-        assert!(
-            message.contains(expected)
-                && message.contains("tv.local:5555")
-                && message.ends_with(error),
-            "{message}"
-        );
-    }
-    assert_eq!(
-        connection_error(
-            "tv.local:10065",
-            "failed to authenticate to tv.local:10065".into()
-        ),
-        "failed to authenticate to tv.local:10065"
-    );
-    assert_eq!(
-        connection_error("tv.local:5555", "操作已取消".into()),
-        "操作已取消"
-    );
-}
-
-#[test]
-fn local_network_refresh_needs_no_adb_and_does_not_change_tv_state() {
-    let (mut manager, tv) = fixture();
-    manager.saved.adb_path = Some("/missing/adb".into());
-    manager.state.adb_available = false;
-    let before = manager.snapshot();
-    let updated = manager.execute(Request::RefreshLocalNetwork).unwrap();
-    assert!(tv.lock().unwrap().calls.is_empty());
-    assert!(updated.device.is_none());
-    assert_eq!(updated.history.len(), before.history.len());
-    assert!(updated.local_network.error.is_none());
-    assert!(updated.revision > before.revision);
-    assert!(updated
-        .local_network
-        .addresses
-        .iter()
-        .all(|address| !address.ip.starts_with("127.") && address.prefix_length <= 32));
-}
-
-#[test]
-fn duplicate_error_lines_are_shown_once_without_changing_successful_data() {
-    let line = "failed to connect to '192.168.0.191:5555': No route to host";
-    let error = check_output(Output {
-        code: 1,
-        text: format!("{line}\n{line}\nMore information"),
-    })
-    .unwrap_err();
-    assert_eq!(error.matches("No route to host").count(), 1);
-    assert!(error.contains("More information"));
-    let data = "1024\n1024\n";
-    assert_eq!(
-        check_output(Output {
-            code: 0,
-            text: data.into()
-        })
-        .unwrap(),
-        data
-    );
 }

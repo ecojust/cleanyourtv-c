@@ -8,7 +8,6 @@ const unavailable = '浏览器预览不能连接电视，请运行 pureTV 桌面
 const sample = emptySnapshot();
 let demoDownloadCancelled = false, demoToolsInstalled = false;
 if (demo) {
-  sample.localNetwork={addresses:[{interfaceName:'演示 Wi-Fi',ip:'192.168.1.20',prefixLength:24}],error:null};
   sample.adbAvailable = true;
   sample.adbPath = '演示 / platform-tools / adb';
   sample.device = { serial: '192.168.1.50:5555', model: '客厅电视', androidVersion: '12', userId: 0, status: 'device' };
@@ -91,7 +90,7 @@ export async function platformToolsInfo(): Promise<PlatformToolsInfo> {
   if (!desktop) throw new Error(unavailable);
   return invoke<PlatformToolsInfo>('platform_tools_info');
 }
-export async function installPlatformTools(onProgress: (progress: DownloadProgress) => void, forceDownload=false): Promise<Snapshot> {
+export async function installPlatformTools(onProgress: (progress: DownloadProgress) => void): Promise<Snapshot> {
   if (demo) {
     if (sample.device) throw new Error('请先断开当前电视，再配置 ADB');
     demoDownloadCancelled = false;
@@ -105,18 +104,18 @@ export async function installPlatformTools(onProgress: (progress: DownloadProgre
   }
   if (!desktop) throw new Error(unavailable);
   const progress = new Channel<DownloadProgress>(onProgress);
-  return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress, ...(forceDownload?{forceDownload:true}:{}) });
+  return invoke<Snapshot>('install_platform_tools', { acceptedLicense: true, onProgress: progress });
 }
-export async function openResource(resource: 'catalog' | 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
+export async function openResource(resource: 'releases' | 'platformTools' | 'platformToolsLicense'): Promise<void> {
   if (demo || !desktop) {
-    const url = resource === 'catalog' ? 'https://github.com/ecojust/pureTV/tree/master/resource' : resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases' : resource === 'platformToolsLicense' ? 'https://developer.android.com/studio/terms' : 'https://developer.android.com/tools/releases/platform-tools';
+    const url = resource === 'releases' ? 'https://github.com/ecojust/pureTV/releases' : resource === 'platformToolsLicense' ? 'https://developer.android.com/studio/terms' : 'https://developer.android.com/tools/releases/platform-tools';
     window.open(url, '_blank', 'noopener,noreferrer'); return;
   }
   await invoke('open_resource', { resource });
 }
 
 export interface McpInfo { config: { mcpServers: Record<string, { command: string; args: string[] }> }; sessionPath: string }
-export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo }
+export interface McpOperation { running: boolean; tool: string; snapshot?: Snapshot; error?: string; launcherResult?: import('./types').LauncherLayoutInfo | import('./types').LauncherPreview }
 export async function mcpInfo(): Promise<McpInfo | null> {
   if (!desktop || demo) return null;
   return invoke<McpInfo>('mcp_info');
@@ -126,22 +125,21 @@ export async function watchMcp(operation: (value: McpOperation) => void, progres
   await listen<McpOperation>('mcp-operation', event => operation(event.payload));
   await listen<DownloadProgress>('mcp-progress', event => progress(event.payload));
 }
-export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo> {
+export async function launcherExecute(request: import('./types').LauncherRequest): Promise<import('./types').LauncherLayoutInfo | import('./types').LauncherPreview> {
   if (!desktop || demo) throw new Error('请在真实桌面管理器中连接电视，读取启动器布局接口。');
   return invoke('launcher_execute', { request });
 }
 export async function chooseLauncherJson(): Promise<string | null> {
-  if (!desktop || demo) throw new Error('请在桌面管理器中选择 layout.json。');
+  if (!desktop || demo) throw new Error('请在桌面管理器中选择 apps.json。');
   return invoke('choose_launcher_json');
 }
 
-export async function launcherCovers(): Promise<Record<string,string>> { if(!desktop || demo)return {}; return invoke('get_launcher_covers'); }
-export async function chooseLauncherCover(key:string, remove=false): Promise<Record<string,string>> { return invoke('choose_launcher_cover',{key,remove}); }
-export async function chooseLauncherApks(): Promise<{path:string;cover?:string|null}[]> { if(demo)return [{path:'pureTV.apk'}]; return invoke('choose_launcher_apks'); }
-
-export async function adoptLauncherCover(key:string,apkPath:string):Promise<Record<string,string>> {return invoke('choose_launcher_cover',{key,apkPath});}
-
-export interface InterfacePreferences {locale?:string|null;theme?:string|null}
-export async function interfacePreferences():Promise<InterfacePreferences> {if(!desktop || demo)return {};return invoke('get_interface_preferences');}
-export async function setInterfacePreferences(preferences:InterfacePreferences,onlyIfUnset=false):Promise<InterfacePreferences> {if(!desktop || demo)return preferences;return invoke('set_interface_preferences',{preferences,onlyIfUnset});}
-export async function watchInterfacePreferences(callback:(value:InterfacePreferences)=>void):Promise<void> {if(!desktop || demo)return;await listen<InterfacePreferences>('interface-preferences',event=>callback(event.payload));}
+export async function liveExecute(action: 'start'|'pause'|'stop'|'status'|'frame', fps?: number): Promise<import('./types').LiveStatus | import('./types').LiveFrame> {
+  if (!desktop || demo) throw new Error('请运行桌面管理器并连接电视。');
+  return invoke('live_execute', { action, fps });
+}
+export async function watchLive(state: (value: import('./types').LiveStatus)=>void, frame: (value: {frame:import('./types').LiveFrame;status:import('./types').LiveStatus})=>void): Promise<void> {
+  if (!desktop || demo) return;
+  await listen<import('./types').LiveStatus>('live-state',event=>state(event.payload));
+  await listen<{frame:import('./types').LiveFrame;status:import('./types').LiveStatus}>('live-frame',event=>frame(event.payload));
+}

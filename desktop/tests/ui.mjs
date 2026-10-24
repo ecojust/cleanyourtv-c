@@ -33,7 +33,7 @@ async function acceptTools(p) {
 const captureDir = process.env.PURETV_CAPTURE_DIR;
 async function shot(p, name) { if (captureDir) { await mkdir(captureDir, { recursive: true }); await p.screenshot({path:`${captureDir}/${name}.png`, fullPage:true}); } }
 async function check(name, run, state = snapshot(), options = {}) {
-  const context = await browser.newContext({ locale:'zh-CN', viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const p = await context.newPage(), errors = [];
   p.on('pageerror', e => errors.push(e.message));
   try {
@@ -61,38 +61,6 @@ try {
     assert.equal(await act(p,'download-adb').isDisabled(), true);
     await nav(p,'apps'); assert.equal(await p.locator('input[data-select-package]').count(),0);
   }, null);
-  await check('local computer IPs are labeled independently from TV, refresh before ADB, and stay on home',async p=>{
-    await p.locator('.local-network-addresses').waitFor();
-    assert.match(await p.locator('.local-network-panel').innerText(),/192.168.0.2\/24/);assert.match(await p.locator('.local-network-panel').innerText(),/Ethernet/);
-    assert.equal(await p.locator('[name="host"]').inputValue(),'');assert.equal(await act(p,'connect').isDisabled(),true);assert.equal(await act(p,'refresh-local-network').isEnabled(),true);
-    await act(p,'refresh-local-network').click();await settled(p);assert.match(await p.locator('.local-network-panel').innerText(),/192.168.8.2/);assert.equal(await p.locator('.local-network-panel').getByText('192.168.0.2/24').count(),0);
-    assert.deepEqual(await requests(p),[{action:'refreshLocalNetwork'}]);
-    await p.locator('[name="locale"]').selectOption('en');assert.match(await p.locator('.local-network-panel').innerText(),/LAN IP/);
-    await nav(p,'apps');assert.equal(await p.locator('.local-network-panel').count(),0);
-  },{...withoutAdb(),localNetwork:snapshot().localNetwork},{localNetworkAfterRefresh:{addresses:[{interfaceName:'Wi-Fi',ip:'192.168.8.2',prefixLength:24}],error:null}});
-  await check('missing local network addresses are explicit and never replaced with sample data',async p=>{
-    await p.waitForFunction(()=>document.querySelector('.local-network-panel').textContent.includes('未检测到'));
-    assert.equal(await p.locator('.local-network-addresses').count(),0);
-    await p.locator('[name="locale"]').selectOption('zh-TW');assert.match(await p.locator('.local-network-panel').innerText(),/未偵測到/);
-  },{...withoutAdb(),localNetwork:{addresses:[],error:null}});
-  await check('language and skins switch at runtime without translating app data',async p=>{
-    await p.locator('[name="locale"]').selectOption('en');assert.equal(await p.locator('h1').innerText(),'Connection');
-    await nav(p,'apps');assert.equal(await p.locator('h1').innerText(),'Apps');assert.match(await p.locator('.apps-table').innerText(),/厂商推荐/);
-    assert.equal(await act(p,'scan').innerText(),'Scan again');assert.match(await p.locator('.apps-table').innerText(),/APK size/);
-    await p.locator('[name="theme"]').selectOption('graphite');assert.equal(await p.locator('html').getAttribute('data-theme'),'graphite');
-    assert.equal(await p.locator('.panel').first().evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(28, 40, 36)');
-    await p.locator('[name="locale"]').selectOption('zh-TW');assert.equal(await p.locator('html').getAttribute('lang'),'zh-TW');assert.match(await p.locator('h1').innerText(),/應用/);
-    assert.deepEqual(await requests(p),[],'Appearance changes do not change the TV');await p.reload();await p.locator('.connection-strip').waitFor();
-    assert.equal(await p.locator('html').getAttribute('lang'),'zh-TW');assert.equal(await p.locator('html').getAttribute('data-theme'),'graphite');
-  });
-  await check('English diagnostics translate formatted counts and retain package data',async p=>{
-    await p.locator('[name="locale"]').selectOption('en');await p.locator('[name="host"]').fill('bad;host');await act(p,'connect').click();assert.match(await p.locator('.notice.error').innerText(),/Enter a valid TV IP/);
-    const state=snapshot();state.revision=1;state.message='安装完成：成功 1 项，失败 2 项，未执行 3 项';
-    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'install',snapshot:value}),state);
-    assert.match(await p.locator('.notice').innerText(),/Installation finished: 1 succeeded, 2 failed, 3 skipped/);
-    await p.evaluate(()=>{window.__interfacePreferences={locale:'en',theme:'ocean'};window.__emitMcp('interface-preferences',window.__interfacePreferences);});
-    assert.equal(await p.locator('html').getAttribute('data-theme'),'ocean');
-  });
   await check('MCP configuration and agent operations synchronize with the window', async p => {
     await p.locator('.mcp-config').waitFor();
     assert.match(await p.locator('.mcp-config').innerText(), /--mcp/);
@@ -128,7 +96,7 @@ try {
     assert.equal(await p.locator('tr[data-package="com.ecojust.puretv"] .size-cell').innerText(),'未能读取');
     assert.equal(await p.locator('tr[data-package="com.android.settings"] .size-cell').innerText(),'未能读取');
     await p.locator('tr[data-package="com.ecojust.webtv"] [data-act="details"]').click();
-    assert.match(await p.locator('dialog.modal').innerText(),/不含私有数据和缓存/);
+    assert.match(await p.locator('dialog').innerText(),/不含私有数据和缓存/);
   });
   const longState = snapshot();
   longState.packages = Array.from({length:120},(_,i)=>({packageName:`com.example.app${i}`,label:`应用 ${i}`,installed:true,system:false,enabled:true,protectedReason:null,apkSizeBytes:1048576}));
@@ -171,75 +139,67 @@ try {
     await nav(p,'apps');
     await shot(p,'scrolling-lists');
   },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
-  await check('unsupported launcher has no layout button or screenshot controls',async p=>{
-    await nav(p,'launchers');await settled(p);
-    assert.equal(await act(p,'open-layout').count(),0);assert.equal(await act(p,'capture-launcher').count(),0);
-    assert.equal(await p.locator('.launcher-card-background').count(),0,'No cover unless user provides an image');
+  await check('unsupported launchers are not editable but current HOME can be previewed', async p => {
+    await nav(p,'launchers'); await act(p,'read-layout').click(); await settled(p);
+    await p.locator('.layout-editor').getByText('此启动器尚未接入可验证的布局接口，请使用它自身的设置。').waitFor();
+    assert.equal(await act(p,'apply-layout').count(),0);
+    await act(p,'capture-launcher').click();await settled(p);
+    await p.locator('.launcher-cover img[src^="data:image/png;base64,"]').waitFor();
+    assert.deepEqual(await p.evaluate(()=>window.__launcherRequests.map(r=>r.action)),['getLayout','capturePreview']);
   });
   const customHome = snapshot(); customHome.defaultHome='com.ecojust.puretv/.MainActivity';
   customHome.launchers.forEach(l=>l.isDefault=l.component===customHome.defaultHome);
-  await check('current launcher opens a global canvas with independent home and apps layouts',async p=>{
-    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
-    await p.locator('.layout-modal[open] .tv-canvas').waitFor();
+  await check('supported current launcher edits real layout, icons and app order only on apply', async p => {
+    await nav(p,'launchers');await act(p,'read-layout').click();await settled(p);
+    await act(p,'apply-layout').waitFor();
     await p.locator('[name="layoutColumns"]').fill('3');await p.locator('[name="layoutColumns"]').dispatchEvent('change');
-    await p.locator('[data-layout-tile="1"]').click();await act(p,'layout-up').click();
+    await p.locator('[data-act="layout-up"][data-index="1"]').click();
+    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home[0].action,'files');
     await p.locator('[data-layout-label="0"]').fill('文件入口');await p.locator('[data-layout-label="0"]').dispatchEvent('change');
+    await p.locator('[data-layout-icon="0"]').selectOption('video');
     await p.locator('[name="layoutApp"]').selectOption('com.ecojust.webtv');await act(p,'layout-add').click();
-    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.columns,3);assert.equal(draft.apps.columns,3);assert.equal(draft.home.items[0].action,'files');
-    assert.doesNotMatch(await p.locator('[name="layoutApp"]').innerText(),/系统启动器|未安装应用/);
-    await act(p,'layout-apps').click();await p.locator('[name="layoutColumns"]').fill('5');await p.locator('[name="layoutColumns"]').dispatchEvent('change');
-    await act(p,'layout-home').click();assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'3');
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.columns,3);assert.equal(draft.home.length,4);assert.equal(draft.home[0].icon,'video');
+    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),1,'Draft edits do not touch the TV');
     await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='applyLayout'));await settled(p);
-    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));assert.equal(applied.layout.apps.columns,5);assert.equal(applied.layout.home.items[0].label,'文件入口');
-    await act(p,'import-layout').click();assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).home.columns,2);
+    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));
+    assert.equal(applied.layout.columns,3);assert.equal(applied.layout.home[0].label,'文件入口');
+    await act(p,'import-layout').click();assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,2);
+    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),2,'Import is local until applied');
     await act(p,'reset-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='resetLayout'));await settled(p);
-    assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).home.columns,4);
+    assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,4);
+    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'apply_launcher_layout',snapshot:value,launcherResult:{supported:true,component:value.defaultHome,layout:{version:1,columns:5,home:[{action:'music',icon:'music'}],apps:[]},apps:[]}}),customHome);
+    assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'5','Agent layout changes reach the editor');
     const another=structuredClone(customHome);another.device.serial='192.168.1.51:5555';another.revision=1;
     await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'connect',snapshot:value}),another);
-    assert.equal(await p.locator('.layout-modal[open]').count(),0,'Device changes close the canvas');
-  },customHome,{layoutSupported:true});
-  await check('canvas drag reorders cards and cancel never writes to TV',async p=>{
-    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
-    await p.locator('[data-layout-tile="0"]').dragTo(p.locator('[data-layout-tile="2"]'));
-    const draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.items[2].action,'music');
-    await act(p,'close-layout').click();assert.equal(await p.locator('.layout-modal[open]').count(),0);
-    assert.equal(await p.evaluate(()=>window.__launcherRequests.filter(r=>r.action==='applyLayout').length),0);
+    assert.equal(await act(p,'apply-layout').count(),0,'Capabilities from another TV must not enable writes');
   },customHome,{layoutSupported:true});
   await check('system information is visible at home and connection controls stay only there', async p => {
     assert.match(await p.locator('.device-info').innerText(),/Test Maker/);
     assert.match(await p.locator('.device-info').innerText(),/4.0 GiB/);
     assert.match(await p.locator('.device-info').innerText(),/32.0 GiB/);
     assert.equal(await p.locator('[data-page="install"]').count(),0,'No separate install navigation');
-    for(const page of ['apps','launchers','install','history']) {
+    for(const page of ['apps','launchers','install','history','live']) {
       await nav(p,page);assert.equal(await p.locator('.connection-strip').count(),0,`No connection form on ${page}`);
       assert.match(await p.locator('.device-badge').innerText(),/已连接/);
     }
     await nav(p,'connect');assert.equal(await p.locator('[name="host"]').count(),1);
   });
-  await check('removed live view and pairing are absent',async p=>{
-    assert.equal(await p.locator('[data-page="live"]').count(),0);assert.equal(await p.locator('[name="pairCode"]').count(),0);assert.equal(await act(p,'go-live').count(),0);
+  await check('live screen receives frames without rebuilding controls and supports pause and stop', async p => {
+    await nav(p,'live');await act(p,'start-live').click();
+    await p.waitForFunction(()=>window.__liveRequests.some(r=>r.action==='start'));
+    await p.evaluate(()=>window.__emitMcp('live-frame',{frame:{serial:'192.168.1.50:5555',userId:0,image:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII=',timestampMs:123},status:{running:true,paused:false,serial:'192.168.1.50:5555',userId:0,targetFps:1,actualFps:1,frames:1,timestampMs:123,message:'正在显示电视画面'}}));
+    assert.equal(await p.locator('#live-image').isVisible(),true);
+    assert.match(await p.locator('#live-status').innerText(),/1 帧/);
+    await act(p,'pause-live').click();assert.equal(await p.locator('#live-image').isVisible(),true);
+    await act(p,'stop-live').click();assert.equal(await p.locator('#live-image').isVisible(),false);
+    assert.equal(await p.locator('#live-empty').isVisible(),true);
   });
-  await check('launcher APK installs on the same page and covers are optional backgrounds',async p=>{
-    await nav(p,'launchers');await settled(p);await act(p,'add-launcher').click();
-    assert.equal(await p.locator('.pending-launcher').count(),1);assert.equal(await p.locator('.pending-launcher .launcher-card-background').count(),1);
-    await act(p,'install-launcher').click();await confirmOperation(p);assert.equal(await p.locator('.pending-launcher').count(),0);
-    assert.equal(await p.locator('[data-page="launchers"]').getAttribute('aria-current'),'page');
-    await act(p,'launcher-cover').click();assert.equal(await p.locator('.launcher-card-background').count(),1);
-    await act(p,'remove-launcher-cover').click();assert.equal(await p.locator('.launcher-card-background').count(),0);
-    await p.setViewportSize({width:1000,height:700});
-    assert.equal(await p.locator('.launcher-card').evaluateAll(cards=>cards.every(card=>[...card.querySelectorAll('button')].every(button=>{const c=card.getBoundingClientRect(),b=button.getBoundingClientRect();return b.left>=c.left && b.right<=c.right && b.bottom<=c.bottom;}))),true,'Card buttons stay inside cards');
-  },snapshot(),{thumbnail:true});
-  await check('one pending APK installs independently and leaves the other rows',async p=>{
-    await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
-    await p.locator('.apk-item').nth(1).locator('[data-act="install-one-apk"]').click();await confirmOperation(p);
-    assert.deepEqual((await requests(p)).find(r=>r.action==='install').paths,['/tmp/second.apk']);assert.equal(await p.locator('.apk-item').count(),1);assert.match(await p.locator('.apk-item').innerText(),/first.apk/);
-  },snapshot(),{apkPaths:['/tmp/first.apk','/tmp/second.apk']});
   await check('pending APKs install inside app management and new apps become layout choices', async p => {
     await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
     await act(p,'install-apks').click();await confirmOperation(p);
     assert.equal(await p.locator('.apk-item').count(),0,'Successful installs leave the pending queue');
     await act(p,'go-apps').click();assert.equal(await box(p,'com.imported.app').count(),1);
-    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();await p.locator('[name="layoutApp"]').waitFor();
+    await nav(p,'launchers');await p.locator('[name="layoutApp"]').waitFor();
     assert.match(await p.locator('[name="layoutApp"]').innerText(),/新安装应用/);
   },customHome,{layoutSupported:true});
   await check('partial installation removes only successful paths and retains failures', async p => {
@@ -260,11 +220,11 @@ try {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');
     await act(p,'download-adb').click();
-    assert.match(await p.locator('dialog.modal').innerText(),/37\.0\.1/);
-    assert.match(await p.locator('dialog.modal').innerText(),/macOS/);
-    assert.match(await p.locator('dialog.modal').innerText(),/15\.4 MiB/);
-    assert.match(await p.locator('dialog.modal').innerText(),/dl\.google\.com/);
-    assert.match(await p.locator('dialog.modal').innerText(),/mirrors\.cloud\.tencent\.com/);
+    assert.match(await p.locator('dialog').innerText(),/37\.0\.1/);
+    assert.match(await p.locator('dialog').innerText(),/macOS/);
+    assert.match(await p.locator('dialog').innerText(),/15\.4 MiB/);
+    assert.match(await p.locator('dialog').innerText(),/dl\.google\.com/);
+    assert.match(await p.locator('dialog').innerText(),/mirrors\.cloud\.tencent\.com/);
     assert.equal(await p.locator('#platform-tools-license').isChecked(),false);
     assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
     await act(p,'platform-tools-license').click();
@@ -280,7 +240,7 @@ try {
     assert.match(await p.locator('.notice.success').innerText(),/ADB 已就绪/);
     assert.match(await p.locator('[name="adbPath"]').inputValue(),/platform-tools-37\.0\.1/);
     assert.equal(await act(p,'connect').isEnabled(),true);
-    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.match(await act(p,'download-adb').innerText(),/使用已下载 ADB/);
     await shot(p,'adb-ready');
   },withoutAdb(),{slowDownload:true});
   await check('ADB download failure stays unconfigured and can be retried', async p => {
@@ -307,40 +267,18 @@ try {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true},{action:'cancel'}]);
   },withoutAdb(),{slowDownload:true});
-  await check('ADB ready status prevents redundant setup and connected TVs prevent switching',async p=>{
-    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
-    assert.equal(await act(p,'choose-adb').isDisabled(),true);assert.equal(await act(p,'redownload-adb').isDisabled(),true);assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
-    await act(p,'disconnect').click();await settled(p);
-    assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);assert.equal(await act(p,'choose-adb').isEnabled(),true);assert.equal(await p.evaluate(()=>window.__toolsInstalls),0);
-  },snapshot(),{toolsInstalled:true});
-  await check('missing ADB offers download while a verified cache is reused offline', async p => {
-    assert.match(await act(p,'download-adb').innerText(),/下载 ADB 工具/);assert.equal(await act(p,'download-adb').isEnabled(),true);
+  await check('downloaded tools are offered for offline reuse and connected TVs prevent switching', async p => {
+    assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
+    await act(p,'disconnect').click(); await settled(p);
     await act(p,'download-adb').click();
-    assert.match(await p.locator('dialog.modal').innerText(),/优先验证并使用已下载工具/);
-    assert.match(await p.locator('dialog.modal').innerText(),/校验失败时会重新下载并修复/);
-    assert.match(await p.locator('dialog.modal').innerText(),/0 MiB/);
+    assert.match(await p.locator('dialog').innerText(),/优先验证并使用已下载工具/);
+    assert.match(await p.locator('dialog').innerText(),/校验失败时会重新下载并修复/);
+    assert.match(await p.locator('dialog').innerText(),/0 MiB/);
     await acceptTools(p); await settled(p);
-    assert.equal(await act(p,'connect').isEnabled(),true);assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);assert.equal(await act(p,'download-adb').isDisabled(),true);
+    assert.equal(await act(p,'connect').isEnabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),1);
-  },withoutAdb(),{toolsInstalled:true});
-  const readyDisconnected={...snapshot(),device:null,packages:[],launchers:[],defaultHome:null};
-  await check('ready ADB can be forcibly re-downloaded with consent and fresh download progress',async p=>{
-    assert.equal(await act(p,'download-adb').isDisabled(),true);assert.equal(await act(p,'redownload-adb').isEnabled(),true);
-    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();
-    assert.match(await p.locator('dialog.modal h2').innerText(),/重新下载/);assert.match(await p.locator('dialog.modal').innerText(),/15\.4 MiB/);assert.doesNotMatch(await p.locator('dialog.modal').innerText(),/0 MiB/);assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
-    await acceptTools(p);await p.locator('.busy-bar').waitFor();assert.match(await p.locator('.busy-bar').innerText(),/正在下载/);await settled(p);
-    assert.deepEqual(await requests(p),[{action:'installPlatformTools',acceptedLicense:true,forceDownload:true}]);assert.notEqual(await p.locator('[name="adbPath"]').inputValue(),previous);assert.match(await act(p,'download-adb').innerText(),/ADB 已就绪/);
-    await shot(p,'adb-redownload-ready');
-  },readyDisconnected,{toolsInstalled:true,slowDownload:true});
-  await check('failed forced download retains current ADB and allows a retry',async p=>{
-    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();await acceptTools(p);await settled(p);
-    assert.match(await p.locator('.notice.error').innerText(),/下载失败/);assert.equal(await p.locator('[name="adbPath"]').inputValue(),previous);assert.equal(await act(p,'connect').isEnabled(),true);
-    await act(p,'redownload-adb').click();await acceptTools(p);await settled(p);assert.equal(await p.evaluate(()=>window.__toolsInstalls),2);assert.notEqual(await p.locator('[name="adbPath"]').inputValue(),previous);
-  },readyDisconnected,{toolsInstalled:true,failDownloadOnce:true});
-  await check('cancelled forced download keeps ready ADB and the original path',async p=>{
-    const previous=await p.locator('[name="adbPath"]').inputValue();await act(p,'redownload-adb').click();await acceptTools(p);await p.locator('.busy-bar').waitFor();await act(p,'cancel').click();await settled(p);
-    assert.equal(await p.locator('[name="adbPath"]').inputValue(),previous);assert.equal(await act(p,'connect').isEnabled(),true);assert.match(await p.locator('.notice.info').innerText(),/取消/);
-  },readyDisconnected,{toolsInstalled:true,slowDownload:true});
+  },snapshot(),{toolsInstalled:true});
   await check('unsupported online setup keeps manual ADB selection available', async p => {
     await p.getByText('此系统请手动配置 ADB',{exact:true}).waitFor();
     assert.equal(await act(p,'download-adb').isDisabled(),true);
@@ -370,8 +308,8 @@ try {
   await check('cancel confirmation sends no mutation; confirmed disable sends exact target', async p => {
     await nav(p,'apps'); await box(p,'com.vendor.recommendations').check();
     await act(p,'disable').click();
-    assert.match(await p.locator('dialog.modal').innerText(),/192\.168\.1\.50:5555/);
-    assert.match(await p.locator('dialog.modal').innerText(),/com\.vendor\.recommendations/);
+    assert.match(await p.locator('dialog').innerText(),/192\.168\.1\.50:5555/);
+    assert.match(await p.locator('dialog').innerText(),/com\.vendor\.recommendations/);
     await p.getByRole('button',{name:'取消',exact:true}).click();
     assert.deepEqual(await requests(p),[]);
     await act(p,'disable').click(); await confirmOperation(p);
@@ -391,8 +329,8 @@ try {
     await p.getByRole('checkbox',{name:'选择 custom music.apk',exact:true}).check();
     await shot(p,'import-apks');
     await act(p,'install-apks').click();
-    assert.match(await p.locator('dialog.modal').innerText(),/C:\\我的安装包\\custom music\.apk/);
-    assert.doesNotMatch(await p.locator('dialog.modal').innerText(),/second\.apk/);
+    assert.match(await p.locator('dialog').innerText(),/C:\\我的安装包\\custom music\.apk/);
+    assert.doesNotMatch(await p.locator('dialog').innerText(),/second\.apk/);
     assert.deepEqual(await requests(p),[]);
     await confirmOperation(p);
     assert.deepEqual(await requests(p),[{action:'install',paths:['C:\\我的安装包\\custom music.apk']}]);
@@ -410,8 +348,8 @@ try {
     assert.deepEqual((await requests(p))[1],{action:'restoreHome'});
     assert.equal(await act(p,'restore-home').isDisabled(),true);
     await act(p,'add-launcher').click();
-    await p.locator('.pending-launcher').first().waitFor();
-    assert.equal(await p.locator('[data-page="launchers"]').getAttribute('aria-current'),'page');
+    await p.locator('.apk-item').first().waitFor();
+    assert.equal(await p.locator('[data-page="apps"]').getAttribute('aria-current'),'page');
   });
   await check('failed mutation shows error and retains actual package state', async p => {
     await nav(p,'apps'); await box(p,'com.vendor.recommendations').check();
@@ -425,29 +363,17 @@ try {
     assert.equal(await p.locator('.notice.success').count(),0);
     assert.match(await p.locator('.notice').innerText(),/失败 1 项/);
   },snapshot(),{partialFailure:true});
-  await check('host validation and no browser persistence', async p => {
+  await check('host validation, pairing code cleanup and no browser persistence', async p => {
     await p.locator('[name="host"]').fill('192.168.1.50;reboot'); await act(p,'connect').click();
     assert.deepEqual(await requests(p),[]);
     assert.match(await p.locator('.notice.error').innerText(),/有效/);
-    assert.deepEqual(await p.evaluate(()=>Object.keys(localStorage)),['puretv.preferences']);
-    assert.equal(await p.evaluate(()=>sessionStorage.length),0);
-    assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.1.50')),false);
+    await p.locator('[name="pairHost"]').fill('192.168.1.50');
+    await p.locator('[name="pairPort"]').fill('37001'); await p.locator('[name="pairCode"]').fill('123456');
+    await act(p,'pair').click(); await settled(p);
+    assert.deepEqual((await requests(p))[0],{action:'pair',host:'192.168.1.50',port:37001,code:'123456'});
+    assert.equal(await p.locator('[name="pairCode"]').inputValue(),'');
+    assert.equal(await p.evaluate(() => localStorage.length + sessionStorage.length),0);
   });
-  const rememberedState={...snapshot(),device:null,lastConnection:{host:'192.168.0.191',port:5555}};
-  const routeError="无法通过局域网到达 192.168.0.192:37777。请确认电视在线、IP 正确、电脑与电视在同一网络，并检查 VPN、防火墙和访客网络隔离。macOS 请在系统设置 → 隐私与安全性 → 本地网络中允许 pureTV。原始错误：ADB 操作失败：failed to connect: No route to host";
-  await check('native remembered address prefills without connecting and failures retain edits with localized guidance',async p=>{
-    await p.waitForFunction(()=>document.querySelector('[name="host"]').value==='192.168.0.191');
-    assert.equal(await p.locator('[name="port"]').inputValue(),'5555');assert.deepEqual(await requests(p),[]);
-    await p.reload();await p.waitForFunction(()=>document.querySelector('[name="host"]').value==='192.168.0.191');
-    await p.locator('[name="host"]').fill('192.168.0.192');await p.locator('[name="port"]').fill('37777');
-    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'get_state',snapshot:value}),rememberedState);
-    assert.equal(await p.locator('[name="host"]').inputValue(),'192.168.0.192');assert.equal(await p.locator('[name="port"]').inputValue(),'37777');
-    await act(p,'connect').click();await p.locator('.notice.error').waitFor();assert.match(await p.locator('.notice.error').innerText(),/本地网络/);
-    assert.equal(await p.locator('[name="host"]').inputValue(),'192.168.0.192');assert.equal(await p.locator('[name="port"]').inputValue(),'37777');
-    assert.deepEqual(await requests(p),[{action:'connect',host:'192.168.0.192',port:37777}]);
-    await p.locator('[name="locale"]').selectOption('en');assert.match(await p.locator('.notice.error').innerText(),/Cannot reach 192.168.0.192:37777/);assert.match(await p.locator('.notice.error').innerText(),/Local Network/);assert.match(await p.locator('.notice.error').innerText(),/No route to host/);
-    assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.0.192')),false);
-  },rememberedState,{connectError:routeError});
   await check('scan disables competing actions and exposes cancellation', async p => {
     await nav(p,'apps'); await act(p,'scan').click(); await p.locator('.busy-bar').waitFor();
     assert.equal(await act(p,'scan').isDisabled(),true);
@@ -457,7 +383,7 @@ try {
   },snapshot(),{slowScan:true});
   const injected = snapshot(); injected.device.model = '<img src=x onerror="window.__xss=true">'; injected.packages[0].label = injected.device.model;
   await check('device and application metadata render as text',async p => {
-    await nav(p,'apps'); assert.equal(await p.locator('.apps-table img, .device-badge img').count(),0); assert.equal(await p.evaluate(()=>window.__xss),false);
+    await nav(p,'apps'); assert.equal(await p.locator('img').count(),0); assert.equal(await p.evaluate(()=>window.__xss),false);
     assert.match(await p.locator('.apps-table').innerText(),/onerror/);
   },injected);
   console.log(`${passed} UI scenarios passed`);

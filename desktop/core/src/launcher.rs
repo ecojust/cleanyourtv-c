@@ -2,37 +2,27 @@ use super::*;
 use crate::LauncherRequest;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
+use std::io::Read;
 const PACKAGE: &str = "com.ecojust.puretv";
 const URI: &str = "content://com.ecojust.puretv.layout";
 const LAYOUT_LIMIT: usize = 48 * 1024;
 
 pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
-    let object = layout.as_object().ok_or("layout.json 应为对象")?;
+    let object = layout.as_object().ok_or("apps.json 应为对象")?;
     if object
         .keys()
-        .any(|key| !["version", "home", "apps"].contains(&key.as_str()))
-        || layout["version"] != 2
+        .any(|key| !["version", "columns", "home", "apps"].contains(&key.as_str()))
+        || layout["version"] != 1
+        || !layout["columns"]
+            .as_u64()
+            .is_some_and(|n| (1..=6).contains(&n))
         || layout.to_string().len() > LAYOUT_LIMIT
     {
-        return Err("layout.json 版本或大小无效".into());
+        return Err("apps.json 版本、列数或大小无效".into());
     }
-    for (section, max) in [("home", 24), ("apps", 100)] {
-        let page = layout[section]
-            .as_object()
-            .ok_or("home/apps 应为页面对象")?;
-        if page
-            .keys()
-            .any(|key| !["columns", "items"].contains(&key.as_str()))
-            || !layout[section]["columns"]
-                .as_u64()
-                .is_some_and(|n| (1..=6).contains(&n))
-        {
-            return Err("页面列数应为 1–6".into());
-        }
-        let entries = layout[section]["items"]
-            .as_array()
-            .ok_or("items 应为列表")?;
-        if entries.len() > max {
+    for (section, min, max) in [("home", 1, 24), ("apps", 0, 100)] {
+        let entries = layout[section].as_array().ok_or("home/apps 应为列表")?;
+        if entries.len() < min || entries.len() > max {
             return Err("布局应用数量超出限制".into());
         }
         let mut seen = BTreeSet::new();
@@ -121,7 +111,7 @@ fn provider_result(output: &str) -> Result<Value, String> {
         return Err("启动器布局响应过大".into());
     }
     let mut value: Value = serde_json::from_slice(&bytes).map_err(|_| "启动器布局响应无效")?;
-    if value["supported"] != true || value["version"] != 2 {
+    if value["supported"] != true || value["version"] != 1 {
         return Err("启动器布局接口版本不支持".into());
     }
     validate_layout(&value["layout"])?;
@@ -188,6 +178,9 @@ impl Manager {
             .default_home
             .clone()
             .ok_or("无法确认当前默认启动器")?;
+        if matches!(request, LauncherRequest::CapturePreview) {
+            return self.capture_launcher(&device, &component);
+        }
         if component.split('/').next() != Some(PACKAGE) {
             if !matches!(request, LauncherRequest::GetLayout) {
                 return Err("当前启动器未接入可验证的布局接口，未修改配置".into());
@@ -206,7 +199,7 @@ impl Manager {
             Err(error) => {
                 if matches!(request, LauncherRequest::GetLayout) {
                     return Ok(
-                        json!({"supported":false,"component":component,"message":format!("当前 pureTV 未开放布局接口或设备限制访问；请安装支持 layout.json 的新版启动器。{error}")}),
+                        json!({"supported":false,"component":component,"message":format!("当前 pureTV 未开放布局接口或设备限制访问；请安装支持 apps.json 的新版启动器。{error}")}),
                     );
                 }
                 return Err("无法读取布局接口，未修改启动器配置".into());
@@ -218,25 +211,6 @@ impl Manager {
         let (method, arg, expected) = match request {
             LauncherRequest::ApplyLayout { layout } => {
                 validate_layout(&layout)?;
-                for section in ["home", "apps"] {
-                    for entry in layout[section]["items"].as_array().unwrap() {
-                        if let Some(package) = entry["packageName"].as_str() {
-                            if !self.state.packages.iter().any(|app| {
-                                app.package_name == package
-                                    && app.installed
-                                    && !app.system
-                                    && app.enabled
-                            }) || !value["apps"]
-                                .as_array()
-                                .unwrap()
-                                .iter()
-                                .any(|app| app["packageName"] == package)
-                            {
-                                return Err("布局只能选择当前用户已安装、可启动的用户应用".into());
-                            }
-                        }
-                    }
-                }
                 (
                     "apply",
                     Some(STANDARD.encode(layout.to_string())),
@@ -292,6 +266,82 @@ impl Manager {
         self.persist()?;
         result
     }
+    fn capture_launcher(&mut self, device: &Device, component: &str) -> Result<Value, String> {
+        if !parse::component(component) {
+            return Err("默认启动器组件无效".into());
+        }
+        // Opening the current HOME is explicit in the UI; this does not change the default.
+        self.shell(
+            &device.serial,
+            &[
+                "am",
+                "start",
+                "-W",
+                "-n",
+                &parse::component_arg(component),
+                "-a",
+                "android.intent.action.MAIN",
+                "-c",
+                "android.intent.category.HOME",
+            ],
+        )?;
+        std::thread::sleep(Duration::from_millis(400));
+        let remote = format!("/sdcard/.puretv-manager-preview-{}.png", device.user_id);
+        let directory = self.data_dir.join("previews");
+        fs::create_dir_all(&directory).map_err(|_| "无法创建截图临时目录")?;
+        let path = directory.join(format!(
+            "capture-{}.png",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        let result = (|| {
+            self.shell(&device.serial, &["screencap", "-p", &remote])?;
+            self.run(
+                vec![
+                    "-s".into(),
+                    device.serial.clone(),
+                    "pull".into(),
+                    remote.clone(),
+                    path.to_string_lossy().into_owned(),
+                ],
+                None,
+                20,
+            )?;
+            let mut bytes = Vec::new();
+            fs::File::open(&path)
+                .map_err(|_| "无法读取电视截图")?
+                .take(8 * 1024 * 1024 + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|_| "无法读取电视截图")?;
+            if bytes.len() > 8 * 1024 * 1024
+                || bytes.len() < 24
+                || !bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+                || &bytes[12..16] != b"IHDR"
+            {
+                return Err("电视未返回有效的 PNG 截图，或截图超过 8 MiB".into());
+            }
+            let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+            let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+            if width == 0
+                || height == 0
+                || width > 7680
+                || height > 7680
+                || u64::from(width) * u64::from(height) > 40_000_000
+            {
+                return Err("截图尺寸无效或过大".into());
+            }
+            Ok(
+                json!({"serial":device.serial,"userId":device.user_id,"component":component,"image":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":width,"height":height,"message":"电视当前桌面截图"}),
+            )
+        })();
+        self.defer_cancel = true;
+        let _ = self.shell(&device.serial, &["rm", "-f", &remote]);
+        self.defer_cancel = false;
+        let _ = fs::remove_file(&path);
+        result
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -299,13 +349,13 @@ mod tests {
     #[test]
     fn layout_validation_and_provider_response_are_bounded_and_data_only() {
         let valid: Value = serde_json::from_str(include_str!(
-            "../../../resource/launcher/app/src/main/assets/layout.json"
+            "../tests/fixtures/020-apps.json"
         ))
         .unwrap();
         validate_layout(&valid).unwrap();
         for update in [
-            json!({"home":{"columns":7,"items":[]}}),
-            json!({"version":1}),
+            json!({"columns":7}),
+            json!({"version":2}),
             json!({"home":[{"packageName":"x;reboot"}]}),
             json!({"home":[{"packageName":"com.example.app","command":"reboot"}]}),
             json!({"home":[{"packageName":"com.example.app","icon":"https://untrusted/icon"}]}),
@@ -316,7 +366,7 @@ mod tests {
             }
             assert!(validate_layout(&bad).is_err());
         }
-        let value = json!({"supported":true,"version":2,"layout":valid,"apps":[]});
+        let value = json!({"supported":true,"version":1,"layout":valid,"apps":[]});
         assert_eq!(
             provider_result(&format!(
                 "Bundle[{{result={}}}]",

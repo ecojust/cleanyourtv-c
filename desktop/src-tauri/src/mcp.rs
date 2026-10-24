@@ -42,20 +42,22 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
-        tool("get_local_network","Refresh this computer's active LAN IPv4 addresses, adapter names and subnet prefixes. Returns the shared snapshot; no ADB or TV connection required.",json!({}),&[],true),
-        tool("get_interface_preferences","Get the open manager's interface language and theme preferences.",json!({}),&[],true),
-        tool("set_interface_preferences","Change and persist the open manager's interface language and theme. Device state is unchanged.",json!({"locale":{"type":"string","enum":["zh-CN","zh-TW","en"]},"theme":{"type":"string","enum":["emerald","ocean","graphite"]}}),&[],false),
         tool("refresh_system_info","Refresh connected TV manufacturer, Android SDK/security patch, CPU/ABI, RAM, /data storage, resolution and uptime. Unavailable values remain null.",json!({}),&[],true),
-        tool("get_launcher_covers","Read locally saved, user-provided launcher background images. No TV screenshots.",json!({}),&[],true),
-        tool("set_launcher_cover","Set a launcher card background from a local PNG/JPEG/WebP image (max 4 MiB), or remove it when path is omitted. Key is the launcher component.",json!({"key":{"type":"string"},"path":{"type":"string"}}),&["key"],false),
-        tool("choose_launcher_json","Open the manager's layout.json file picker and return UTF-8 configuration text; does not apply it.",json!({}),&[],true),
-        tool("get_launcher_layout","Read the CURRENT default launcher's verified layout.json capability, layout and launchable apps with icons. Unsupported launchers remain read-only.",json!({}),&[],true),
-        tool("apply_launcher_layout","Apply a data-only layout.json layout to the current supported launcher, then read it back. Layout is a JSON string; columns 1–6, home 0–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
-        tool("reset_launcher_layout","Remove the supported current launcher's layout.json override and verify defaults. Does not reset wallpaper or other settings.",json!({}),&[],false),
+        tool("start_live_view","Start read-only continuous screen preview of the connected TV without opening HOME. Target 1–3fps; actual rate depends on device/network.",json!({"fps":{"type":"integer","minimum":1,"maximum":3,"default":1}}),&[],true),
+        tool("pause_live_view","Pause continuous preview and retain the last frame.",json!({}),&[],true),
+        tool("stop_live_view","Stop continuous preview, cancel screen capture and release the last frame.",json!({}),&[],true),
+        tool("live_view_status","Get preview running/paused state, target and actual frame rate and last-frame timestamp; no image data.",json!({}),&[],true),
+        tool("get_live_frame","Get the latest preview frame as MCP PNG image content. Start preview first; paused frames remain available for the same TV/user.",json!({}),&[],true),
+        tool("choose_launcher_json","Open the manager's apps.json file picker and return UTF-8 configuration text; does not apply it.",json!({}),&[],true),
+        tool("get_launcher_layout","Read the CURRENT default launcher's verified apps.json capability, layout and launchable apps with icons. Unsupported launchers remain read-only.",json!({}),&[],true),
+        tool("apply_launcher_layout","Apply a data-only apps.json layout to the current supported launcher, then read it back. Layout is a JSON string; columns 1–6, home 1–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
+        tool("reset_launcher_layout","Remove the supported current launcher's apps.json override and verify defaults. Does not reset wallpaper or other settings.",json!({}),&[],false),
+        tool("capture_launcher_preview","Open the current default HOME on the TV and capture a PNG preview. Does not switch the default launcher. Returns MCP image content.",json!({}),&[],false),
         tool("get_state","Get current TV, apps, launchers and history. Cached state remains available during operations.",json!({}),&[],true),
         tool("get_status","Get operation busy/cancellation state, download progress and latest snapshot.",json!({}),&[],true),
         tool("set_adb_path","Select a local adb executable. Empty path automatically discovers ADB; disconnect TV first.",json!({"path":{"type":"string"}}),&["path"],false),
         tool("connect","Connect to an Android TV and scan when authorized. Accept the TV's authorization prompt if needed.",json!({"host":{"type":"string"},"port":{"type":"integer","minimum":1,"maximum":65535}}),&["host","port"],false),
+        tool("pair","Pair using TV's wireless pairing port and code; then connect using its debugging port. Code is never saved.",json!({"host":{"type":"string"},"port":{"type":"integer","minimum":1,"maximum":65535},"code":{"type":"string"}}),&["host","port","code"],false),
         tool("disconnect","Disconnect the selected TV.",json!({}),&[],false),
         tool("scan","Refresh apps, recovery candidates, current Android user and HOME launchers.",json!({}),&[],true),
         tool("set_enabled","Enable or disable explicit package names. Core components and current HOME remain protected.",json!({"packages":packages,"enabled":{"type":"boolean"}}),&["packages","enabled"],false),
@@ -67,10 +69,10 @@ pub fn tools() -> Vec<Value> {
         tool("clear_history","Clear the saved operation history.",json!({}),&[],false),
         tool("cancel","Cancel download/scan or stop subsequent batch items. An in-flight mutation finishes and is checked.",json!({}),&[],false),
         tool("platform_tools_info","Get pinned ADB version, sizes, platform support and managed cache availability; no download.",json!({}),&[],true),
-        tool("install_platform_tools","Download/verify/configure ADB or reuse verified offline cache. Set forceDownload=true to fetch a new verified copy even when the cache is valid. Google with Tencent fallback. Requires explicit Android SDK license acceptance; disconnect TV first.",json!({"forceDownload":{"type":"boolean","description":"Force a fresh download; preserve current ADB on cancellation or failure."},"acceptedLicense":{"type":"boolean","const":true,"description":"Set true only after the user accepts https://developer.android.com/studio/terms"}}),&["acceptedLicense"],false),
+        tool("install_platform_tools","Download/verify/configure ADB or reuse verified offline cache. Google with Tencent fallback. Requires explicit Android SDK license acceptance; disconnect TV first.",json!({"acceptedLicense":{"type":"boolean","const":true,"description":"Set true only after the user accepts https://developer.android.com/studio/terms"}}),&["acceptedLicense"],false),
         tool("choose_apks","Open the manager's native multi-APK picker. Returns paths; does not install.",json!({}),&[],true),
         tool("choose_adb","Open the manager's native executable picker. Returns path; does not configure it.",json!({}),&[],true),
-        tool("open_resource","Open the allowlisted APK resource catalog, project, Platform Tools or Android SDK license page in the user's browser.",json!({"resource":{"type":"string","enum":["catalog","releases","platformTools","platformToolsLicense"]}}),&["resource"],false),
+        tool("open_resource","Open an allowlisted project, Platform Tools or Android SDK license page in the user's browser.",json!({"resource":{"type":"string","enum":["releases","platformTools","platformToolsLicense"]}}),&["resource"],false),
     ]
 }
 fn error(id: Value, code: i64, message: &str) -> Value {
@@ -127,13 +129,14 @@ pub fn launcher_request(
                 .as_str()
                 .ok_or("layoutJson 应为 JSON 字符串")?;
             if text.len() > 48 * 1024 {
-                return Err("layout.json 不能超过 48 KiB".into());
+                return Err("apps.json 不能超过 48 KiB".into());
             }
             Some(LauncherRequest::ApplyLayout {
-                layout: serde_json::from_str(text).map_err(|_| "layout.json 格式无效")?,
+                layout: serde_json::from_str(text).map_err(|_| "apps.json 格式无效")?,
             })
         }
         "reset_launcher_layout" => Some(LauncherRequest::ResetLayout),
+        "capture_launcher_preview" => Some(LauncherRequest::CapturePreview),
         _ => None,
     })
 }
@@ -142,7 +145,6 @@ pub fn core_request(name: &str, mut args: Value) -> Result<puretv_core::Request,
     let action = match name {
         "get_state" => "getState",
         "refresh_system_info" => "refreshSystemInfo",
-        "get_local_network" => "refreshLocalNetwork",
         "set_adb_path" => "setAdbPath",
         "set_enabled" => "setEnabled",
         "set_home" => "setHome",
@@ -430,7 +432,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 29);
+        assert_eq!(tools().len(), 31);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {
@@ -608,8 +610,9 @@ mod tests {
         fs::remove_dir_all(directory).unwrap();
     }
     #[test]
-    fn layout_tools_accept_json_and_removed_features_are_unavailable() {
-        let layout = serde_json::json!({"version":2,"home":{"columns":4,"items":[]},"apps":{"columns":3,"items":[]}});
+    fn launcher_tools_parse_layouts_and_return_images_without_base64_in_text() {
+        let layout =
+            serde_json::json!({"version":1,"columns":4,"home":[{"action":"music"}],"apps":[]});
         assert!(launcher_request(
             "apply_launcher_layout",
             json!({"layoutJson":layout.to_string()})
@@ -619,8 +622,14 @@ mod tests {
         assert!(
             launcher_request("apply_launcher_layout", json!({"layoutJson":"invalid"})).is_err()
         );
-        for name in ["capture_launcher_preview", "start_live_view", "pair"] {
-            assert!(tools().iter().all(|tool| tool["name"] != name));
-        }
+        let response=dispatch(json!({"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"capture_launcher_preview"}}),&|_,_|Ok(json!({"image":"data:image/png;base64,AQID","component":"com.example.home/.Main","width":1,"height":1}))).unwrap();
+        assert_eq!(response["result"]["content"][0]["type"], "image");
+        assert!(response["result"]["structuredContent"]["result"]
+            .get("image")
+            .is_none());
+        assert!(!response["result"]["content"][1]["text"]
+            .as_str()
+            .unwrap()
+            .contains("AQID"));
     }
 }

@@ -30,7 +30,6 @@ def verify_app(app, config, architecture):
     assert info["CFBundleIdentifier"] == config["identifier"], "Wrong bundle identifier"
     assert info["CFBundleShortVersionString"] == config["version"], "Wrong app version"
     assert info["CFBundlePackageType"] == "APPL", "Not an application bundle"
-    assert "television" in info.get("NSLocalNetworkUsageDescription", ""), "Missing local-network permission description"
     minimum = config["bundle"]["macOS"]["minimumSystemVersion"]
     assert version(info["LSMinimumSystemVersion"]) == version(minimum)
     name = info["CFBundleExecutable"]

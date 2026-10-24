@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "pureTV Manager",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.ecojust.puretv.manager",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,7 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "shortDescription": "Manage your TV system, apps and launcher",
+    "shortDescription": "通过 ADB 管理 Android TV 的轻量桌面工具",
     "category": "Utility",
     "icon": [
       "icons/icon.png",
@@ -36,14 +36,12 @@
     ],
     "macOS": {
       "minimumSystemVersion": "11.0",
-      "signingIdentity": "-",
-      "infoPlist": "Info.plist"
+      "signingIdentity": "-"
     },
     "windows": {
       "nsis": {
         "languages": [
           "SimpChinese",
-          "TradChinese",
           "English"
         ],
         "displayLanguageSelector": true
