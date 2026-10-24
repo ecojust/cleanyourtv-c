@@ -10,7 +10,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 ## 下载
 
-[下载 pureTV Manager 0.3.2](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.2)
+[下载 pureTV Manager 0.3.4](https://github.com/ecojust/pureTV/releases/tag/desktop-v0.3.4)
 
 | 系统 | 安装包 |
 | --- | --- |
@@ -21,7 +21,7 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 首页显示当前电脑的局域网 IPv4、网卡与子网前缀，支持刷新与多网卡。电视 IP／主机名和端口会在点击连接后自动记住，失败时也保留，下次打开自动填入。连接失败排查见[连接指南](desktop/README.md#连接失败排查)。
 
-管理器安装在**电脑**上。电视开启 ADB／网络调试并接受授权后，即可使用应用管理，不需要安装电视端常驻服务。自定义桌面需另行安装[配套 pureTV Launcher 0.3.0](resource/launcher/)。电视端 APK 直接在资源目录下载，包大小与 SHA256 见各目录；管理器校验值见发布附件；macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
+管理器安装在**电脑**上。电视开启 ADB／网络调试并接受授权后，即可使用应用管理，不需要安装电视端常驻服务。自定义桌面需另行安装[配套 pureTV Launcher 0.3.4](resource/launcher/)。电视端 APK 直接在资源目录下载，包大小与 SHA256 见各目录；管理器校验值见发布附件；macOS 首次打开说明见[安装指南](desktop/README.md#macos-安装与首次打开)。
 
 ## 连接与应用管理
 
@@ -51,11 +51,11 @@ pureTV 是电脑端的 Android TV / Google TV 系统管理器。通过 ADB 连�
 
 公共目录为 [resource/](resource/)，分为 [launcher/](resource/launcher/) 与 [apps/](resource/apps/)，原根目录的启动器和应用源码已整体移入。以后 Release 只发布电脑管理器；启动器和电视应用 APK 直接放在各自软件目录。每个软件文件夹至少包含一个实际 APK，可同时提供对应版本源码、封面、作者、许可证及 SHA256。点击软件名称进入对应文件夹。
 
-启动器表格的“支持自定义”指支持本管理器的 **layout.json 版本 2 画布接口**。卡片背景仅在提供 `thumb.png`／`APK名.thumb.png` 等图片，或手动选择图片后显示。
+启动器表格的“支持自定义”指支持本管理器的 **layout.json 版本 3 场景画布接口**。卡片背景仅在提供 `thumb.png`／`APK名.thumb.png` 等图片，或手动选择图片后显示。
 
 ```text
 resource/
-├── launcher/          # 启动器源码、pureTV-0.3.0.apk、layout 示例和封面
+├── launcher/          # 启动器源码、pureTV-0.3.4.apk、layout 示例和封面
 └── apps/
     ├── music/         # Music TV 源码与 APK
     ├── shortvideo/    # ShortVideo TV 源码与 APK
@@ -70,7 +70,7 @@ resource/
 
 | 名称 | 作者 | 版本 | 支持自定义 | 封面截图 |
 | --- | --- | --- | --- | --- |
-| [pureTV Launcher](resource/launcher/) | ecojust / 桔子桑 | 0.3.0 | 是 | <img src="resource/launcher/thumb.png" width="180" alt="pureTV Launcher 界面"> |
+| [pureTV Launcher](resource/launcher/) | ecojust / 桔子桑 | 0.3.4 | 是 | <img src="resource/launcher/thumb.png" width="180" alt="pureTV Launcher 界面"> |
 
 ### 电视应用
 
@@ -88,55 +88,65 @@ resource/
 
 ## layout.json 规范与画面对照
 
-在当前默认且支持接口的启动器卡片上点击「调整布局」，打开全局电视画布。Home 与 Apps 分别设置列数，拖动卡片或用前移／后移按钮排序，再修改名称、图标和颜色。「应用到电视」确认后才保存，并读回核验；「取消」放弃草稿。
+**pureTV Launcher 0.3.4 使用版本 3 场景协议。** 同一份 JSON 由电视 Home/Apps 页面与管理器画布读取，不再在管理器里猜测固定区域。管理器仍可编辑旧版启动器的版本 2 网格；要移动顶部按钮等元素，请安装资源目录中的新版 APK。
 
-**只能添加当前用户已安装、启用且可启动的非系统应用。** 下例使用资源目录中的 TV Bro 和 Jellyfin TV，需要先安装这两个应用。示例文件：[layout.example.json](resource/launcher/layout.example.json)。
+完整可用文件：[layout.example.json](resource/launcher/layout.example.json)，与[电视内置模板](resource/launcher/app/src/main/assets/layout.json)、[管理器模板](desktop/public/layout.json)一致。文件包含首页和应用页的全部默认元素。下列片段展示字段关系（省略部分元素，完整配置请下载示例）：
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "home": {
-    "columns": 2,
+    "columns": 4,
+    "scene": {
+      "background": {"frame":{"x":0,"y":0,"width":960,"height":540},"visible":true,"zIndex":0,"color":"#101419"},
+      "elements": [
+        {"id":"clock","frame":{"x":48,"y":34,"width":260,"height":65},"visible":true,"zIndex":2},
+        {"id":"settings","frame":{"x":824,"y":34,"width":88,"height":40},"visible":true,"zIndex":2},
+        {"id":"allApps","frame":{"x":48,"y":492,"width":864,"height":24},"visible":true,"zIndex":2}
+      ]
+    },
     "items": [
-      {"packageName": "com.phlox.tvwebbrowser", "label": "浏览器", "icon": "app", "color": "#285B7C"},
-      {"packageName": "org.jellyfin.androidtv", "label": "媒体库", "icon": "video", "color": "#553578"}
+      {"packageName":"com.phlox.tvwebbrowser","icon":"app","label":"浏览器","color":"#374959","frame":{"x":48,"y":326,"width":204,"height":150},"visible":true,"zIndex":1}
     ]
   },
   "apps": {
-    "columns": 3,
-    "items": [
-      {"packageName": "org.jellyfin.androidtv", "label": "媒体库", "icon": "video", "color": "#553578"},
-      {"packageName": "com.phlox.tvwebbrowser", "label": "浏览器", "icon": "app", "color": "#285B7C"}
-    ]
+    "columns":4,
+    "scene": {
+      "background":{"frame":{"x":0,"y":0,"width":960,"height":540},"color":"#101419"},
+      "elements":[{"id":"backHome","frame":{"x":800,"y":30,"width":112,"height":40},"visible":true,"zIndex":2}]
+    },
+    "items":[]
   }
 }
 ```
 
-| 文件字段 | 规范 |
+| 字段 | 规范及画面含义 |
 | --- | --- |
-| `version` | 必须为 `2` |
-| `home` / `apps` | 各自包含 `columns` 和 `items` 的页面对象 |
-| `columns` | 每行 1–6 列，两页独立设置 |
-| `home.items` | 有序卡片数组，0–24 项 |
-| `apps.items` | 其他应用页有序卡片数组，0–100 项 |
-| `packageName` | 用户应用包名；同页不可重复，写入时核验已安装与可启动状态 |
-| `label` | 可选，最长 100 字；省略时读取应用名称 |
-| `icon` | 可选：`app`、`music`、`video`、`files`、`apps`、`picture`、`settings`、`input`；`app` 使用原应用图标 |
-| `color` | 可选，`#RRGGBB` 格式 |
-| `action` | 模板内置入口：`music`、`bilibili`、`files`、`apps`（应用商城）、`shortvideo`、`webtv`、`placeholder`；不与 `packageName` 同时指定 |
+| `version` | 新协议固定为 `3`；必需 `home` 与 `apps` 两个页面 |
+| `frame` | 所有背景、固定控件和应用卡片共用 `{x,y,width,height}`，使用 **960×540** 设计坐标；整数，尺寸为正，边界不能超出画布。不同电视分辨率等比缩放，非 16:9 留边 |
+| `visible` / `zIndex` | 是否显示（默认 true）／层级（0–20，默认 1）。隐藏的元素在编辑器中以虚线淡显，电视上隐藏；数值越大越靠前。同层背景在前、控件按数组顺序、卡片按数组顺序绘制，后绘制覆盖先绘制 |
+| `scene.background` | 同样有 frame、visible、zIndex；`color` 必须为 #RRGGBB。可选 `image` 为嵌入式 PNG/JPEG/WebP data URI，最大 33,000 字符、解码尺寸最大 1920×1080；按背景区域居中裁切。管理器导入图片会自动缩放压缩，不保存电脑路径或远程 URL |
+| `scene.elements` | 固定功能元素列表。首页 id：`clock`、`date`、`weather`、`wallpaper`（桌面设置）、`favourites`、`inputs`、`network`、`settings`、`allApps`；应用页 id：`title`、`subtitle`、`backHome`。id 不得重复；省略元素即不显示 |
+| 固定控件行为 | 时钟、天气、网络保持电视实时状态，顶部按钮继续使用启动器既有功能；JSON 只定义位置、尺寸、层级和可见性。天气还需在电视中开启并配置城市。遥控器方向键根据元素实际位置寻找目标 |
+| `items` | 首页最多 24 项，应用页最多 100 项，可为空；同页包名不重复。新应用必须为当前用户已安装、启用且可启动的非系统应用；不能通过布局添加系统应用 |
+| `packageName` / `action` | 用户应用使用包名。默认内置卡片可用 music/bilibili/files/apps/shortvideo/webtv/placeholder；与包名互斥，不支持任意 Intent 或命令。`apps` 内置卡片是应用商店；打开应用页用固定控件 `allApps` |
+| `label` / `icon` / `color` | 可选名称 ≤100 字；icon 为 app/music/video/files/apps/picture/settings/input，app 使用应用原图标；卡片色为 #RRGGBB。修改显示名称不会改变真实打开目标 |
+| `columns` | 1–6；用于自动排布和未指定 frame 的卡片。编辑器更改列数会重新排布卡片，之后可独立移动。已有显式 frame 的卡片以 frame 为准 |
 
-数组顺序按**从左到右、从上到下**排列；不足一行时留空，不生成额外卡片。默认模板还含启动器内置入口 `action`，不能同时指定 `packageName`。文件为 UTF-8，最大 48 KiB，不接受未知字段、任意命令、Intent 或远程脚本。
+文件为 UTF-8，整体最多 **48 KiB**；未知字段、越界坐标、重复控件或无效图片会被拒绝，不覆盖上次有效配置。模板里的每张卡片都有明确 frame；导入时未指定 frame 的卡片使用统一自动排布规则，编辑器拖动后写入明确坐标。固定按钮的功能不通过 JSON 改写。
 
-| JSON 页面 | 对应画布 |
+| 示例文件与画面对应 | 管理器画布 |
 | --- | --- |
-| `home.columns = 2`；第 1 项为浏览器，第 2 项为媒体库 | ![Home 两列：浏览器、媒体库；画布示例数据](docs/previews/layout-home-030.png) |
-| `apps.columns = 3`；第 1 项为媒体库，第 2 项为浏览器，第 3 格留空 | ![Apps 三列：媒体库、浏览器、空位；画布示例数据](docs/previews/layout-apps-030.png) |
+| 完整 layout.example.json 的 home：左上时钟／日期／天气位置，右上五个按钮，下方四张卡片与全部应用入口 | ![版本 3 首页场景画布](docs/previews/layout-scene-default-home-034.png) |
+| 同一文件的 apps：标题、副标题、返回按钮，以及两行应用卡片 | ![版本 3 应用页场景画布](docs/previews/layout-scene-default-apps-034.png) |
 
-上面两张画布截图与 JSON 使用相同的配置和示例应用数据，不是实机录屏。电视端在页面恢复／配置应用时动态加载布局，无需重新编译。管理器写入的私有 `files/layout.json` 优先于外部 `Android/data/com.ecojust.puretv/files/layout.json`；**不读取、不迁移旧版 `apps.json`**。完整接口与模板说明见[布局文档](desktop/docs/launcher-layout.md)。
+画布使用 JSON 中的真实位置和尺寸；时钟、日期、天气为示例内容，电视端显示实时数据。图片是管理器示例数据画布，不是实机录屏；资源目录封面则由 Android 页面原生渲染测试生成。电视每次页面恢复／配置应用时重新加载，无需重启。私有 `files/layout.json` 优先于外部 `Android/data/com.ecojust.puretv/files/layout.json`；**不读取、不迁移旧版 apps.json**。版本 2 自定义布局在新版电视启动器上需重新导入为版本 3，原文件不自动覆盖。
+
+更多编辑、恢复及 MCP 说明见[布局文档](desktop/docs/launcher-layout.md)。
 
 ## MCP / Agent
 
-在「设备连接 → MCP · Agent 调试」复制配置到客户端，保持管理器窗口打开。29 个工具覆盖系统信息、连接、应用管理、APK 安装、启动器切换与布局、背景图、ADB 配置、语言与主题、取消及记录；Agent 与界面共享状态。
+在「设备连接 → MCP · Agent 调试」复制配置到客户端，保持管理器窗口打开。30 个工具覆盖系统信息、连接、应用管理、APK 安装、启动器切换与布局、背景图、ADB 配置、语言与主题、取消及记录；Agent 与界面共享状态。
 
 [完整 MCP 接入与参数](desktop/docs/mcp.md)。
 

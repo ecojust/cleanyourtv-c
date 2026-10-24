@@ -42,6 +42,7 @@ fn tool(
 pub fn tools() -> Vec<Value> {
     let packages = json!({"type":"array","items":{"type":"string"},"minItems":1,"maxItems":100});
     vec![
+        tool("close_manager","Close the open manager after cancelling pending work and stopping the configured ADB server. In-flight mutations finish first. This interrupts connections using that ADB server; explicit user confirmation is required. A stdio disconnection during shutdown is expected.",json!({"confirmShutdown":{"type":"boolean","const":true}}),&["confirmShutdown"],false),
         tool("get_local_network","Refresh this computer's active LAN IPv4 addresses, adapter names and subnet prefixes. Returns the shared snapshot; no ADB or TV connection required.",json!({}),&[],true),
         tool("get_interface_preferences","Get the open manager's interface language and theme preferences.",json!({}),&[],true),
         tool("set_interface_preferences","Change and persist the open manager's interface language and theme. Device state is unchanged.",json!({"locale":{"type":"string","enum":["zh-CN","zh-TW","en"]},"theme":{"type":"string","enum":["emerald","ocean","graphite"]}}),&[],false),
@@ -50,7 +51,7 @@ pub fn tools() -> Vec<Value> {
         tool("set_launcher_cover","Set a launcher card background from a local PNG/JPEG/WebP image (max 4 MiB), or remove it when path is omitted. Key is the launcher component.",json!({"key":{"type":"string"},"path":{"type":"string"}}),&["key"],false),
         tool("choose_launcher_json","Open the manager's layout.json file picker and return UTF-8 configuration text; does not apply it.",json!({}),&[],true),
         tool("get_launcher_layout","Read the CURRENT default launcher's verified layout.json capability, layout and launchable apps with icons. Unsupported launchers remain read-only.",json!({}),&[],true),
-        tool("apply_launcher_layout","Apply a data-only layout.json layout to the current supported launcher, then read it back. Layout is a JSON string; columns 1–6, home 0–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
+        tool("apply_launcher_layout","Apply a data-only layout.json layout to the current supported launcher, then read it back. Layout is a JSON string; v3 uses shared 960x540 frames, visibility and layers for backgrounds, fixed controls and app cards; legacy v2 is supported for older launchers. Columns 1–6, home 0–24 entries, apps 0–100. No shell, arbitrary intents or remote icon URLs.",json!({"layoutJson":{"type":"string"}}),&["layoutJson"],false),
         tool("reset_launcher_layout","Remove the supported current launcher's layout.json override and verify defaults. Does not reset wallpaper or other settings.",json!({}),&[],false),
         tool("get_state","Get current TV, apps, launchers and history. Cached state remains available during operations.",json!({}),&[],true),
         tool("get_status","Get operation busy/cancellation state, download progress and latest snapshot.",json!({}),&[],true),
@@ -430,7 +431,7 @@ mod tests {
         let call = |name: &str, args: Value| Ok(json!({"tool":name,"arguments":args}));
         let response=dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),&call).unwrap();
         assert_eq!(response["result"]["protocolVersion"], "2025-03-26");
-        assert_eq!(tools().len(), 29);
+        assert_eq!(tools().len(), 30);
         for tool in tools() {
             let mut args = json!({});
             for key in tool["inputSchema"]["required"].as_array().unwrap() {

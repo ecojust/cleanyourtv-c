@@ -123,4 +123,30 @@ public class LauncherLayoutTest {
         assertEquals(context().getString(R.string.placeholder_app,4),placeholder.title(context()));
     }
 
+    @Test public void sceneMovesRealControlsAndCardsAndPreservesFixedActions() throws Exception {
+        JSONObject draft=LauncherLayout.defaults(context()).json;
+        JSONObject scene=draft.getJSONObject("home").getJSONObject("scene");
+        JSONArray elements=scene.getJSONArray("elements");
+        for(int i=0;i<elements.length();i++) {
+            JSONObject node=elements.getJSONObject(i);
+            if(node.getString("id").equals("clock"))node.put("frame",new JSONObject("{\"x\":160,\"y\":70,\"width\":200,\"height\":65}"));
+            if(node.getString("id").equals("network"))node.put("visible",false);
+        }
+        JSONObject first=draft.getJSONObject("home").getJSONArray("items").getJSONObject(0);
+        first.put("frame",new JSONObject("{\"x\":120,\"y\":280,\"width\":200,\"height\":150}"));
+        LauncherLayout.apply(context(),draft);
+        try(ActivityController<MainActivity> controller=Robolectric.buildActivity(MainActivity.class).setup()) {
+            MainActivity activity=controller.get();android.view.View decor=activity.getWindow().getDecorView();
+            decor.measure(android.view.View.MeasureSpec.makeMeasureSpec(1920,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(1080,android.view.View.MeasureSpec.EXACTLY));decor.layout(0,0,1920,1080);
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+            android.view.View clock=activity.findViewById(R.id.clock);int[] xy=new int[2];clock.getLocationOnScreen(xy);assertEquals(320,xy[0]);assertEquals(140,xy[1]);assertEquals(400,clock.getWidth());
+            assertFalse(activity.findViewById(R.id.btnWifi).isShown());
+            RecyclerView grid=activity.findViewById(R.id.grid);android.view.View card=LayoutScene.holder(grid,0).itemView;assertEquals(240,card.getLeft());assertEquals(560,card.getTop());
+            android.content.Intent expected=MainActivity.systemIntent(activity,android.provider.Settings.ACTION_SETTINGS);
+            assertTrue(activity.findViewById(R.id.btnSettings).performClick());android.content.Intent started=org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();assertNotNull(started);assertEquals(expected.getAction(),started.getAction());assertEquals(expected.getComponent(),started.getComponent());
+        }
+        JSONObject invalid=new JSONObject(draft.toString());invalid.getJSONObject("home").getJSONObject("scene").getJSONArray("elements").getJSONObject(0).getJSONObject("frame").put("x",950);
+        try{LauncherLayout.apply(context(),invalid);fail("Out of bounds geometry must fail");}catch(IllegalArgumentException expected){}
+        assertEquals(160,LauncherLayout.override(context()).json.getJSONObject("home").getJSONObject("scene").getJSONArray("elements").getJSONObject(0).getJSONObject("frame").getInt("x"));
+    }
 }

@@ -13,8 +13,9 @@ export interface SystemInfo {
   cpu: string | null; cpuAbi: string | null; memoryTotalBytes: number | null; memoryAvailableBytes: number | null;
   storageTotalBytes: number | null; storageAvailableBytes: number | null; displayResolution: string | null; uptimeSeconds: number | null; queriedAt: number;
 }
+export interface LocalNetworkInfo {addresses:{interfaceName:string;ip:string;prefixLength:number}[];error:string|null}
 export interface Snapshot {
-  localNetwork?: {addresses:{interfaceName:string;ip:string;prefixLength:number}[];error:string|null};
+  localNetwork?: LocalNetworkInfo;
   lastConnection?: {host:string;port:number} | null;
   installResults?: {path: string; success: boolean; message: string}[];
   systemInfo?: SystemInfo | null;
@@ -33,7 +34,10 @@ export type Request =
   | { action: 'install'; paths: string[] }
   | { action: 'setHome'; component: string };
 export const emptySnapshot = (): Snapshot => ({ revision: 0, adbPath: null, adbAvailable: false, device: null, packages: [], launchers: [], defaultHome: null, originalHome: null, history: [], message: '' });
-export interface LayoutEntry { action?: string; packageName?: string; label?: string; icon?: string; color?: string }
-export interface LauncherLayout { version: 2; home: {columns:number;items:LayoutEntry[]}; apps: {columns:number;items:LayoutEntry[]} }
+export interface LayoutFrame {x:number;y:number;width:number;height:number}
+export interface LayoutGeometry {frame?:LayoutFrame;visible?:boolean;zIndex?:number}
+export interface LayoutScene {background:LayoutGeometry & {color:string;image?:string};elements:(LayoutGeometry & {id:string;frame:LayoutFrame})[]}
+export interface LayoutEntry extends LayoutGeometry { action?: string; packageName?: string; label?: string; icon?: string; color?: string }
+export interface LauncherLayout { version: 2 | 3; home: {columns:number;items:LayoutEntry[];scene?:LayoutScene}; apps: {columns:number;items:LayoutEntry[];scene?:LayoutScene} }
 export interface LauncherLayoutInfo { serial?: string; userId?: number; supported: boolean; component?: string; message?: string; custom?: boolean; layout?: LauncherLayout; apps?: {packageName: string; label: string; iconPng?: string}[] }
 export type LauncherRequest = { action:'getLayout'|'resetLayout' } | { action:'applyLayout'; layout: LauncherLayout };

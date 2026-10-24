@@ -62,6 +62,7 @@ impl Runner for FakeRunner {
                 "connected to 192.168.1.50:5555".into()
             }
             "disconnect" => "disconnected".into(),
+            "kill-server" => String::new(),
             "pair" => {
                 assert_eq!(input, Some("123456\n"));
                 "Successfully paired to 192.168.1.50:33111".into()
@@ -95,7 +96,8 @@ impl Runner for FakeRunner {
                             let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../resource/launcher/app/src/main/assets/layout.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
-                            let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
+                            let layout=tv.launcher_layout.clone().unwrap_or(defaults);
+                            let value=serde_json::json!({"supported":true,"version":layout["version"],"custom":tv.launcher_layout.is_some(),"layout":layout,"apps":[{"packageName":"com.ecojust.puretv","label":"pureTV"}]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
                         "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},
@@ -1201,5 +1203,25 @@ fn duplicate_error_lines_are_shown_once_without_changing_successful_data() {
         })
         .unwrap(),
         data
+    );
+}
+
+#[test]
+fn closing_cleans_adb_even_after_cancellation_and_preserves_saved_address() {
+    let (mut manager, tv) = fixture();
+    connect(&mut manager);
+    let before = manager.snapshot().last_connection.unwrap();
+    manager.cancel.store(true, Ordering::Release);
+    manager.shutdown_adb().unwrap();
+    assert_eq!(
+        tv.lock().unwrap().calls.last().unwrap(),
+        &vec!["kill-server".to_string()]
+    );
+    assert!(manager.snapshot().device.is_none());
+    assert!(manager.snapshot().packages.is_empty());
+    let reloaded = Manager::new(manager.data_dir.clone(), Arc::new(AtomicBool::new(false)));
+    assert_eq!(
+        reloaded.snapshot().last_connection.unwrap().host,
+        before.host
     );
 }

@@ -90,6 +90,32 @@ impl Manager {
         self.state.clone()
     }
 
+    /// Called only during normal GUI shutdown, after any in-flight operation completes.
+    /// Cancellation must not prevent the final bounded kill-server command.
+    pub fn shutdown_adb(&mut self) -> Result<(), String> {
+        self.locate_adb();
+        if !self.state.adb_available {
+            return Ok(());
+        }
+        let path = self.state.adb_path.as_ref().ok_or("未找到 ADB")?;
+        let uncancelled = AtomicBool::new(false);
+        let output = self.runner.run(
+            Path::new(path),
+            &["kill-server".into()],
+            None,
+            &uncancelled,
+            Duration::from_secs(8),
+        )?;
+        check_output(output)?;
+        self.state.device = None;
+        self.state.system_info = None;
+        self.state.packages.clear();
+        self.state.launchers.clear();
+        self.state.default_home = None;
+        self.state.original_home = None;
+        Ok(())
+    }
+
     pub fn execute(&mut self, request: Request) -> Result<Snapshot, String> {
         // The caller resets cancellation once, before dispatching the task.
         // Resetting here could swallow an immediate cancel queued before lock acquisition.

@@ -11,7 +11,7 @@ pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
     if object
         .keys()
         .any(|key| !["version", "home", "apps"].contains(&key.as_str()))
-        || layout["version"] != 2
+        || ![json!(2), json!(3)].contains(&layout["version"])
         || layout.to_string().len() > LAYOUT_LIMIT
     {
         return Err("layout.json 版本或大小无效".into());
@@ -22,12 +22,17 @@ pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
             .ok_or("home/apps 应为页面对象")?;
         if page
             .keys()
-            .any(|key| !["columns", "items"].contains(&key.as_str()))
+            .any(|key| !["columns", "items", "scene"].contains(&key.as_str()))
             || !layout[section]["columns"]
                 .as_u64()
                 .is_some_and(|n| (1..=6).contains(&n))
         {
             return Err("页面列数应为 1–6".into());
+        }
+        if layout["version"] == 3 {
+            validate_scene(&layout[section]["scene"], section)?;
+        } else if layout[section].get("scene").is_some() {
+            return Err("旧版布局不支持 scene".into());
         }
         let entries = layout[section]["items"]
             .as_array()
@@ -39,10 +44,21 @@ pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
         for entry in entries {
             let fields = entry.as_object().ok_or("布局项应为对象")?;
             if fields.keys().any(|key| {
-                !["action", "packageName", "label", "icon", "color"].contains(&key.as_str())
+                ![
+                    "action",
+                    "packageName",
+                    "label",
+                    "icon",
+                    "color",
+                    "frame",
+                    "visible",
+                    "zIndex",
+                ]
+                .contains(&key.as_str())
             }) {
                 return Err("布局含未知字段".into());
             }
+            validate_geometry(entry)?;
             let action = entry
                 .get("action")
                 .map(|v| v.as_str().ok_or("action 应为字符串"))
@@ -106,6 +122,111 @@ pub(crate) fn validate_layout(layout: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+fn validate_geometry(node: &Value) -> Result<(), String> {
+    if node.get("visible").is_some_and(|v| !v.is_boolean())
+        || node
+            .get("zIndex")
+            .is_some_and(|v| !v.as_u64().is_some_and(|n| n <= 20))
+    {
+        return Err("布局显示属性无效".into());
+    }
+    if let Some(f) = node.get("frame") {
+        let fields = f.as_object().ok_or("frame 应为对象")?;
+        if fields.len() != 4
+            || fields
+                .keys()
+                .any(|k| !["x", "y", "width", "height"].contains(&k.as_str()))
+        {
+            return Err("frame 字段无效".into());
+        }
+        let x = f["x"].as_u64().ok_or("位置应为非负整数")?;
+        let y = f["y"].as_u64().ok_or("位置应为非负整数")?;
+        let w = f["width"].as_u64().ok_or("尺寸应为正整数")?;
+        let h = f["height"].as_u64().ok_or("尺寸应为正整数")?;
+        if w == 0 || h == 0 || x > 960 || y > 540 || w > 960 - x || h > 540 - y {
+            return Err("元素超出 960×540 画布".into());
+        }
+    }
+    Ok(())
+}
+fn validate_scene(scene: &Value, section: &str) -> Result<(), String> {
+    let fields = scene.as_object().ok_or("scene 应为对象")?;
+    if fields
+        .keys()
+        .any(|k| !["background", "elements"].contains(&k.as_str()))
+    {
+        return Err("scene 含未知字段".into());
+    }
+    let bg = &scene["background"];
+    let fields = bg.as_object().ok_or("背景应为对象")?;
+    if fields
+        .keys()
+        .any(|k| !["frame", "visible", "zIndex", "color", "image"].contains(&k.as_str()))
+    {
+        return Err("背景含未知字段".into());
+    }
+    if bg.get("frame").is_none() {
+        return Err("背景缺少 frame".into());
+    }
+    validate_geometry(bg)?;
+    let c = bg["color"].as_str().ok_or("背景颜色无效")?;
+    if c.len() != 7 || !c.starts_with('#') || !c[1..].bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("背景颜色无效".into());
+    }
+    if let Some(image) = bg.get("image") {
+        let text = image.as_str().ok_or("背景图片无效")?;
+        let (prefix, data) = text.split_once(',').ok_or("背景图片无效")?;
+        if text.len() > 33000
+            || ![
+                "data:image/png;base64",
+                "data:image/jpeg;base64",
+                "data:image/webp;base64",
+            ]
+            .contains(&prefix)
+        {
+            return Err("背景图片无效".into());
+        }
+        let bytes = STANDARD.decode(data).map_err(|_| "背景图片编码无效")?;
+        if !(bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+            || bytes.starts_with(b"\xff\xd8\xff")
+            || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP")))
+        {
+            return Err("背景图片格式无效".into());
+        }
+    }
+    let elements = scene["elements"].as_array().ok_or("elements 应为列表")?;
+    let mut seen = BTreeSet::new();
+    let allowed = if section == "home" {
+        vec![
+            "clock",
+            "date",
+            "weather",
+            "wallpaper",
+            "favourites",
+            "inputs",
+            "network",
+            "settings",
+            "allApps",
+        ]
+    } else {
+        vec!["title", "subtitle", "backHome"]
+    };
+    for node in elements {
+        let fields = node.as_object().ok_or("元素应为对象")?;
+        let id = node["id"].as_str().ok_or("元素 id 无效")?;
+        if !allowed.contains(&id)
+            || !seen.insert(id)
+            || !fields.contains_key("frame")
+            || fields
+                .keys()
+                .any(|k| !["id", "frame", "visible", "zIndex"].contains(&k.as_str()))
+        {
+            return Err("元素 id 或字段无效".into());
+        }
+        validate_geometry(node)?;
+    }
+    Ok(())
+}
 fn provider_result(output: &str) -> Result<Value, String> {
     let encoded = output
         .split("result=")
@@ -121,10 +242,13 @@ fn provider_result(output: &str) -> Result<Value, String> {
         return Err("启动器布局响应过大".into());
     }
     let mut value: Value = serde_json::from_slice(&bytes).map_err(|_| "启动器布局响应无效")?;
-    if value["supported"] != true || value["version"] != 2 {
+    if value["supported"] != true || ![json!(2), json!(3)].contains(&value["version"]) {
         return Err("启动器布局接口版本不支持".into());
     }
     validate_layout(&value["layout"])?;
+    if value["version"] != value["layout"]["version"] {
+        return Err("启动器布局接口与配置版本不一致".into());
+    }
     let apps = value["apps"].as_array().ok_or("启动器应用列表无效")?;
     if apps.len() > 100 {
         return Err("启动器应用列表超过限制".into());
@@ -316,7 +440,7 @@ mod tests {
             }
             assert!(validate_layout(&bad).is_err());
         }
-        let value = json!({"supported":true,"version":2,"layout":valid,"apps":[]});
+        let value = json!({"supported":true,"version":valid["version"],"layout":valid,"apps":[]});
         assert_eq!(
             provider_result(&format!(
                 "Bundle[{{result={}}}]",
@@ -326,5 +450,33 @@ mod tests {
             value
         );
         assert!(provider_result("Permission denial").is_err());
+    }
+    #[test]
+    fn scene_geometry_and_fixed_control_ids_are_validated_before_writes() {
+        let valid: Value = serde_json::from_str(include_str!("../../public/layout.json")).unwrap();
+        validate_layout(&valid).unwrap();
+        for invalid in [
+            json!({"x":950,"y":0,"width":200,"height":65}),
+            json!({"x":0,"y":-1,"width":200,"height":65}),
+            json!({"x":0,"y":0,"width":0,"height":65}),
+            json!({"x":0.5,"y":0,"width":200,"height":65}),
+            json!({"x":18446744073709551615u64,"y":0,"width":200,"height":65}),
+        ] {
+            let mut bad = valid.clone();
+            bad["home"]["scene"]["elements"][0]["frame"] = invalid;
+            assert!(validate_layout(&bad).is_err());
+        }
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["elements"][0]["id"] = json!("shell");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["background"]["image"] = json!("https://example.com/background.png");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["items"][0]["visible"] = json!("false");
+        assert!(validate_layout(&bad).is_err());
+        let mut bad = valid.clone();
+        bad["home"]["scene"]["elements"][1] = bad["home"]["scene"]["elements"][0].clone();
+        assert!(validate_layout(&bad).is_err());
     }
 }

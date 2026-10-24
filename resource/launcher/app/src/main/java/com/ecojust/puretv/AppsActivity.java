@@ -13,6 +13,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
     private static WeakReference<AppsActivity> live;
     private RecyclerView grid;
     private AppAdapter adapter;
+    private LayoutScene layoutScene;
     private int columns;
     private int focusedPosition;
     private String layoutSignature="";
@@ -31,8 +32,10 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
                 .getBoolean("reduced_motion", false));
         adapter = new AppAdapter(this, this, columns, layout==null?AppAdapter.applicationEntries():layout.entries(this,"apps"));
         grid.setAdapter(adapter);
+        layoutScene=new LayoutScene(this,findViewById(R.id.appsRoot),grid,"apps");layoutScene.apply(layout,"apps");
         findViewById(R.id.backHome).setOnClickListener(v -> finish());
         findViewById(R.id.backHome).setOnKeyListener((v, key, event) -> {
+            if (layoutScene != null) return false;
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (key == KeyEvent.KEYCODE_DPAD_DOWN) {
                 CardFocus.request(grid, focusedPosition);
@@ -58,7 +61,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
         if(!signature.equals(layoutSignature)) {
             layoutSignature=signature;columns=layout==null?(getResources().getConfiguration().screenWidthDp>=800?4:3):layout.columns("apps");
             adapter.clear();adapter=new AppAdapter(this,this,columns,layout==null?AppAdapter.applicationEntries():layout.entries(this,"apps"));
-            grid.setLayoutManager(new GridLayoutManager(this,columns));grid.setAdapter(adapter);CardFocus.request(grid,focusedPosition);
+            grid.setLayoutManager(new GridLayoutManager(this,columns));grid.setAdapter(adapter);layoutScene.apply(layout,"apps");CardFocus.request(grid,focusedPosition);
         }
     }
 
@@ -71,6 +74,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
     @Override public void onTileFocused(int position, View card) { focusedPosition = position; }
 
     @Override public boolean onTileVerticalKey(int position, int key) {
+        if (layoutScene != null) return false;
         if (key == KeyEvent.KEYCODE_DPAD_UP && position < columns) {
             findViewById(R.id.backHome).requestFocus();
             return true;

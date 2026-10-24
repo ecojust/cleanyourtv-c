@@ -17,10 +17,12 @@ FAKE_ADB = r'''#!/usr/bin/env python3
 import json, os, sys, time, base64, re
 from pathlib import Path
 root=Path(os.environ['PURETV_FAKE_ROOT'])
+with (root/'adb-calls.jsonl').open('a') as calls:calls.write(json.dumps(sys.argv[1:])+'\n')
 p=root/'tv.json';tv=json.loads(p.read_text());args=sys.argv[1:]
 def save():
  temp=p.with_suffix('.tmp');temp.write_text(json.dumps(tv));os.replace(temp,p)
 if args[0]=='version':print('Android Debug Bridge version 1.0.41')
+elif args[0]=='kill-server':print('')
 elif args[0]=='devices':print('List of devices attached\n192.168.1.50:5555\tdevice model:TestTV')
 elif args[0]=='pair':
  assert sys.stdin.read().strip()=='123456';print('Successfully paired to 192.168.1.50:33111')
@@ -37,7 +39,7 @@ elif args[:2]==['-s','192.168.1.50:5555']:
    method=a[a.index('--method')+1]
    if method=='apply':tv['layout']=json.loads(base64.b64decode(a[a.index('--arg')+1]));tv['customLayout']=True;save()
    elif method=='reset':tv['layout']=json.loads((root/'default-layout.json').read_text());tv['customLayout']=False;save()
-   result={'supported':True,'version':2,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-layout.json').read_text())),'apps':[{'packageName':'com.ecojust.puretv','label':'pureTV'}]}
+   result={'supported':True,'version':3,'custom':tv.get('customLayout',False),'layout':tv.get('layout',json.loads((root/'default-layout.json').read_text())),'apps':[{'packageName':'com.ecojust.puretv','label':'pureTV'}]}
    print('Bundle[{result='+base64.b64encode(json.dumps(result).encode()).decode()+'}]')
   elif a[0]=='cat':print('MemTotal: 4096 kB\nMemAvailable: 1024 kB' if a[1]=='/proc/meminfo' else '3600.25 20.0')
   elif a[0]=='df':print('Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/data 4096 1024 3072 25% /data')
@@ -136,7 +138,7 @@ def main():
                 init=client.rpc('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'puretv-smoke','version':'1'}})
                 assert init['result']['serverInfo']['name']=='pureTV Manager',init
                 names={t['name'] for t in client.rpc('tools/list')['result']['tools']}
-                assert len(names)==29,names
+                assert len(names)==30,names
                 network=client.call('get_local_network')['localNetwork']
                 assert isinstance(network['addresses'],list)
                 for row in network['addresses']:assert row['interfaceName'] and not row['ip'].startswith('127.') and 0<=row['prefixLength']<=32
@@ -192,7 +194,21 @@ def main():
                 assert client.call('get_state')['device'] is None
                 # Pairing code never reaches saved state.
                 saved=(session.parent/'state.json').read_text();assert '123456' not in saved
-                gui.terminate();gui.wait(timeout=10)
+                denied=client.rpc('tools/call',{'name':'close_manager','arguments':{'confirmShutdown':False}})
+                assert denied['error']['code']==-32602 and gui.poll() is None
+                client.call('connect',{'host':'192.168.1.50','port':5555})
+                (root/'slow').touch()
+                client.send('tools/call',{'name':'scan','arguments':{}})
+                for _ in range(50):
+                    if client.call('get_status')['running']:break
+                    time.sleep(.05)
+                else: raise AssertionError('Shutdown scan never became busy')
+                client.send('tools/call',{'name':'close_manager','arguments':{'confirmShutdown':True}})
+                client.send('tools/call',{'name':'close_manager','arguments':{'confirmShutdown':True}})
+                gui.wait(timeout=20);assert gui.returncode==0
+                calls=[json.loads(line) for line in (root/'adb-calls.jsonl').read_text().splitlines()]
+                assert calls[-1]==['kill-server'] and calls.count(['kill-server'])==1,calls[-4:]
+                print('PASS: normal shutdown stops ADB exactly once before exiting',flush=True)
                 closed=client.rpc('tools/call',{'name':'get_state'})
                 assert closed['error']['code']==-32603
                 print('PASS: real GUI, MCP stdio, all device actions, protection, cancellation, and closed-window errors',flush=True)

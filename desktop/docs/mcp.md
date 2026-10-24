@@ -25,7 +25,7 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 
 `--mcp` 是当前窗口的代理，不创建第二套电视连接或管理状态。管理器内部仅监听 `127.0.0.1` 的随机端口，每次启动生成随机凭据；代理自动读取受保护的本机会话文件，不需要把令牌放到 Agent 配置。拒绝浏览器 Origin 请求，不允许跨电脑访问。重启窗口后请重新连接 MCP；关闭窗口后调用会明确报错。
 
-## 全部工具（29 个）
+## 全部工具（30 个）
 
 | 工具 | 参数 | 行为 |
 | --- | --- | --- |
@@ -37,12 +37,13 @@ Windows 的 `command` 是已安装的管理器 EXE 或便携 EXE。Linux 使用�
 | `set_adb_path` | `path` | 设置本机 ADB 可执行文件；空字符串自动寻找，需先断开电视 |
 | `connect` | `host`, `port` | 连接电视，已授权时自动扫描；电视首次授权仍在电视上完成 |
 | `disconnect` | 无 | 断开当前电视 |
+| `close_manager` | `confirmShutdown: true` | 关闭管理器；先取消可取消任务、等待正在修改的一项结束，再停止当前 ADB 服务并退出。会中断其他工具共用的 ADB 连接，stdio 随窗口退出断开 |
 | `scan` | 无 | 刷新当前 Android 用户的应用、恢复候选和启动器 |
 | `set_enabled` | `packages`, `enabled` | 对明确列出的包启用／停用，最多 100 项 |
 | `uninstall` | `packages` | 为当前用户卸载并保留数据，不删除系统分区 APK |
 | `restore` | `packages` | 恢复设备上仍存在安装包的系统应用 |
 | `install` | `paths` | 按顺序安装 1–10 个本机 APK 完整路径，不支持 APKS/XAPK |
-| `set_home` | `component` | 切换已安装且声明 HOME 的组件，并记录原桌面 |
+| `set_home` | `component` | 切换已安装且声明 HOME 的组件，并记录原桌面；无需重启电视，按遥控器 Home 键进入新桌面 |
 | `restore_home` | 无 | 恢复此设备／用户记录的原桌面 |
 | `clear_history` | 无 | 清空保存的操作记录 |
 | `cancel` | 无 | 取消扫描／下载，或跳过后续批量项；正在修改的一项会完成并复查 |

@@ -155,6 +155,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         holder.card.setOnClickListener(v -> launch(entry));
     }
 
+    Holder sceneHolder(ViewGroup parent,int position) {
+        Holder holder=onCreateViewHolder(parent,0);holder.scenePosition=position;onBindViewHolder(holder,position);return holder;
+    }
     private void launch(Entry entry) {
         if (entry.action == CUSTOM_APP) {
             if (!openNative(entry.packageName)) Toast.makeText(context, R.string.not_available, Toast.LENGTH_LONG).show();
@@ -224,6 +227,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     @Override public long getItemId(int position) { return entries.get(position).key.hashCode(); }
 
     final class Holder extends RecyclerView.ViewHolder {
+        int scenePosition=-1;
         final View card;
         final ImageView icon;
         final TextView name;
@@ -244,7 +248,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                             .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
                 }
                 name.setTextColor(focused ? 0xFFF5F5F5 : 0xFFBFC3C8);
-                int position = getBindingAdapterPosition();
+                int position = scenePosition>=0?scenePosition:getBindingAdapterPosition();
                 if (focused && listener != null && position != RecyclerView.NO_POSITION) {
                     listener.onTileFocused(position, v);
                 }
@@ -252,7 +256,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setOnKeyListener((v, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN || listener == null) return false;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
-                int position = getBindingAdapterPosition();
+                int position = scenePosition>=0?scenePosition:getBindingAdapterPosition();
                 return position != RecyclerView.NO_POSITION && listener.onTileVerticalKey(position, keyCode);
             });
         }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { mockBridge, snapshot } from './fixtures.mjs';
@@ -169,6 +169,9 @@ try {
       }
     }
     await nav(p,'apps');
+    assert.equal(await p.locator('html').evaluate(element=>getComputedStyle(element).overscrollBehaviorY),'none');
+    assert.equal(await p.locator('.table-scroll').evaluate(element=>getComputedStyle(element).overscrollBehaviorY),'none');
+    assert.equal(await p.locator('.sidebar-foot').count(),0);
     await shot(p,'scrolling-lists');
   },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
   await check('unsupported launcher has no layout button or screenshot controls',async p=>{
@@ -448,6 +451,60 @@ try {
     await p.locator('[name="locale"]').selectOption('en');assert.match(await p.locator('.notice.error').innerText(),/Cannot reach 192.168.0.192:37777/);assert.match(await p.locator('.notice.error').innerText(),/Local Network/);assert.match(await p.locator('.notice.error').innerText(),/No route to host/);
     assert.equal(await p.evaluate(()=>localStorage.getItem('puretv.preferences').includes('192.168.0.192')),false);
   },rememberedState,{connectError:routeError});
+  const readyNetwork={...snapshot(),device:null,packages:[],launchers:[],defaultHome:null};
+  await check('different subnets warn before connecting and cancellation sends no ADB request',async p=>{
+    await p.locator('[name="host"]').fill('192.168.0.191');await act(p,'connect').click();await p.locator('#confirm-operation').waitFor();
+    assert.match(await p.locator('dialog.modal').innerText(),/不在同一网段/);assert.match(await p.locator('dialog.modal').innerText(),/10.0.0.2\/24/);assert.deepEqual(await requests(p),[]);
+    await act(p,'close-dialog').click();assert.deepEqual(await requests(p),[]);
+    await act(p,'connect').click();await p.locator('#confirm-operation').waitFor();await confirmOperation(p);
+    assert.deepEqual(await requests(p),[{action:'connect',host:'192.168.0.191',port:5555}]);assert.equal(await p.evaluate(()=>window.__networkReads),2);
+  },readyNetwork,{preflightNetwork:{addresses:[{interfaceName:'Wi-Fi',ip:'10.0.0.2',prefixLength:24}],error:null}});
+  await check('a matching second adapter or a wider subnet connects without a warning',async p=>{
+    await p.locator('[name="host"]').fill('192.168.9.191');await act(p,'connect').click();await p.waitForFunction(()=>window.__requests.some(r=>r.action==='connect'));await settled(p);
+    assert.equal(await p.locator('dialog.modal[open]').count(),0);
+  },readyNetwork,{preflightNetwork:{addresses:[{interfaceName:'Ethernet',ip:'10.0.0.2',prefixLength:24},{interfaceName:'Wi-Fi',ip:'192.168.0.2',prefixLength:16}],error:null}});
+  await check('unavailable subnet information does not prevent an otherwise valid connection',async p=>{
+    await p.locator('[name="host"]').fill('192.168.0.191');await act(p,'connect').click();await p.waitForFunction(()=>window.__requests.some(r=>r.action==='connect'));await settled(p);
+    assert.equal(await p.locator('dialog.modal[open]').count(),0);
+  },readyNetwork,{preflightNetwork:{addresses:[],error:'unavailable'}});
+  await check('selecting a layout tile reveals its real app independently of its custom name and icon',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();await p.locator('[data-layout-tile="1"]').click();
+    assert.match(await p.locator('.layout-target-info').innerText(),/文件管理器/);
+    await p.locator('[data-layout-label="1"]').fill('我的快捷方式');await p.locator('[data-layout-label="1"]').dispatchEvent('change');
+    await p.locator('[data-layout-target="1"]').selectOption('com.ecojust.webtv');
+    assert.match(await p.locator('.layout-target-info').innerText(),/WebTV/);assert.match(await p.locator('.layout-target-info').innerText(),/com\.ecojust\.webtv/);assert.doesNotMatch(await p.locator('.layout-target-info').innerText(),/我的快捷方式/);
+    const draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.items[1].packageName,'com.ecojust.webtv');assert.equal(draft.home.items[1].action,undefined);assert.equal(draft.home.items[1].label,'我的快捷方式');
+    assert.doesNotMatch(await p.locator('[data-layout-target="1"]').innerText(),/系统启动器|未安装应用/);
+    await p.locator('[data-layout-tile="2"]').click();assert.match(await p.locator('.layout-target-info').innerText(),/应用商店/);assert.match(await p.locator('.layout-target-info').innerText(),/dangbei/);
+    assert.equal(await p.locator('.layout-inspector').evaluate(element=>getComputedStyle(element).overscrollBehaviorY),'none');
+    await act(p,'close-layout').click();assert.equal(await p.evaluate(()=>window.__launcherRequests.filter(r=>r.action==='applyLayout').length),0);
+  },customHome,{layoutSupported:true});
+  const sceneLayout=JSON.parse(await readFile(new URL('../public/layout.json',import.meta.url),'utf8'));
+  await check('scene JSON positions every control and tile, supports geometry, visibility, background and drag',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
+    assert.equal(await p.locator('.scene-canvas').count(),1);
+    await shot(p,'layout-scene-default-home-034');await act(p,'layout-apps').click();await shot(p,'layout-scene-default-apps-034');await act(p,'layout-home').click();
+    const canvas=p.locator('.scene-canvas'),clock=p.locator('[data-scene-node="clock"]');
+    const rect=await canvas.boundingBox(),before=await clock.boundingBox();
+    assert.ok(Math.abs((before.x-rect.x)/rect.width-48/960)<.005);
+    await clock.click();
+    await p.locator('[data-scene-frame="x"]').fill('120');await p.locator('[data-scene-frame="x"]').dispatchEvent('change');
+    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='clock').frame.x,120);
+    await p.locator('[data-scene-frame="x"]').fill('950');await p.locator('[data-scene-frame="x"]').dispatchEvent('change');
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='clock').frame.x,120);assert.match(await p.locator('.layout-modal .banner.error').innerText(),/元素边界/);
+    await p.locator('[data-scene-node="settings"]').click();await p.locator('[data-scene-visible]').uncheck();
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.elements.find(n=>n.id==='settings').visible,false);
+    assert.equal(await p.locator('[data-scene-node="settings"].scene-hidden').count(),1);
+    await p.locator('[name="sceneSelection"]').selectOption('background');await p.locator('[data-scene-background]').fill('#223344');await p.locator('[data-scene-background]').dispatchEvent('change');
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.scene.background.color,'#223344');
+    const tile=p.locator('[data-layout-tile="0"]'),at=await tile.boundingBox();
+    await p.mouse.move(at.x+at.width/2,at.y+at.height/2);await p.mouse.down();await p.mouse.move(at.x+at.width/2+40,at.y+at.height/2-20,{steps:8});await p.mouse.up();
+    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.ok(draft.home.items[0].frame.x>sceneLayout.home.items[0].frame.x);assert.ok(draft.home.items[0].frame.y<sceneLayout.home.items[0].frame.y);
+    await shot(p,'layout-scene-home-034');
+    await act(p,'layout-apps').click();await shot(p,'layout-scene-apps-034');
+    await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='applyLayout'));await settled(p);
+    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));assert.equal(applied.layout.version,3);assert.equal(applied.layout.home.scene.background.color,'#223344');
+  },customHome,{layoutSupported:true,layout:sceneLayout});
   await check('scan disables competing actions and exposes cancellation', async p => {
     await nav(p,'apps'); await act(p,'scan').click(); await p.locator('.busy-bar').waitFor();
     assert.equal(await act(p,'scan').isDisabled(),true);

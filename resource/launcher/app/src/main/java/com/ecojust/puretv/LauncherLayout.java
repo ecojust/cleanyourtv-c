@@ -30,10 +30,11 @@ final class LauncherLayout {
     int columns(String section) { return json.optJSONObject(section).optInt("columns",4); }
     LauncherLayout(JSONObject source) throws Exception {
         keys(source, "version", "home", "apps");
-        if (!(source.opt("version") instanceof Integer) || source.getInt("version") != 2)
+        if (!(source.opt("version") instanceof Integer) || source.getInt("version") != 3)
             throw new IllegalArgumentException("Unsupported layout.json version");
         for (String section : Arrays.asList("home","apps")) {
-            JSONObject page=source.getJSONObject(section); keys(page,"columns","items");
+            JSONObject page=source.getJSONObject(section); keys(page,"columns","items","scene");
+            validateScene(page.getJSONObject("scene"), section);
             if (!(page.opt("columns") instanceof Integer) || page.getInt("columns")<1 || page.getInt("columns")>6)
                 throw new IllegalArgumentException("Invalid page columns");
             validateEntries(page.getJSONArray("items"),0,section.equals("home")?24:100);
@@ -51,7 +52,8 @@ final class LauncherLayout {
         if (list.length() < min || list.length() > max) throw new IllegalArgumentException("Invalid number of apps");
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < list.length(); i++) {
-            JSONObject entry = list.getJSONObject(i); keys(entry, "action", "packageName", "label", "icon", "color");
+            JSONObject entry = list.getJSONObject(i); keys(entry, "action", "packageName", "label", "icon", "color", "frame", "visible", "zIndex");
+            geometry(entry);
             String action = entry.optString("action", "app");
             if (!Arrays.asList("app", "music", "bilibili", "files", "apps", "shortvideo", "webtv", "placeholder").contains(action)) throw new IllegalArgumentException("Unsupported action");
             if (action.equals("app") && !validPackage(entry.getString("packageName"))) throw new IllegalArgumentException("Invalid package name");
@@ -63,6 +65,30 @@ final class LauncherLayout {
             if (!action.equals("placeholder") && !seen.add(key)) throw new IllegalArgumentException("Duplicate app");
         }
     }
+    static void geometry(JSONObject node) throws Exception {
+        if(node.has("visible") && !(node.get("visible") instanceof Boolean)) throw new IllegalArgumentException("Invalid visibility");
+        if(node.has("zIndex") && (!(node.get("zIndex") instanceof Integer) || node.getInt("zIndex")<0 || node.getInt("zIndex")>20)) throw new IllegalArgumentException("Invalid layer");
+        if(!node.has("frame")) return;
+        JSONObject f=node.getJSONObject("frame");keys(f,"x","y","width","height");
+        for(String key:Arrays.asList("x","y","width","height")) if(!(f.get(key) instanceof Integer)) throw new IllegalArgumentException("Invalid frame");
+        if(f.getInt("x")<0 || f.getInt("y")<0 || f.getInt("x")>960 || f.getInt("y")>540 || f.getInt("width")<1 || f.getInt("height")<1 || f.getInt("width")>960-f.getInt("x") || f.getInt("height")>540-f.getInt("y")) throw new IllegalArgumentException("Frame outside 960x540 canvas");
+    }
+    static void validateScene(JSONObject scene,String section) throws Exception {
+        keys(scene,"background","elements");JSONObject bg=scene.getJSONObject("background");keys(bg,"color","image","frame","visible","zIndex");if(!bg.has("frame"))throw new IllegalArgumentException("Missing background frame");geometry(bg);
+        if(!bg.getString("color").matches("#[0-9a-fA-F]{6}"))throw new IllegalArgumentException("Invalid background color");
+        if(bg.has("image")) {
+            String image=bg.getString("image");
+            if(!image.matches("data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+") || image.length()>33000)throw new IllegalArgumentException("Invalid embedded background");
+            byte[] bytes=Base64.decode(image.substring(image.indexOf(',')+1),Base64.NO_WRAP);
+            android.graphics.BitmapFactory.Options options=new android.graphics.BitmapFactory.Options();options.inJustDecodeBounds=true;
+            android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);
+            if(options.outWidth<1 || options.outHeight<1 || options.outWidth>1920 || options.outHeight>1080)throw new IllegalArgumentException("Background exceeds 1920x1080");
+        }
+        Set<String> seen=new HashSet<>();JSONArray elements=scene.getJSONArray("elements");
+        List<String> allowed=section.equals("home")?Arrays.asList("clock","date","weather","wallpaper","favourites","inputs","network","settings","allApps"):Arrays.asList("title","subtitle","backHome");
+        for(int i=0;i<elements.length();i++) {JSONObject node=elements.getJSONObject(i);keys(node,"id","frame","visible","zIndex");String id=node.getString("id");if(!allowed.contains(id)||!seen.add(id)||!node.has("frame"))throw new IllegalArgumentException("Invalid scene element");geometry(node);}
+    }
+    JSONObject page(String section) {return json.optJSONObject(section);}
     private static byte[] read(InputStream input) throws Exception {
         try (InputStream stream = input; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] bytes = new byte[4096]; int count;
@@ -137,6 +163,28 @@ final class LauncherLayout {
                 title,pkg,item.optString("icon","app").equals("app")));
         }
         return result;
+    }
+    /** Desktop wallpaper picker writes the very same JSON scene the manager reads. */
+    static void wallpaper(Context ctx,File file) throws Exception {
+        LauncherLayout current=effective(ctx);JSONObject draft=new JSONObject(current.json.toString());
+        JSONObject bg=draft.getJSONObject("home").getJSONObject("scene").getJSONObject("background");
+        if(file==null || !file.isFile())bg.remove("image");
+        else {
+            android.graphics.BitmapFactory.Options opts=new android.graphics.BitmapFactory.Options();opts.inJustDecodeBounds=true;android.graphics.BitmapFactory.decodeFile(file.getPath(),opts);
+            int sample=1;while(opts.outWidth/sample>960 || opts.outHeight/sample>540)sample*=2;opts.inJustDecodeBounds=false;opts.inSampleSize=sample;
+            Bitmap bitmap=android.graphics.BitmapFactory.decodeFile(file.getPath(),opts);if(bitmap==null)throw new IllegalArgumentException("Invalid wallpaper");
+            try {
+                String encoded="";
+                for(int width:new int[]{960,640,480,320}) {
+                    float ratio=Math.min(1f,Math.min(width/(float)bitmap.getWidth(),540f/bitmap.getHeight()));
+                    Bitmap reduced=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(bitmap.getWidth()*ratio)),Math.max(1,Math.round(bitmap.getHeight()*ratio)),true);
+                    try {for(int quality:new int[]{75,50,30}){ByteArrayOutputStream output=new ByteArrayOutputStream();reduced.compress(Bitmap.CompressFormat.WEBP,quality,output);encoded="data:image/webp;base64,"+Base64.encodeToString(output.toByteArray(),Base64.NO_WRAP);if(encoded.length()<=33000)break;}} finally {if(reduced!=bitmap)reduced.recycle();}
+                    if(encoded.length()<=33000)break;
+                }
+                if(encoded.length()>33000)throw new IllegalArgumentException("Wallpaper too large");bg.put("image",encoded);
+            }finally{bitmap.recycle();}
+        }
+        apply(ctx,draft);
     }
     static boolean isUserApp(Context ctx,String packageName) {
         try {

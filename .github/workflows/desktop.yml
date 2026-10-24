@@ -101,10 +101,24 @@ jobs:
         run: npm ci
       - name: Check and build frontend
         run: npm run build
+      - name: Test subnet comparison
+        run: npm run test:network
       - name: Test ADB core
-        run: cargo test --locked --manifest-path core/Cargo.toml
+        run: cargo test --locked --manifest-path core/Cargo.toml 2>&1 | tee "$RUNNER_TEMP/puretv-core-tests.log"
       - name: Test Platform Tools installer
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee "$RUNNER_TEMP/puretv-native-tests.log"
+      - name: Report native test failures
+        if: failure()
+        run: |
+          python - <<'PYTHON'
+          import os
+          from pathlib import Path
+          for name in ['puretv-core-tests.log','puretv-native-tests.log']:
+              path=Path(os.environ['RUNNER_TEMP'])/name
+              if path.exists():
+                  message=path.read_text(errors='replace')[-14000:]
+                  print('::error::'+message.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PYTHON
       - name: Verify official Platform Tools download and offline reuse
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml official_download_and_offline_reuse -- --ignored --nocapture
       - name: Verify Tencent mirror download and ADB

@@ -1,5 +1,7 @@
 import {t,ui,message,locale,setLocale,setTheme,localeOptions,themeOptions} from './i18n';
 import './styles.css';
+import {sameSubnet} from './subnet';
+import {validGeometry,validScene,sceneLabels,autoFrame,sceneNode,frameStyle} from './scene';
 import {version as appVersion} from '../package.json';
 import * as api from './bridge';
 import { emptySnapshot, type Request, type PackageInfo, type PlatformToolsInfo, type DownloadProgress, type Snapshot, type LauncherLayout, type LauncherLayoutInfo, type LauncherRequest } from './types';
@@ -33,6 +35,7 @@ let toolsInfo: PlatformToolsInfo | null = null, toolsInfoError = '', toolsPrepar
 let toolsProgress: DownloadProgress | null = null;
 let launcherLayout: LauncherLayoutInfo | null = null;
 let covers:Record<string,string> = {}, launcherApks:{path:string;cover?:string|null}[]=[];
+let layoutNode:string|null=null;
 let layoutSelected=0, layoutDrag:number|null=null;
 let layoutModalTarget='';
 let layoutDirty = true;
@@ -43,14 +46,17 @@ function draftLayout(): LauncherLayout | null {
   try {
     if(new TextEncoder().encode(layoutJson).length>48*1024)return null;
     const value = JSON.parse(layoutJson);
-    if (!value || typeof value !== 'object' || value.version!==2 || Object.keys(value).some(key=>!['version','home','apps'].includes(key))) return null;
+    if (!value || typeof value !== 'object' || ![2,3].includes(value.version) || Object.keys(value).some(key=>!['version','home','apps'].includes(key))) return null;
     for (const [section,max] of [['home',24],['apps',100]] as const) {
       const part=value[section];
-      if(!part || Object.keys(part).some(key=>!['columns','items'].includes(key)) || !Number.isInteger(part.columns) || part.columns<1 || part.columns>6) return null;
+      if(!part || Object.keys(part).some(key=>!['columns','items','scene'].includes(key)) || !Number.isInteger(part.columns) || part.columns<1 || part.columns>6) return null;
+      if(value.version===3 && !validScene(part.scene,section))return null;
+      if(value.version===2 && part.scene!==undefined)return null;
       const entries=part.items; if(!Array.isArray(entries) || entries.length>max) return null;
       const seen=new Set<string>();
       for (const entry of entries) {
-        if(!entry || typeof entry!=='object' || Array.isArray(entry) || Object.keys(entry).some(key=>!['action','packageName','label','icon','color'].includes(key))) return null;
+        if(!entry || typeof entry!=='object' || Array.isArray(entry) || Object.keys(entry).some(key=>!['action','packageName','label','icon','color','frame','visible','zIndex'].includes(key))) return null;
+        if(!validGeometry(entry))return null;
         const action=entry.action ?? 'app';if(!['app','music','bilibili','files','apps','shortvideo','webtv','placeholder'].includes(action))return null;
         if(action==='app' && (typeof entry.packageName!=='string' || !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(entry.packageName)))return null;
         if(action!=='app' && entry.packageName!==undefined)return null;
@@ -134,7 +140,7 @@ function downloadMeter(progress = toolsProgress): string {
 }
 function mcpPanel(): string {
   if (!api.desktop || api.demo) return '';
-  return ui`<section class="panel"><h2>MCP · Agent 调试</h2><p>Agent 可操作当前窗口的全部电视管理功能，状态和结果同步显示。</p>${mcpInfo ? ui`<p class="hint">保持管理器打开，将以下配置加入 Agent 的 MCP 设置：</p><pre class="mcp-config" tabindex="0">${esc(JSON.stringify(mcpInfo.config, null, 2))}</pre><p class="hint">仅本机连接；关闭管理器后停止服务。操作沿用设备保护规则，批量结果请查看操作记录。</p>` : `<p class="hint">${esc(mcpError || t('正在读取 MCP 配置…'))}</p>`}</section>`;
+  return ui`<section class="panel mcp-panel"><h2>MCP · Agent 调试</h2><p>Agent 可操作当前窗口的全部电视管理功能，状态和结果同步显示。</p>${mcpInfo ? ui`<p class="hint">保持管理器打开，将以下配置加入 Agent 的 MCP 设置：</p><pre class="mcp-config" tabindex="0">${esc(JSON.stringify(mcpInfo.config, null, 2))}</pre><p class="hint">仅本机连接；关闭管理器后停止服务。操作沿用设备保护规则，批量结果请查看操作记录。</p>` : `<p class="hint">${esc(mcpError || t('正在读取 MCP 配置…'))}</p>`}</section>`;
 }
 function adbPanel(): string {
   const unavailable = busy || toolsPreparing || (!api.desktop && !api.demo), connected = !!snapshot.device;
@@ -144,14 +150,16 @@ function adbPanel(): string {
 }
 function shell(): string {
   const [label, status] = deviceStatus();
-  return ui`<aside class="sidebar"><nav aria-label="主要页面">${(Object.entries(pages) as [Page, [string, string, string]][]).filter(([key])=>key!=='install').map(([key, data]) => `<button class="nav-item ${page === key || page==='install' && key==='apps' ? 'active' : ''}" data-page="${key}" ${page === key || page==='install' && key==='apps' ? 'aria-current="page"' : ''}>${icon(data[2])}<span>${t(data[0])}</span></button>`).join('')}</nav><section class="appearance-panel" aria-label="语言与外观"><label>语言<select name="locale" aria-label="界面语言">${localeOptions()}</select></label><label>主题<select name="theme" aria-label="界面主题">${themeOptions()}</select></label></section><div class="sidebar-foot">${icon('settings')}<span>本地管理<br><small>无需电视端常驻服务</small></span></div><a class="brand" href="#" aria-label="pureTV 电视管理器"><img src="/puretv-logo.png" alt="" width="42" height="42">pure<span>TV</span></a><p class="brand-caption">电视管理器<span class="app-version">v${esc(appVersion)}</span></p></aside><main class="${page === 'connect' ? '' : 'list-page'}"><header class="page-header"><div><h1>${t(pages[page][0])}</h1><p>${t(pages[page][1])}</p></div><div class="header-actions"><span class="device-badge"><i class="dot ${status}"></i>${online() ? t('已连接 · ') : ''}${esc(label)}</span></div></header>${api.demo ? t('<div class="banner demo-banner">演示模式 · 示例设备和应用，所有操作仅用于预览，不会连接真实电视。</div>') : !api.desktop ? t('<div class="banner warning-banner">这是浏览器预览。请运行桌面应用来连接电视和安装 APK。</div>') : ''}${notice ? ui`<div class="banner notice ${noticeKind}" role="status"><span>${esc(message(notice))}</span><button class="icon-button" aria-label="关闭提示" data-act="dismiss">${icon('close')}</button></div>` : ''}${busyIndicator()}<section id="page-content">${content()}</section><footer class="app-footer"><span>pureTV 电视管理器</span><span>${api.demo ? t('演示数据 · 不执行 ADB') : snapshot.device ? (page === 'connect' ? ui`目标 ${esc(snapshot.device.serial)} · 用户 ${snapshot.device.userId}` : ui`当前 Android 用户 ${snapshot.device.userId}`) : t('选择设备后开始管理')}</span></footer></main>`;
+  return ui`<aside class="sidebar"><nav aria-label="主要页面">${(Object.entries(pages) as [Page, [string, string, string]][]).filter(([key])=>key!=='install').map(([key, data]) => `<button class="nav-item ${page === key || page==='install' && key==='apps' ? 'active' : ''}" data-page="${key}" ${page === key || page==='install' && key==='apps' ? 'aria-current="page"' : ''}>${icon(data[2])}<span>${t(data[0])}</span></button>`).join('')}</nav><section class="appearance-panel" aria-label="语言与外观"><label>语言<select name="locale" aria-label="界面语言">${localeOptions()}</select></label><label>主题<select name="theme" aria-label="界面主题">${themeOptions()}</select></label></section><a class="brand" href="#" aria-label="pureTV 电视管理器"><img src="/puretv-logo.png" alt="" width="42" height="42">pure<span>TV</span></a><p class="brand-caption">电视管理器<span class="app-version">v${esc(appVersion)}</span></p></aside><main class="${page === 'connect' ? '' : 'list-page'}"><header class="page-header"><div><h1>${t(pages[page][0])}</h1><p>${t(pages[page][1])}</p></div><div class="header-actions"><span class="device-badge"><i class="dot ${status}"></i>${online() ? t('已连接 · ') : ''}${esc(label)}</span></div></header>${api.demo ? t('<div class="banner demo-banner">演示模式 · 示例设备和应用，所有操作仅用于预览，不会连接真实电视。</div>') : !api.desktop ? t('<div class="banner warning-banner">这是浏览器预览。请运行桌面应用来连接电视和安装 APK。</div>') : ''}${notice ? ui`<div class="banner notice ${noticeKind}" role="status"><span>${esc(message(notice))}</span><button class="icon-button" aria-label="关闭提示" data-act="dismiss">${icon('close')}</button></div>` : ''}${busyIndicator()}<section id="page-content">${content()}</section><footer class="app-footer"><span>pureTV 电视管理器</span><span>${api.demo ? t('演示数据 · 不执行 ADB') : snapshot.device ? (page === 'connect' ? ui`目标 ${esc(snapshot.device.serial)} · 用户 ${snapshot.device.userId}` : ui`当前 Android 用户 ${snapshot.device.userId}`) : t('选择设备后开始管理')}</span></footer></main>`;
 }
+function syncSceneScale():void {const canvas=layoutDialog.querySelector<HTMLElement>('.scene-canvas');if(canvas)canvas.style.setProperty('--scene-unit',`${canvas.clientWidth/960}px`);}
+function scrollAreas():HTMLElement[]{return [...root.querySelectorAll<HTMLElement>('[data-scroll]'),...layoutDialog.querySelectorAll<HTMLElement>('[data-scroll]')];}
 const scrollPositions = new Map<string, { top: number; left: number }>();
 function render(): void {
-  for (const area of root.querySelectorAll<HTMLElement>('[data-scroll]')) scrollPositions.set(area.dataset.scroll!, { top: area.scrollTop, left: area.scrollLeft });
+  for (const area of scrollAreas()) scrollPositions.set(area.dataset.scroll!, { top: area.scrollTop, left: area.scrollLeft });
   root.innerHTML = shell(); updateSelectAll();layoutDialog.setAttribute('aria-label',t('调整启动器布局'));
-  if(layoutDialog.open) {if(layoutModalTarget!==launcherTarget() || !layoutAvailable())layoutDialog.close();else layoutDialog.innerHTML=layoutEditor();}
-  for (const area of root.querySelectorAll<HTMLElement>('[data-scroll]')) {
+  if(layoutDialog.open) {if(layoutModalTarget!==launcherTarget() || !layoutAvailable())layoutDialog.close();else {layoutDialog.innerHTML=layoutEditor();syncSceneScale();}}
+  for (const area of scrollAreas()) {
     const position = scrollPositions.get(area.dataset.scroll!); if (position) { area.scrollTop = position.top; area.scrollLeft = position.left; }
   }
 }
@@ -225,14 +233,59 @@ function appsPage(): string {
 function layoutApps() {
   return (launcherLayout?.apps || []).filter(app=>snapshot.packages.some(p=>p.packageName===app.packageName && p.installed && !p.system && p.enabled));
 }
+function layoutTargetInfo(entry:import('./types').LayoutEntry):string {
+ const appName=(pkg:string,fallback:string)=>launcherLayout?.apps?.find(app=>app.packageName===pkg)?.label || snapshot.packages.find(app=>app.packageName===pkg)?.label || fallback;
+ let name='',target=entry.packageName || `action:${entry.action}`,detail='';
+ if(entry.packageName){name=appName(entry.packageName,entry.packageName);detail=t('按应用包名打开；显示名称和图标不会改变打开目标。');}
+ else switch(entry.action){
+  case 'music':name=appName('com.ecojust.music','Music TV');target='com.ecojust.music → https://somafm.com/player/';detail=t('内置音乐入口：优先打开 Music TV，不可用时打开音乐网站。');break;
+  case 'shortvideo':name=appName('com.ecojust.shortvideo','ShortVideo TV');target='com.ecojust.shortvideo';detail=t('打开短视频应用。');break;
+  case 'webtv':name=appName('com.ecojust.webtv','WebTV');target='com.ecojust.webtv';detail=t('打开电视直播应用。');break;
+  case 'bilibili':name=t('哔哩哔哩');target='com.xiaodianshi.tv.yst → tv.danmaku.bili → tv.danmaku.bilibilihd';detail=t('内置入口：依次尝试可启动的哔哩哔哩应用。');break;
+  case 'files':name=t('文件管理器');detail=t('内置入口：使用可用的文件管理器，或打开系统文件选择器。');break;
+  case 'apps':name=t('应用商店');target='action:apps → https://www.dangbei.com/';detail=t('内置入口：使用可用的应用商店，或打开当贝网站。');break;
+  default:name=t('未配置功能');detail=t('这是占位卡片，尚未配置打开的应用。');break;
+ }
+ return ui`<div class="layout-target-info"><span>实际打开目标</span><strong>${esc(name)}</strong><code>${esc(target)}</code><p class="hint">${esc(detail)}</p></div>`;
+}
 function layoutEditor(): string {
   const draft=draftLayout(), entries=draft?.[layoutSection].items || [], options=layoutApps();
   const selected=entries[layoutSelected];
-  return ui`<header class="layout-modal-heading"><div><h2>调整布局</h2><p>拖动卡片调整顺序；home 和 apps 分别保存列数。应用后同步到电视。</p></div>${actionButton('close-layout',t('关闭'),disabled(busy))}</header>${noticeKind==='error' && notice?`<div class="banner notice error" role="status">${esc(message(notice))}</div>`:''}<div class="layout-modal-toolbar"><div class="button-row">${actionButton('layout-home',t('Home · 首页'),disabled(busy),layoutSection==='home'?'primary':'')}${actionButton('layout-apps',t('Apps · 其他应用'),disabled(busy),layoutSection==='apps'?'primary':'')}</div><label>每行列数 <input name="layoutColumns" type="number" min="1" max="6" value="${draft?.[layoutSection].columns || 4}"${disabled(busy)}></label><div class="button-row">${actionButton('import-layout',t('导入 layout.json'),disabled(busy))}${actionButton('reset-layout',t('恢复默认'),disabled(busy))}</div></div><div class="layout-workspace"><div class="tv-canvas-scroll" data-scroll="layout-canvas"><div class="tv-canvas ${layoutSection}" role="group" aria-label="电视布局画布"><div class="tv-canvas-header"><strong>pureTV</strong><span>${layoutSection==='home'?t('Home 首页'):t('Apps 其他应用')}</span><span>12:00</span></div><div class="tv-canvas-grid" style="--columns:${draft?.[layoutSection].columns || 4}">${entries.map((entry,i)=>{
+  const markup=ui`<header class="layout-modal-heading"><div><h2>调整布局</h2><p>拖动卡片调整顺序；home 和 apps 分别保存列数。应用后同步到电视。</p></div>${actionButton('close-layout',t('关闭'),disabled(busy))}</header>${noticeKind==='error' && notice?`<div class="banner notice error" role="status">${esc(message(notice))}</div>`:''}<div class="layout-modal-toolbar"><div class="button-row">${actionButton('layout-home',t('Home · 首页'),disabled(busy),layoutSection==='home'?'primary':'')}${actionButton('layout-apps',t('Apps · 其他应用'),disabled(busy),layoutSection==='apps'?'primary':'')}</div><label>每行列数 <input name="layoutColumns" type="number" min="1" max="6" value="${draft?.[layoutSection].columns || 4}"${disabled(busy)}></label><div class="button-row">${actionButton('import-layout',t('导入 layout.json'),disabled(busy))}${actionButton('reset-layout',t('恢复默认'),disabled(busy))}</div></div><div class="layout-workspace"><div class="tv-canvas-scroll" data-scroll="layout-canvas"><div class="tv-canvas ${layoutSection}" role="group" aria-label="电视布局画布"><div class="tv-canvas-header"><strong>pureTV</strong><span>${layoutSection==='home'?t('Home 首页'):t('Apps 其他应用')}</span><span>12:00</span></div><div class="tv-canvas-grid" style="--columns:${draft?.[layoutSection].columns || 4}">${entries.map((entry,i)=>{
     const app=options.find(app=>app.packageName===entry.packageName), image=app?.iconPng;
     return ui`<button type="button" draggable="${!busy}" data-layout-tile="${i}" class="tv-tile ${i===layoutSelected?'selected':''}" aria-label="选择卡片 ${i+1}" aria-pressed="${i===layoutSelected}" style="background:${esc(entry.color || '#374959')}"${disabled(busy)}>${image && (!entry.icon || entry.icon==='app')?`<img src="data:image/png;base64,${esc(image)}" alt="">`:icon(entry.icon==='app' || entry.icon==='apps' || entry.action==='apps'?'grid':entry.icon || entry.action || 'grid')}<strong>${esc(entry.label || app?.label || entry.packageName || (entry.action==='placeholder'?ui`应用 ${i+1}`:({music:t('音乐'),bilibili:t('哔哩哔哩'),files:t('文件'),apps:t('应用'),shortvideo:t('短视频'),webtv:t('电视直播')}[entry.action || ''] || t('入口'))))}</strong><small>${i+1}</small></button>`;
-  }).join('') || t('<div class="canvas-empty">从右侧添加已安装用户应用</div>')}</div><div class="tv-canvas-footer">${layoutSection==='home'?t('首页 · 全部应用 ↓'):t('其他应用 · 返回首页 ↑')}</div></div></div><aside class="layout-inspector" data-scroll="layout-inspector"><h3>卡片属性</h3>${selected?ui`<p class="hint">${esc(selected.packageName || t('启动器内置入口'))}</p><label>显示名称<input data-layout-label="${layoutSelected}" aria-label="卡片显示名称" value="${esc(selected.label || '')}" maxlength="100"${disabled(busy)}></label><label>图标<select data-layout-icon="${layoutSelected}" aria-label="卡片图标"${disabled(busy)}>${['app','music','video','files','apps','picture','settings','input'].map(name=>`<option value="${name}"${(selected.icon || 'app')===name?' selected':''}>${esc({app:t('应用原图标'),music:t('音乐'),video:t('视频'),files:t('文件'),apps:t('应用'),picture:t('图片'),settings:t('设置'),input:t('输入')}[name])}</option>`).join('')}</select></label><label>颜色<input type="color" data-layout-color="${layoutSelected}" aria-label="卡片颜色" value="${esc(selected.color || '#374959')}"${disabled(busy)}></label><div class="button-row">${actionButton('layout-up',t('前移'),` data-index="${layoutSelected}"${disabled(busy || layoutSelected===0)}`)}${actionButton('layout-down',t('后移'),` data-index="${layoutSelected}"${disabled(busy || layoutSelected===entries.length-1)}`)}${actionButton('layout-remove',t('移除'),` data-index="${layoutSelected}"${disabled(busy)}`)}</div>`:t('<p class="hint">点击画布中的卡片编辑。</p>')}<h3>添加用户应用</h3><p class="hint">仅显示当前用户已安装、可启动的非系统应用。</p><select name="layoutApp" aria-label="选择已安装用户应用"${disabled(busy || !options.length)}><option value="">选择用户应用…</option>${options.map(app=>`<option value="${esc(app.packageName)}"${layoutApp===app.packageName?' selected':''}>${esc(app.label)} · ${esc(app.packageName)}</option>`).join('')}</select>${actionButton('layout-add',t('添加到当前页面'),disabled(busy || !layoutApp || !draft || entries.length>=(layoutSection==='home'?24:100) || entries.some(entry=>entry.packageName===layoutApp)))}<details class="layout-json"><summary>layout.json</summary><textarea name="layoutJson" aria-label="layout.json 配置" spellcheck="false"${disabled(busy)}>${esc(layoutJson)}</textarea>${actionButton('parse-layout',t('解析配置'),disabled(busy))}</details></aside></div><footer class="layout-modal-actions"><span>${entries.length} 张卡片 · 本地草稿</span><div class="button-row">${actionButton('close-layout',t('取消'),disabled(busy))}${actionButton('apply-layout',t('应用到电视'),disabled(busy || !draft),'primary')}</div></footer>`;
+  }).join('') || t('<div class="canvas-empty">从右侧添加已安装用户应用</div>')}</div><div class="tv-canvas-footer">${layoutSection==='home'?t('首页 · 全部应用 ↓'):t('其他应用 · 返回首页 ↑')}</div></div></div><aside class="layout-inspector" data-scroll="layout-inspector"><h3>卡片属性</h3>${selected?ui`${layoutTargetInfo(selected)}<label>打开的应用<select data-layout-target="${layoutSelected}" aria-label="卡片打开的应用"${disabled(busy)}>${selected.action && selected.action!=='app'?`<option value="__builtin__" selected>${t('保留当前内置功能')}</option>`:!options.some(app=>app.packageName===selected.packageName)?`<option value="${esc(selected.packageName || '')}" selected disabled>${esc(selected.packageName || t('当前应用不可用'))}</option>`:''}${options.map(app=>`<option value="${esc(app.packageName)}"${selected.packageName===app.packageName?' selected':''}${disabled(entries.some((entry,index)=>index!==layoutSelected && entry.packageName===app.packageName))}>${esc(app.label)} · ${esc(app.packageName)}</option>`).join('')}</select></label><label>显示名称<input data-layout-label="${layoutSelected}" aria-label="卡片显示名称" value="${esc(selected.label || '')}" maxlength="100"${disabled(busy)}></label><label>图标<select data-layout-icon="${layoutSelected}" aria-label="卡片图标"${disabled(busy)}>${['app','music','video','files','apps','picture','settings','input'].map(name=>`<option value="${name}"${(selected.icon || 'app')===name?' selected':''}>${esc({app:t('应用原图标'),music:t('音乐'),video:t('视频'),files:t('文件'),apps:t('应用'),picture:t('图片'),settings:t('设置'),input:t('输入')}[name])}</option>`).join('')}</select></label><label>颜色<input type="color" data-layout-color="${layoutSelected}" aria-label="卡片颜色" value="${esc(selected.color || '#374959')}"${disabled(busy)}></label><div class="button-row">${actionButton('layout-up',t('前移'),` data-index="${layoutSelected}"${disabled(busy || layoutSelected===0)}`)}${actionButton('layout-down',t('后移'),` data-index="${layoutSelected}"${disabled(busy || layoutSelected===entries.length-1)}`)}${actionButton('layout-remove',t('移除'),` data-index="${layoutSelected}"${disabled(busy)}`)}</div>`:t('<p class="hint">点击画布中的卡片编辑。</p>')}<h3>添加用户应用</h3><p class="hint">仅显示当前用户已安装、可启动的非系统应用。</p><select name="layoutApp" aria-label="选择已安装用户应用"${disabled(busy || !options.length)}><option value="">选择用户应用…</option>${options.map(app=>`<option value="${esc(app.packageName)}"${layoutApp===app.packageName?' selected':''}>${esc(app.label)} · ${esc(app.packageName)}</option>`).join('')}</select>${actionButton('layout-add',t('添加到当前页面'),disabled(busy || !layoutApp || !draft || entries.length>=(layoutSection==='home'?24:100) || entries.some(entry=>entry.packageName===layoutApp)))}<details class="layout-json"><summary>layout.json</summary><textarea name="layoutJson" aria-label="layout.json 配置" spellcheck="false"${disabled(busy)}>${esc(layoutJson)}</textarea>${actionButton('parse-layout',t('解析配置'),disabled(busy))}</details></aside></div><footer class="layout-modal-actions"><span>${entries.length} 张卡片 · 本地草稿</span><div class="button-row">${actionButton('close-layout',t('取消'),disabled(busy))}${actionButton('apply-layout',t('应用到电视'),disabled(busy || !draft),'primary')}</div></footer>`;
+  return draft?.version===3?sceneEditor(markup,draft):markup;
 }
+function sceneEditor(markup:string,draft:LauncherLayout):string {
+ const page=draft[layoutSection],scene=page.scene!;
+ if(!sceneNode(draft,layoutSection,layoutNode,layoutSelected)){layoutNode="background";layoutSelected=-1;}
+ const template=document.createElement('template');template.innerHTML=markup;
+ const canvas=template.content.querySelector<HTMLElement>('.tv-canvas')!;
+ const tiles=Array.from(canvas.querySelectorAll<HTMLElement>('.tv-tile'));
+ canvas.classList.add('scene-canvas');canvas.replaceChildren();canvas.setAttribute('style','');
+ const draw=(node:import('./types').LayoutGeometry,element:HTMLElement,frame:import('./types').LayoutFrame)=>{
+  element.style.cssText+=frameStyle(frame)+`z-index:${node.zIndex ?? 1};`;element.classList.add('scene-element');
+  if(node.visible===false)element.classList.add('scene-hidden');canvas.append(element);
+ };
+ const bg=document.createElement('button');bg.type='button';bg.className='scene-background';bg.dataset.sceneNode='background';bg.setAttribute('aria-label',t('背景'));
+ bg.style.backgroundColor=scene.background.color;
+ if(scene.background.image)bg.style.backgroundImage=`url(${JSON.stringify(scene.background.image)})`;
+ draw(scene.background,bg,scene.background.frame!);
+ const sample:Record<string,string>={clock:'12:00',date:t('星期一 · 10月24日'),weather:t('天气 · 由电视实时更新'),title:t('其他应用'),subtitle:t('已安装应用与常用入口')};
+ for(const node of scene.elements){const el=document.createElement('button');el.type='button';el.dataset.sceneNode=node.id;el.className=`scene-control scene-${node.id}`;el.textContent=sample[node.id] || t(sceneLabels[node.id]);el.setAttribute('aria-label',t(sceneLabels[node.id]));if(layoutNode===node.id)el.classList.add('selected');draw(node,el,node.frame);}
+ tiles.forEach((el,i)=>{const entry=page.items[i];el.draggable=false;el.style.setProperty('--tile-color',entry.color || '#374959');const frame=entry.frame || autoFrame(layoutSection,i,page.columns,page.items.length);el.style.setProperty('--tile-icon',`calc(${Math.min(38,frame.height*.3)} * var(--scene-unit))`);el.style.setProperty('--tile-font',`calc(${Math.min(14,frame.height*14/150)} * var(--scene-unit))`);draw(entry,el,frame);});
+ const toolbar=template.content.querySelector('.layout-modal-heading p')!;toolbar.textContent=t('同一份 layout.json 驱动电视与画布；拖动元素或输入坐标调整位置。');
+ const inspector=template.content.querySelector('.layout-inspector')!;
+ const target=sceneNode(draft,layoutSection,layoutNode,layoutSelected);
+ const frame=target?.frame || (!layoutNode && layoutSelected>=0?autoFrame(layoutSection,layoutSelected,page.columns,page.items.length):undefined);
+ const geometry=document.createElement('section');geometry.className='scene-geometry';
+ geometry.innerHTML=ui`<h3>元素位置</h3><p class="hint">960 × 540 设计坐标 · 等比缩放</p><label>页面元素<select name="sceneSelection" aria-label="选择页面元素"><option value="background"${layoutNode==='background'?' selected':''}>${t('背景')}</option>${scene.elements.map(n=>`<option value="${esc(n.id)}"${layoutNode===n.id?' selected':''}>${esc(t(sceneLabels[n.id]))}</option>`).join('')}${page.items.map((e,i)=>`<option value="tile:${i}"${layoutNode===null && layoutSelected===i?' selected':''}>${esc(e.label || e.packageName || e.action || t('应用'))}</option>`).join('')}</select></label>${target && frame?`<div class="scene-frame-fields">${(['x','y','width','height'] as const).map(key=>`<label>${esc(t({x:'横坐标',y:'纵坐标',width:'宽度',height:'高度'}[key]))}<input type="number" data-scene-frame="${key}" aria-label="${key}" value="${frame[key]}" step="1" min="${key==='width'||key==='height'?1:0}" max="${key==='x'||key==='width'?960:540}"${disabled(busy)}></label>`).join('')}</div><label>${t('图层')}<input type="number" data-scene-layer aria-label="${t('图层')}" min="0" max="20" value="${target.zIndex ?? 1}"${disabled(busy)}></label><label class="scene-visible"><input type="checkbox" data-scene-visible${target.visible!==false?' checked':''}${disabled(busy)}> ${t('显示元素')}</label>`:''}${layoutNode==='background'?`<label>${t('背景颜色')}<input type="color" data-scene-background value="${scene.background.color}"${disabled(busy)}></label><label>${t('背景图片')}<input type="file" data-scene-image accept="image/png,image/jpeg,image/webp"${disabled(busy)}></label><p class="hint">${t('图片将缩放压缩后嵌入 layout.json，不引用电脑路径。')}</p>${actionButton('scene-clear-image',t('移除背景图片'),disabled(busy || !scene.background.image))}`:layoutNode?`<p class="hint">${t('内置功能保持不变，仅调整位置、尺寸与显示状态。')}</p>`:''}`;
+ if(layoutNode){while(inspector.firstElementChild && inspector.firstElementChild.textContent!==t('添加用户应用'))inspector.firstElementChild.remove();}
+ inspector.prepend(geometry);
+ return template.innerHTML;
+}
+
 async function launcherOperation(request: LauncherRequest, preserveDraft = false): Promise<void> {
   const savedDraft = preserveDraft && layoutAvailable() ? layoutJson : null;
   if (busy || !online()) return;
@@ -245,8 +298,8 @@ function modifyLayout(change: (draft: LauncherLayout) => void): void {
   if (busy || !layoutAvailable()) return;
   const draft = draftLayout(); if (!draft) throw new Error(t('请先解析有效的 layout.json'));
   const previous=layoutJson; change(draft); layoutJson = JSON.stringify(draft, null, 2);
-  if(!draftLayout()){layoutJson=previous;showNotice(t('布局未修改：首页最多 24 张卡片，应用列表最多 100 项，并使用有效的名称、图标与颜色。'),'error');return;}
-  render();
+  if(!draftLayout()){layoutJson=previous;showNotice(t('布局未修改：请检查元素边界、应用数量、名称、图标与颜色。'),'error');return;}
+  notice='';noticeKind='info';render();
 }
 function launcherCardCover(image?:string|null):string {
   return image && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image)?`<img class="launcher-card-background" src="${esc(image)}" alt="">`:'';
@@ -402,6 +455,17 @@ function validAddress(rawHost: string, rawPort: string): { host: string; port: n
   if (!/^\d+$/.test(rawPort) || !Number.isInteger(number) || number < 1 || number > 65535) throw new Error(t('端口应为 1–65535 的整数'));
   return { host: value, port: number };
 }
+async function confirmConnectionNetwork(address:{host:string;port:number}):Promise<boolean> {
+ if(busy)return false;
+ localBusy=true;busy=true;cancelling=false;busyLabel=t('正在检查本机网段…');render();
+ let info:import('./types').LocalNetworkInfo,stopped=false;
+ try {info=await api.localNetwork();snapshot.localNetwork=info;stopped=cancelling;}
+ catch(error){info={addresses:[],error:error instanceof Error?error.message:String(error)};snapshot.localNetwork=info;stopped=cancelling;}
+ finally{localBusy=false;busy=!!agentOperation?.running;cancelling=false;render();}
+ if(stopped || busy)return false;
+ if(sameSubnet(address.host,info)!==false)return true;
+ return confirm(t('电视与电脑不在同一网段'),t('电视 IP 与当前所有本机网卡的网段都不匹配，可能无法直接连接。如果已配置跨网段路由或 VPN，仍可继续。'),[ui`电视地址：${address.host}:${address.port}`,...info.addresses.map(adapter=>`${adapter.ip}/${adapter.prefixLength} · ${adapter.interfaceName}`)],t('继续连接'));
+}
 async function addApks(): Promise<void> {
   if (busy) return; const values = await api.chooseApks();
   if (!values.length) return;
@@ -418,7 +482,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
     case 'go-install': page = 'install'; render(); break;
     case 'dismiss': notice = ''; render(); break;
     case 'close-dialog': dialog.close(); break;
-    case 'connect': { const address=validAddress(host,port);host=address.host;port=String(address.port);connectionEdited=false;await run({ action: 'connect', ...address }, t('连接电视并读取设备信息…'));break; }
+    case 'connect': { const address=validAddress(host,port);if(!await confirmConnectionNetwork(address))break;host=address.host;port=String(address.port);connectionEdited=false;await run({ action: 'connect', ...address }, t('连接电视并读取设备信息…'));break; }
     case 'refresh-local-network': await run({action:'refreshLocalNetwork'},t('正在刷新本机网络地址…'));break;
     case 'disconnect': await run({ action: 'disconnect' }, t('断开当前电视…')); break;
     case 'choose-adb': { const path = await api.chooseAdb(); if (path) { adbPath = path; await run({ action: 'setAdbPath', path }, t('验证 ADB 工具…')); } break; }
@@ -452,7 +516,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
       }break;
     }
     case 'launcher-cover': case 'remove-launcher-cover': covers=await api.chooseLauncherCover(button.dataset.component!,action==='remove-launcher-cover');render();break;
-    case 'open-layout': if(layoutDirty && online())await launcherOperation({action:'getLayout'},true);if(layoutAvailable()){layoutSelected=0;layoutSection='home';layoutModalTarget=launcherTarget();layoutDialog.innerHTML=layoutEditor();layoutDialog.showModal();}break;
+    case 'open-layout': if(layoutDirty && online())await launcherOperation({action:'getLayout'},true);if(layoutAvailable()){layoutNode=null;layoutSelected=0;layoutSection='home';layoutModalTarget=launcherTarget();layoutDialog.innerHTML=layoutEditor();layoutDialog.showModal();syncSceneScale();}break;
     case 'close-layout': if(!busy)layoutDialog.close();break;
     case 'add-apks': await addApks(); break;
     case 'remove-apk': { const path = button.dataset.path!; apkPaths = apkPaths.filter(p => p !== path); selectedApks.delete(path); render(); break; }
@@ -477,14 +541,14 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
     case 'reset-layout': if(layoutAvailable() && await confirm(t('恢复默认布局'),t('移除当前启动器的 layout.json 自定义配置，壁纸和其他设置保留。'),[snapshot.defaultHome || ''],t('恢复默认布局'))) await launcherOperation({action:'resetLayout'}); break;
     case 'import-layout': { const text=await api.chooseLauncherJson();if(text){layoutJson=text; if(!draftLayout()) throw new Error(t('布局文件格式无效')); render();} break; }
     case 'parse-layout': if(!draftLayout()) throw new Error(t('layout.json 格式无效')); render(); break;
-    case 'layout-home': layoutSection='home';layoutSelected=0;render();break;
-    case 'layout-apps': layoutSection='apps';layoutSelected=0;render();break;
+    case 'layout-home': layoutSection='home';layoutNode=null;layoutSelected=0;render();break;
+    case 'layout-apps': layoutSection='apps';layoutNode=null;layoutSelected=0;render();break;
     case 'layout-up': case 'layout-down': {
       const index=Number(button.dataset.index), offset=button.dataset.act==='layout-up'?-1:1;
       modifyLayout(draft=>{const entries=draft[layoutSection].items, next=index+offset;if(next>=0 && next<entries.length){[entries[index],entries[next]]=[entries[next],entries[index]];layoutSelected=next;}});break;
     }
     case 'layout-remove': modifyLayout(draft=>{draft[layoutSection].items.splice(Number(button.dataset.index),1);});break;
-    case 'layout-add': modifyLayout(draft=>{if(!layoutApp || draft[layoutSection].items.some(entry=>entry.packageName===layoutApp))return;draft[layoutSection].items.push({packageName:layoutApp,icon:'app',color:'#374959'});});break;
+    case 'layout-add': modifyLayout(draft=>{if(!layoutApp || draft[layoutSection].items.some(entry=>entry.packageName===layoutApp))return;const page=draft[layoutSection];page.items.push({packageName:layoutApp,icon:'app',color:'#374959',...(draft.version===3?{frame:autoFrame(layoutSection,page.items.length,page.columns,page.items.length+1),visible:true,zIndex:1}:{})});layoutNode=null;layoutSelected=page.items.length-1;});break;
     case 'set-home': {
       const component = button.dataset.component!;
       if (await confirm(t('更换默认桌面'), t('切换前会记录原来的桌面，便于之后恢复。'), [component], t('设为默认桌面'))) {await run({ action: 'setHome', component }, t('切换默认桌面并核对结果…'));await launcherOperation({action:'getLayout'});} break;
@@ -498,7 +562,8 @@ document.addEventListener('click', event => {
   if (target.closest('.brand')) { event.preventDefault(); page = 'connect'; render(); return; }
   const nav = target.closest<HTMLButtonElement>('[data-page]');
   if (nav) { page = nav.dataset.page as Page; render(); if(page==='launchers' && layoutDirty && online() && !busy)void launcherOperation({action:'getLayout'},true); return; }
-  const tile=target.closest<HTMLElement>('[data-layout-tile]');if(tile){layoutSelected=Number(tile.dataset.layoutTile);render();return;}
+  const node=target.closest<HTMLElement>('[data-scene-node]');if(node){layoutNode=node.dataset.sceneNode || null;layoutSelected=-1;render();return;}
+  const tile=target.closest<HTMLElement>('[data-layout-tile]');if(tile){layoutNode=null;layoutSelected=Number(tile.dataset.layoutTile);render();return;}
   const tab = target.closest<HTMLButtonElement>('[data-filter]');
   if (tab) { filter = tab.dataset.filter as Filter; selected.clear(); render(); return; }
   const button = target.closest<HTMLButtonElement>('button[data-act]');
@@ -519,8 +584,9 @@ document.addEventListener('change', event => {
   const control = event.target as HTMLInputElement;
   if(control.name==='locale'){setLocale(control.value);render();void api.setInterfacePreferences({locale:control.value}).catch(error=>showNotice(String(error),'error'));return;}
   if(control.name==='theme'){setTheme(control.value);render();void api.setInterfacePreferences({theme:control.value}).catch(error=>showNotice(String(error),'error'));return;}
+  if(control.dataset.layoutTarget!==undefined){const packageName=control.value;if(packageName==='__builtin__')return;if(!layoutApps().some(app=>app.packageName===packageName)){showNotice(t('只能使用已安装、可启动的用户应用'),'error');return;}modifyLayout(draft=>{const entry=draft[layoutSection].items[Number(control.dataset.layoutTarget)];if(entry){delete entry.action;entry.packageName=packageName;}});return;}
   if (control.name === 'layoutApp') { layoutApp = control.value; render(); return; }
-  if (control.name === 'layoutColumns') { const columns=Number(control.value); if(!Number.isInteger(columns) || columns<1 || columns>6){showNotice(t('每行列数应为 1–6'),'error');return;} modifyLayout(draft=>{draft[layoutSection].columns=columns;}); return; }
+  if (control.name === 'layoutColumns') { const columns=Number(control.value); if(!Number.isInteger(columns) || columns<1 || columns>6){showNotice(t('每行列数应为 1–6'),'error');return;} modifyLayout(draft=>{const page=draft[layoutSection];page.columns=columns;if(draft.version===3)page.items.forEach((item,i)=>item.frame=autoFrame(layoutSection,i,columns,page.items.length));}); return; }
   for (const [attribute,field] of [['layoutLabel','label'],['layoutIcon','icon'],['layoutColor','color']] as const) {
     if (control.dataset[attribute] !== undefined) { modifyLayout(draft=>{const entry=draft[layoutSection].items[Number(control.dataset[attribute])]; if(entry)entry[field]=control.value;}); return; }
   }
@@ -572,6 +638,7 @@ void api.watchMcp(value => {
 
 void api.launcherCovers().then(value=>{covers=value;render();}).catch(error=>showNotice(String(error),'error'));
 layoutDialog.addEventListener('dragstart',event=>{
+ if(draftLayout()?.version===3){event.preventDefault();return;}
  const tile=(event.target as HTMLElement).closest<HTMLElement>('[data-layout-tile]');if(!tile || busy)return;
  layoutDrag=Number(tile.dataset.layoutTile);event.dataTransfer?.setData('text/plain',String(layoutDrag));
 });
@@ -589,3 +656,63 @@ void api.interfacePreferences().then(async value=>{
   if(value.locale || value.theme)acceptPreferences(value);
   if(api.desktop && !api.demo && (!value.locale || !value.theme))await api.setInterfacePreferences({locale:locale(),theme:document.documentElement.dataset.theme},true);
 }).catch(error=>showNotice(String(error),'error'));
+
+// V3 scene editing: numeric controls and pointer movement share the same geometry values.
+layoutDialog.addEventListener('change',event=>{
+ const control=event.target as HTMLInputElement;
+ if(control.name==='sceneSelection'){const value=control.value;layoutNode=value.startsWith('tile:')?null:value;layoutSelected=layoutNode?-1:Number(value.slice(5));render();return;}
+ if(control.matches('[data-scene-image]')){const file=control.files?.[0];if(file)void embedSceneImage(file).catch(error=>showNotice(message(String(error)),'error'));return;}
+ if(!control.matches('[data-scene-frame],[data-scene-layer],[data-scene-visible],[data-scene-background]'))return;
+ modifyLayout(draft=>{
+  const target=sceneNode(draft,layoutSection,layoutNode,layoutSelected);if(!target)return;
+  if(control.dataset.sceneFrame){target.frame ??= autoFrame(layoutSection,layoutSelected,draft[layoutSection].columns,draft[layoutSection].items.length);target.frame[control.dataset.sceneFrame as keyof import('./types').LayoutFrame]=Number(control.value);}
+  else if(control.hasAttribute('data-scene-layer'))target.zIndex=Number(control.value);
+  else if(control.hasAttribute('data-scene-visible'))target.visible=control.checked;
+  else if(control.hasAttribute('data-scene-background'))draft[layoutSection].scene!.background.color=control.value;
+ });
+});
+layoutDialog.addEventListener('click',event=>{if((event.target as HTMLElement).closest('[data-act="scene-clear-image"]'))modifyLayout(draft=>{delete draft[layoutSection].scene!.background.image;});});
+async function embedSceneImage(file:File):Promise<void> {
+ if(busy)return;
+ const expectedTarget=layoutModalTarget,section=layoutSection;
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size>16*1024*1024)throw Error(t('请选择不超过 16 MiB 的 PNG、JPEG 或 WebP 图片'));
+ const image=await createImageBitmap(file);
+ try {
+  const canvas=document.createElement('canvas');let result='';
+  for(const width of [960,640,480,320]){
+   const ratio=Math.min(1,width/image.width,540/image.height);canvas.width=Math.max(1,Math.round(image.width*ratio));canvas.height=Math.max(1,Math.round(image.height*ratio));
+   const context=canvas.getContext('2d')!;context.drawImage(image,0,0,canvas.width,canvas.height);
+   for(const quality of [.75,.5,.3]){result=canvas.toDataURL('image/webp',quality);if(result.length<=33000)break;}if(result.length<=33000)break;
+  }
+  if(result.length>33000)throw Error(t('图片压缩后仍过大，请使用更简单的背景图'));
+  if(expectedTarget!==layoutModalTarget || section!==layoutSection || !layoutDialog.open || busy)return;
+  modifyLayout(draft=>{draft[section].scene!.background.image=result;});
+ } finally {image.close();}
+}
+let scenePointer:{pointer:number;element:HTMLElement;startX:number;startY:number;frame:import('./types').LayoutFrame;next:import('./types').LayoutFrame;node:string|null;index:number;section:'home'|'apps';target:string;moved:boolean}|null=null;
+layoutDialog.addEventListener('pointerdown',event=>{
+ if(busy || event.button!==0)return;
+ const draft=draftLayout();if(draft?.version!==3)return;
+ const element=(event.target as HTMLElement).closest<HTMLElement>('.scene-element');if(!element)return;
+ const node=element.dataset.sceneNode || null,index=node?-1:Number(element.dataset.layoutTile);
+ const target=sceneNode(draft,layoutSection,node,index);if(!target)return;
+ const frame=target.frame || autoFrame(layoutSection,index,draft[layoutSection].columns,draft[layoutSection].items.length);
+ scenePointer={pointer:event.pointerId,element,startX:event.clientX,startY:event.clientY,frame:{...frame},next:{...frame},node,index,section:layoutSection,target:layoutModalTarget,moved:false};
+ element.setPointerCapture(event.pointerId);
+});
+layoutDialog.addEventListener('pointermove',event=>{
+ const drag=scenePointer;if(!drag || drag.pointer!==event.pointerId)return;
+ const rect=drag.element.closest('.scene-canvas')!.getBoundingClientRect(),dx=(event.clientX-drag.startX)*960/rect.width,dy=(event.clientY-drag.startY)*540/rect.height;
+ if(Math.abs(dx)+Math.abs(dy)<3 && !drag.moved)return;drag.moved=true;event.preventDefault();
+ drag.next={...drag.frame,x:Math.max(0,Math.min(960-drag.frame.width,Math.round(drag.frame.x+dx))),y:Math.max(0,Math.min(540-drag.frame.height,Math.round(drag.frame.y+dy)))};
+ drag.element.style.left=`${drag.next.x/9.6}%`;drag.element.style.top=`${drag.next.y/5.4}%`;
+});
+layoutDialog.addEventListener('pointerup',event=>{
+ const drag=scenePointer;if(!drag || drag.pointer!==event.pointerId)return;scenePointer=null;
+ if(!drag.moved || busy || drag.target!==layoutModalTarget || drag.section!==layoutSection)return;
+ layoutNode=drag.node;layoutSelected=drag.index;
+ modifyLayout(draft=>{const node=sceneNode(draft,drag.section,drag.node,drag.index);if(node)node.frame=drag.next;});
+});
+layoutDialog.addEventListener('pointercancel',()=>{scenePointer=null;render();});
+
+new ResizeObserver(syncSceneScale).observe(layoutDialog);

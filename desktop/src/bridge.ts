@@ -1,6 +1,6 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { emptySnapshot, type Snapshot, type Request, type PlatformToolsInfo, type DownloadProgress } from './types';
+import { emptySnapshot, type Snapshot, type LocalNetworkInfo, type Request, type PlatformToolsInfo, type DownloadProgress } from './types';
 
 export const demo = new URLSearchParams(location.search).get('demo') === '1';
 export const desktop = '__TAURI_INTERNALS__' in window;
@@ -145,3 +145,9 @@ export interface InterfacePreferences {locale?:string|null;theme?:string|null}
 export async function interfacePreferences():Promise<InterfacePreferences> {if(!desktop || demo)return {};return invoke('get_interface_preferences');}
 export async function setInterfacePreferences(preferences:InterfacePreferences,onlyIfUnset=false):Promise<InterfacePreferences> {if(!desktop || demo)return preferences;return invoke('set_interface_preferences',{preferences,onlyIfUnset});}
 export async function watchInterfacePreferences(callback:(value:InterfacePreferences)=>void):Promise<void> {if(!desktop || demo)return;await listen<InterfacePreferences>('interface-preferences',event=>callback(event.payload));}
+
+export async function localNetwork():Promise<LocalNetworkInfo> {
+ if(demo)return structuredClone(sample.localNetwork || {addresses:[],error:null});
+ if(!desktop)throw new Error(unavailable);
+ return invoke<LocalNetworkInfo>('get_local_network');
+}
