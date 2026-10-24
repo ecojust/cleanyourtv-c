@@ -142,7 +142,8 @@ public class LauncherLayoutTest {
             android.view.View clock=activity.findViewById(R.id.clock);int[] xy=new int[2];clock.getLocationOnScreen(xy);assertEquals(320,xy[0]);assertEquals(140,xy[1]);assertEquals(400,clock.getWidth());
             assertFalse(activity.findViewById(R.id.btnWifi).isShown());
             RecyclerView grid=activity.findViewById(R.id.grid);android.view.View card=LayoutScene.holder(grid,0).itemView;assertEquals(240,card.getLeft());assertEquals(560,card.getTop());
-            activity.findViewById(R.id.btnSettings).performClick();assertEquals(android.provider.Settings.ACTION_SETTINGS,org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity().getAction());
+            android.content.Intent expected=MainActivity.systemIntent(activity,android.provider.Settings.ACTION_SETTINGS);
+            assertTrue(activity.findViewById(R.id.btnSettings).performClick());android.content.Intent started=org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();assertNotNull(started);assertEquals(expected.getAction(),started.getAction());assertEquals(expected.getComponent(),started.getComponent());
         }
         JSONObject invalid=new JSONObject(draft.toString());invalid.getJSONObject("home").getJSONObject("scene").getJSONArray("elements").getJSONObject(0).getJSONObject("frame").put("x",950);
         try{LauncherLayout.apply(context(),invalid);fail("Out of bounds geometry must fail");}catch(IllegalArgumentException expected){}

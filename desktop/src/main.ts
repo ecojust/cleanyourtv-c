@@ -152,12 +152,14 @@ function shell(): string {
   const [label, status] = deviceStatus();
   return ui`<aside class="sidebar"><nav aria-label="主要页面">${(Object.entries(pages) as [Page, [string, string, string]][]).filter(([key])=>key!=='install').map(([key, data]) => `<button class="nav-item ${page === key || page==='install' && key==='apps' ? 'active' : ''}" data-page="${key}" ${page === key || page==='install' && key==='apps' ? 'aria-current="page"' : ''}>${icon(data[2])}<span>${t(data[0])}</span></button>`).join('')}</nav><section class="appearance-panel" aria-label="语言与外观"><label>语言<select name="locale" aria-label="界面语言">${localeOptions()}</select></label><label>主题<select name="theme" aria-label="界面主题">${themeOptions()}</select></label></section><a class="brand" href="#" aria-label="pureTV 电视管理器"><img src="/puretv-logo.png" alt="" width="42" height="42">pure<span>TV</span></a><p class="brand-caption">电视管理器<span class="app-version">v${esc(appVersion)}</span></p></aside><main class="${page === 'connect' ? '' : 'list-page'}"><header class="page-header"><div><h1>${t(pages[page][0])}</h1><p>${t(pages[page][1])}</p></div><div class="header-actions"><span class="device-badge"><i class="dot ${status}"></i>${online() ? t('已连接 · ') : ''}${esc(label)}</span></div></header>${api.demo ? t('<div class="banner demo-banner">演示模式 · 示例设备和应用，所有操作仅用于预览，不会连接真实电视。</div>') : !api.desktop ? t('<div class="banner warning-banner">这是浏览器预览。请运行桌面应用来连接电视和安装 APK。</div>') : ''}${notice ? ui`<div class="banner notice ${noticeKind}" role="status"><span>${esc(message(notice))}</span><button class="icon-button" aria-label="关闭提示" data-act="dismiss">${icon('close')}</button></div>` : ''}${busyIndicator()}<section id="page-content">${content()}</section><footer class="app-footer"><span>pureTV 电视管理器</span><span>${api.demo ? t('演示数据 · 不执行 ADB') : snapshot.device ? (page === 'connect' ? ui`目标 ${esc(snapshot.device.serial)} · 用户 ${snapshot.device.userId}` : ui`当前 Android 用户 ${snapshot.device.userId}`) : t('选择设备后开始管理')}</span></footer></main>`;
 }
+function syncSceneScale():void {const canvas=layoutDialog.querySelector<HTMLElement>('.scene-canvas');if(canvas)canvas.style.setProperty('--scene-unit',`${canvas.clientWidth/960}px`);}
+function scrollAreas():HTMLElement[]{return [...root.querySelectorAll<HTMLElement>('[data-scroll]'),...layoutDialog.querySelectorAll<HTMLElement>('[data-scroll]')];}
 const scrollPositions = new Map<string, { top: number; left: number }>();
 function render(): void {
-  for (const area of root.querySelectorAll<HTMLElement>('[data-scroll]')) scrollPositions.set(area.dataset.scroll!, { top: area.scrollTop, left: area.scrollLeft });
+  for (const area of scrollAreas()) scrollPositions.set(area.dataset.scroll!, { top: area.scrollTop, left: area.scrollLeft });
   root.innerHTML = shell(); updateSelectAll();layoutDialog.setAttribute('aria-label',t('调整启动器布局'));
-  if(layoutDialog.open) {if(layoutModalTarget!==launcherTarget() || !layoutAvailable())layoutDialog.close();else layoutDialog.innerHTML=layoutEditor();}
-  for (const area of root.querySelectorAll<HTMLElement>('[data-scroll]')) {
+  if(layoutDialog.open) {if(layoutModalTarget!==launcherTarget() || !layoutAvailable())layoutDialog.close();else {layoutDialog.innerHTML=layoutEditor();syncSceneScale();}}
+  for (const area of scrollAreas()) {
     const position = scrollPositions.get(area.dataset.scroll!); if (position) { area.scrollTop = position.top; area.scrollLeft = position.left; }
   }
 }
@@ -271,7 +273,7 @@ function sceneEditor(markup:string,draft:LauncherLayout):string {
  draw(scene.background,bg,scene.background.frame!);
  const sample:Record<string,string>={clock:'12:00',date:t('星期一 · 10月24日'),weather:t('天气 · 由电视实时更新'),title:t('其他应用'),subtitle:t('已安装应用与常用入口')};
  for(const node of scene.elements){const el=document.createElement('button');el.type='button';el.dataset.sceneNode=node.id;el.className=`scene-control scene-${node.id}`;el.textContent=sample[node.id] || t(sceneLabels[node.id]);el.setAttribute('aria-label',t(sceneLabels[node.id]));if(layoutNode===node.id)el.classList.add('selected');draw(node,el,node.frame);}
- tiles.forEach((el,i)=>{const entry=page.items[i];el.draggable=false;el.style.setProperty('--tile-color',entry.color || '#374959');const frame=entry.frame || autoFrame(layoutSection,i,page.columns,page.items.length);el.style.setProperty('--tile-icon',`${Math.min(38,frame.height*.3)/9.6}cqw`);el.style.setProperty('--tile-font',`${Math.min(14,frame.height*14/150)/9.6}cqw`);draw(entry,el,frame);});
+ tiles.forEach((el,i)=>{const entry=page.items[i];el.draggable=false;el.style.setProperty('--tile-color',entry.color || '#374959');const frame=entry.frame || autoFrame(layoutSection,i,page.columns,page.items.length);el.style.setProperty('--tile-icon',`calc(${Math.min(38,frame.height*.3)} * var(--scene-unit))`);el.style.setProperty('--tile-font',`calc(${Math.min(14,frame.height*14/150)} * var(--scene-unit))`);draw(entry,el,frame);});
  const toolbar=template.content.querySelector('.layout-modal-heading p')!;toolbar.textContent=t('同一份 layout.json 驱动电视与画布；拖动元素或输入坐标调整位置。');
  const inspector=template.content.querySelector('.layout-inspector')!;
  const target=sceneNode(draft,layoutSection,layoutNode,layoutSelected);
@@ -513,7 +515,7 @@ async function doAction(button: HTMLButtonElement): Promise<void> {
       }break;
     }
     case 'launcher-cover': case 'remove-launcher-cover': covers=await api.chooseLauncherCover(button.dataset.component!,action==='remove-launcher-cover');render();break;
-    case 'open-layout': if(layoutDirty && online())await launcherOperation({action:'getLayout'},true);if(layoutAvailable()){layoutNode=null;layoutSelected=0;layoutSection='home';layoutModalTarget=launcherTarget();layoutDialog.innerHTML=layoutEditor();layoutDialog.showModal();}break;
+    case 'open-layout': if(layoutDirty && online())await launcherOperation({action:'getLayout'},true);if(layoutAvailable()){layoutNode=null;layoutSelected=0;layoutSection='home';layoutModalTarget=launcherTarget();layoutDialog.innerHTML=layoutEditor();layoutDialog.showModal();syncSceneScale();}break;
     case 'close-layout': if(!busy)layoutDialog.close();break;
     case 'add-apks': await addApks(); break;
     case 'remove-apk': { const path = button.dataset.path!; apkPaths = apkPaths.filter(p => p !== path); selectedApks.delete(path); render(); break; }
@@ -711,3 +713,5 @@ layoutDialog.addEventListener('pointerup',event=>{
  modifyLayout(draft=>{const node=sceneNode(draft,drag.section,drag.node,drag.index);if(node)node.frame=drag.next;});
 });
 layoutDialog.addEventListener('pointercancel',()=>{scenePointer=null;render();});
+
+new ResizeObserver(syncSceneScale).observe(layoutDialog);

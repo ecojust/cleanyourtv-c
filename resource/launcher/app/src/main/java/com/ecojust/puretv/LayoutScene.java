@@ -25,9 +25,10 @@ final class LayoutScene extends FrameLayout {
     private JSONObject page;
     private String section;
     private final List<AppAdapter.Holder> cards=new ArrayList<>();
+    private AppAdapter boundAdapter;
     private int columns=4;
     LayoutScene(Activity activity,FrameLayout root,RecyclerView grid,String section) {
-        super(activity);this.activity=activity;this.grid=grid;
+        super(activity);this.activity=activity;this.grid=grid;root.setBackgroundColor(Color.BLACK);
         // Detach the existing controls, retaining their listeners and live clock/network/weather state.
         String[] ids=section.equals("home")?new String[]{"clock","date","weather","wallpaper","favourites","inputs","network","settings","allApps"}:new String[]{"title","subtitle","backHome"};
         int[] resources=section.equals("home")?new int[]{R.id.clock,R.id.date,R.id.weatherLine,R.id.btnWallpaper,R.id.btnDock,R.id.btnInputs,R.id.btnWifi,R.id.btnSettings,R.id.allAppsHint}:new int[]{R.id.appsTitle,R.id.appsSubtitle,R.id.backHome};
@@ -56,11 +57,13 @@ final class LayoutScene extends FrameLayout {
         if(bg.has("image")){String image=bg.optString("image");byte[] bytes=Base64.decode(image.substring(image.indexOf(',')+1),Base64.NO_WRAP);background.setImageBitmap(BitmapFactory.decodeByteArray(bytes,0,bytes.length));}
         addView(background,0,new FrameLayout.LayoutParams(-1,-1));
         grid.setLayoutManager(new CatalogueGrid(activity,columns));
-        for(AppAdapter.Holder holder:cards)removeView(holder.itemView);cards.clear();
-        AppAdapter adapter=(AppAdapter)grid.getAdapter();
-        if(adapter!=null)for(int i=0;i<adapter.getItemCount();i++){AppAdapter.Holder holder=adapter.sceneHolder(this,i);cards.add(holder);addView(holder.itemView);}
-
+        rebuildCards();
         requestLayout();
+    }
+    private void rebuildCards() {
+        for(AppAdapter.Holder holder:cards)removeView(holder.itemView);cards.clear();
+        boundAdapter=(AppAdapter)grid.getAdapter();
+        if(boundAdapter!=null)for(int i=0;i<boundAdapter.getItemCount();i++){AppAdapter.Holder holder=boundAdapter.sceneHolder(this,i);cards.add(holder);addView(holder.itemView);}
     }
     private void place(View view,JSONObject spec,float scale,int left,int top) {
         view.setVisibility(spec==null || !spec.optBoolean("visible",true)?GONE:VISIBLE);if(spec==null)return;
@@ -73,6 +76,7 @@ final class LayoutScene extends FrameLayout {
         if(page==null){super.onLayout(changed,l,t,r,b);return;}
         float scale=Math.min(getWidth()/960f,getHeight()/540f);int left=Math.round((getWidth()-960*scale)/2),top=Math.round((getHeight()-540*scale)/2);
         grid.layout(0,0,getWidth(),getHeight());
+        if(grid.getAdapter()!=boundAdapter)rebuildCards();
         layoutCards(scale,left,top);
         JSONObject bg=page.optJSONObject("scene").optJSONObject("background");place(findViewWithTag("scene-background"),bg,scale,left,top);
         for(int i=0;i<nodes.size();i++){
