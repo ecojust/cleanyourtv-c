@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix='puretv-app-resources-') as temporary:
         aligned=temporary/(slug+'-aligned.apk')
         subprocess.run([str(args.build_tools/'zipalign'),'-f','4',str(unsigned),str(aligned)],check=True)
         apk=folder/(slug+'-'+identity['versionName']+'.apk')
-        subprocess.run([str(args.build_tools/'apksigner'),'sign','--ks',key,'--ks-key-alias','puretv','--ks-pass','env:PURETV_KEYSTORE_PASSWORD','--key-pass','env:PURETV_KEYSTORE_PASSWORD','--out',str(apk),str(aligned)],check=True)
+        subprocess.run([str(args.build_tools/'apksigner'),'sign','--v4-signing-enabled','false','--ks',key,'--ks-key-alias','puretv','--ks-pass','env:PURETV_KEYSTORE_PASSWORD','--key-pass','env:PURETV_KEYSTORE_PASSWORD','--out',str(apk),str(aligned)],check=True)
         info=apk_info(apk,args.build_tools);assert info['certificateSha256']==expected
         shutil.copyfile(root/'LICENSE',folder/'LICENSE')
         preview=folder/'docs'/cover

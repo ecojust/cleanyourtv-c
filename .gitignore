@@ -24,3 +24,6 @@ venv/
 resource/launcher/release-output/
 resource/launcher/release-metadata.json
 release-staging/
+
+# Optional incremental-install signature sidecars
+*.apk.idsig
