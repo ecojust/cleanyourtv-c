@@ -122,7 +122,6 @@ pub enum LauncherRequest {
     GetLayout,
     ApplyLayout { layout: serde_json::Value },
     ResetLayout,
-    CapturePreview,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]

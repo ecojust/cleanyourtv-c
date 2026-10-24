@@ -13,8 +13,6 @@ export interface SystemInfo {
   cpu: string | null; cpuAbi: string | null; memoryTotalBytes: number | null; memoryAvailableBytes: number | null;
   storageTotalBytes: number | null; storageAvailableBytes: number | null; displayResolution: string | null; uptimeSeconds: number | null; queriedAt: number;
 }
-export interface LiveStatus { running: boolean; paused: boolean; serial: string | null; userId: number | null; targetFps: number; actualFps: number; frames: number; timestampMs: number | null; message: string }
-export interface LiveFrame { serial: string; userId: number; image: string; timestampMs: number }
 export interface Snapshot {
   installResults?: {path: string; success: boolean; message: string}[];
   systemInfo?: SystemInfo | null;
@@ -34,7 +32,6 @@ export type Request =
   | { action: 'setHome'; component: string };
 export const emptySnapshot = (): Snapshot => ({ revision: 0, adbPath: null, adbAvailable: false, device: null, packages: [], launchers: [], defaultHome: null, originalHome: null, history: [], message: '' });
 export interface LayoutEntry { action?: string; packageName?: string; label?: string; icon?: string; color?: string }
-export interface LauncherLayout { version: 1; columns: number; home: LayoutEntry[]; apps: LayoutEntry[] }
+export interface LauncherLayout { version: 2; home: {columns:number;items:LayoutEntry[]}; apps: {columns:number;items:LayoutEntry[]} }
 export interface LauncherLayoutInfo { serial?: string; userId?: number; supported: boolean; component?: string; message?: string; custom?: boolean; layout?: LauncherLayout; apps?: {packageName: string; label: string; iconPng?: string}[] }
-export interface LauncherPreview { serial?: string; userId?: number; component: string; image: string; width: number; height: number; message: string }
-export type LauncherRequest = { action:'getLayout'|'resetLayout'|'capturePreview' } | { action:'applyLayout'; layout: LauncherLayout };
+export type LauncherRequest = { action:'getLayout'|'resetLayout' } | { action:'applyLayout'; layout: LauncherLayout };

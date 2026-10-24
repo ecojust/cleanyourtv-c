@@ -96,7 +96,7 @@ try {
     assert.equal(await p.locator('tr[data-package="com.ecojust.puretv"] .size-cell').innerText(),'未能读取');
     assert.equal(await p.locator('tr[data-package="com.android.settings"] .size-cell').innerText(),'未能读取');
     await p.locator('tr[data-package="com.ecojust.webtv"] [data-act="details"]').click();
-    assert.match(await p.locator('dialog').innerText(),/不含私有数据和缓存/);
+    assert.match(await p.locator('dialog.modal').innerText(),/不含私有数据和缓存/);
   });
   const longState = snapshot();
   longState.packages = Array.from({length:120},(_,i)=>({packageName:`com.example.app${i}`,label:`应用 ${i}`,installed:true,system:false,enabled:true,protectedReason:null,apkSizeBytes:1048576}));
@@ -139,67 +139,75 @@ try {
     await nav(p,'apps');
     await shot(p,'scrolling-lists');
   },longState,{apkPaths:Array.from({length:40},(_,i)=>`/tmp/application-${i}.apk`)});
-  await check('unsupported launchers are not editable but current HOME can be previewed', async p => {
-    await nav(p,'launchers'); await act(p,'read-layout').click(); await settled(p);
-    await p.locator('.layout-editor').getByText('此启动器尚未接入可验证的布局接口，请使用它自身的设置。').waitFor();
-    assert.equal(await act(p,'apply-layout').count(),0);
-    await act(p,'capture-launcher').click();await settled(p);
-    await p.locator('.launcher-cover img[src^="data:image/png;base64,"]').waitFor();
-    assert.deepEqual(await p.evaluate(()=>window.__launcherRequests.map(r=>r.action)),['getLayout','capturePreview']);
+  await check('unsupported launcher has no layout button or screenshot controls',async p=>{
+    await nav(p,'launchers');await settled(p);
+    assert.equal(await act(p,'open-layout').count(),0);assert.equal(await act(p,'capture-launcher').count(),0);
+    assert.equal(await p.locator('.launcher-card-background').count(),0,'No cover unless user provides an image');
   });
   const customHome = snapshot(); customHome.defaultHome='com.ecojust.puretv/.MainActivity';
   customHome.launchers.forEach(l=>l.isDefault=l.component===customHome.defaultHome);
-  await check('supported current launcher edits real layout, icons and app order only on apply', async p => {
-    await nav(p,'launchers');await act(p,'read-layout').click();await settled(p);
-    await act(p,'apply-layout').waitFor();
+  await check('current launcher opens a global canvas with independent home and apps layouts',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
+    await p.locator('.layout-modal[open] .tv-canvas').waitFor();
     await p.locator('[name="layoutColumns"]').fill('3');await p.locator('[name="layoutColumns"]').dispatchEvent('change');
-    await p.locator('[data-act="layout-up"][data-index="1"]').click();
-    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home[0].action,'files');
+    await p.locator('[data-layout-tile="1"]').click();await act(p,'layout-up').click();
     await p.locator('[data-layout-label="0"]').fill('文件入口');await p.locator('[data-layout-label="0"]').dispatchEvent('change');
-    await p.locator('[data-layout-icon="0"]').selectOption('video');
     await p.locator('[name="layoutApp"]').selectOption('com.ecojust.webtv');await act(p,'layout-add').click();
-    draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.columns,3);assert.equal(draft.home.length,4);assert.equal(draft.home[0].icon,'video');
-    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),1,'Draft edits do not touch the TV');
+    let draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.columns,3);assert.equal(draft.apps.columns,3);assert.equal(draft.home.items[0].action,'files');
+    assert.doesNotMatch(await p.locator('[name="layoutApp"]').innerText(),/系统启动器|未安装应用/);
+    await act(p,'layout-apps').click();await p.locator('[name="layoutColumns"]').fill('5');await p.locator('[name="layoutColumns"]').dispatchEvent('change');
+    await act(p,'layout-home').click();assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'3');
     await act(p,'apply-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='applyLayout'));await settled(p);
-    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));
-    assert.equal(applied.layout.columns,3);assert.equal(applied.layout.home[0].label,'文件入口');
-    await act(p,'import-layout').click();assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,2);
-    assert.equal(await p.evaluate(()=>window.__launcherRequests.length),2,'Import is local until applied');
+    const applied=await p.evaluate(()=>window.__launcherRequests.find(r=>r.action==='applyLayout'));assert.equal(applied.layout.apps.columns,5);assert.equal(applied.layout.home.items[0].label,'文件入口');
+    await act(p,'import-layout').click();assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).home.columns,2);
     await act(p,'reset-layout').click();await p.locator('#confirm-operation').click();await p.waitForFunction(()=>window.__launcherRequests.some(r=>r.action==='resetLayout'));await settled(p);
-    assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).columns,4);
-    await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'apply_launcher_layout',snapshot:value,launcherResult:{supported:true,component:value.defaultHome,layout:{version:1,columns:5,home:[{action:'music',icon:'music'}],apps:[]},apps:[]}}),customHome);
-    assert.equal(await p.locator('[name="layoutColumns"]').inputValue(),'5','Agent layout changes reach the editor');
+    assert.equal(JSON.parse(await p.locator('[name="layoutJson"]').inputValue()).home.columns,4);
     const another=structuredClone(customHome);another.device.serial='192.168.1.51:5555';another.revision=1;
     await p.evaluate(value=>window.__emitMcp('mcp-operation',{running:false,tool:'connect',snapshot:value}),another);
-    assert.equal(await act(p,'apply-layout').count(),0,'Capabilities from another TV must not enable writes');
+    assert.equal(await p.locator('.layout-modal[open]').count(),0,'Device changes close the canvas');
+  },customHome,{layoutSupported:true});
+  await check('canvas drag reorders cards and cancel never writes to TV',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();
+    await p.locator('[data-layout-tile="0"]').dragTo(p.locator('[data-layout-tile="2"]'));
+    const draft=JSON.parse(await p.locator('[name="layoutJson"]').inputValue());assert.equal(draft.home.items[2].action,'music');
+    await act(p,'close-layout').click();assert.equal(await p.locator('.layout-modal[open]').count(),0);
+    assert.equal(await p.evaluate(()=>window.__launcherRequests.filter(r=>r.action==='applyLayout').length),0);
   },customHome,{layoutSupported:true});
   await check('system information is visible at home and connection controls stay only there', async p => {
     assert.match(await p.locator('.device-info').innerText(),/Test Maker/);
     assert.match(await p.locator('.device-info').innerText(),/4.0 GiB/);
     assert.match(await p.locator('.device-info').innerText(),/32.0 GiB/);
     assert.equal(await p.locator('[data-page="install"]').count(),0,'No separate install navigation');
-    for(const page of ['apps','launchers','install','history','live']) {
+    for(const page of ['apps','launchers','install','history']) {
       await nav(p,page);assert.equal(await p.locator('.connection-strip').count(),0,`No connection form on ${page}`);
       assert.match(await p.locator('.device-badge').innerText(),/已连接/);
     }
     await nav(p,'connect');assert.equal(await p.locator('[name="host"]').count(),1);
   });
-  await check('live screen receives frames without rebuilding controls and supports pause and stop', async p => {
-    await nav(p,'live');await act(p,'start-live').click();
-    await p.waitForFunction(()=>window.__liveRequests.some(r=>r.action==='start'));
-    await p.evaluate(()=>window.__emitMcp('live-frame',{frame:{serial:'192.168.1.50:5555',userId:0,image:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZCksAAAAASUVORK5CYII=',timestampMs:123},status:{running:true,paused:false,serial:'192.168.1.50:5555',userId:0,targetFps:1,actualFps:1,frames:1,timestampMs:123,message:'正在显示电视画面'}}));
-    assert.equal(await p.locator('#live-image').isVisible(),true);
-    assert.match(await p.locator('#live-status').innerText(),/1 帧/);
-    await act(p,'pause-live').click();assert.equal(await p.locator('#live-image').isVisible(),true);
-    await act(p,'stop-live').click();assert.equal(await p.locator('#live-image').isVisible(),false);
-    assert.equal(await p.locator('#live-empty').isVisible(),true);
+  await check('removed live view and pairing are absent',async p=>{
+    assert.equal(await p.locator('[data-page="live"]').count(),0);assert.equal(await p.locator('[name="pairCode"]').count(),0);assert.equal(await act(p,'go-live').count(),0);
   });
+  await check('launcher APK installs on the same page and covers are optional backgrounds',async p=>{
+    await nav(p,'launchers');await settled(p);await act(p,'add-launcher').click();
+    assert.equal(await p.locator('.pending-launcher').count(),1);assert.equal(await p.locator('.pending-launcher .launcher-card-background').count(),1);
+    await act(p,'install-launcher').click();await confirmOperation(p);assert.equal(await p.locator('.pending-launcher').count(),0);
+    assert.equal(await p.locator('[data-page="launchers"]').getAttribute('aria-current'),'page');
+    await act(p,'launcher-cover').click();assert.equal(await p.locator('.launcher-card-background').count(),1);
+    await act(p,'remove-launcher-cover').click();assert.equal(await p.locator('.launcher-card-background').count(),0);
+    await p.setViewportSize({width:1000,height:700});
+    assert.equal(await p.locator('.launcher-card').evaluateAll(cards=>cards.every(card=>[...card.querySelectorAll('button')].every(button=>{const c=card.getBoundingClientRect(),b=button.getBoundingClientRect();return b.left>=c.left && b.right<=c.right && b.bottom<=c.bottom;}))),true,'Card buttons stay inside cards');
+  },snapshot(),{thumbnail:true});
+  await check('one pending APK installs independently and leaves the other rows',async p=>{
+    await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
+    await p.locator('.apk-item').nth(1).locator('[data-act="install-one-apk"]').click();await confirmOperation(p);
+    assert.deepEqual((await requests(p)).find(r=>r.action==='install').paths,['/tmp/second.apk']);assert.equal(await p.locator('.apk-item').count(),1);assert.match(await p.locator('.apk-item').innerText(),/first.apk/);
+  },snapshot(),{apkPaths:['/tmp/first.apk','/tmp/second.apk']});
   await check('pending APKs install inside app management and new apps become layout choices', async p => {
     await nav(p,'install');await act(p,'add-apks').click();await p.locator('.apk-item').first().waitFor();
     await act(p,'install-apks').click();await confirmOperation(p);
     assert.equal(await p.locator('.apk-item').count(),0,'Successful installs leave the pending queue');
     await act(p,'go-apps').click();assert.equal(await box(p,'com.imported.app').count(),1);
-    await nav(p,'launchers');await p.locator('[name="layoutApp"]').waitFor();
+    await nav(p,'launchers');await settled(p);await act(p,'open-layout').click();await p.locator('[name="layoutApp"]').waitFor();
     assert.match(await p.locator('[name="layoutApp"]').innerText(),/新安装应用/);
   },customHome,{layoutSupported:true});
   await check('partial installation removes only successful paths and retains failures', async p => {
@@ -220,11 +228,11 @@ try {
     assert.equal(await act(p,'connect').isDisabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),0,'Startup must not download');
     await act(p,'download-adb').click();
-    assert.match(await p.locator('dialog').innerText(),/37\.0\.1/);
-    assert.match(await p.locator('dialog').innerText(),/macOS/);
-    assert.match(await p.locator('dialog').innerText(),/15\.4 MiB/);
-    assert.match(await p.locator('dialog').innerText(),/dl\.google\.com/);
-    assert.match(await p.locator('dialog').innerText(),/mirrors\.cloud\.tencent\.com/);
+    assert.match(await p.locator('dialog.modal').innerText(),/37\.0\.1/);
+    assert.match(await p.locator('dialog.modal').innerText(),/macOS/);
+    assert.match(await p.locator('dialog.modal').innerText(),/15\.4 MiB/);
+    assert.match(await p.locator('dialog.modal').innerText(),/dl\.google\.com/);
+    assert.match(await p.locator('dialog.modal').innerText(),/mirrors\.cloud\.tencent\.com/);
     assert.equal(await p.locator('#platform-tools-license').isChecked(),false);
     assert.equal(await p.locator('#confirm-platform-tools').isDisabled(),true);
     await act(p,'platform-tools-license').click();
@@ -272,9 +280,9 @@ try {
     assert.match(await p.locator('.adb-panel').innerText(),/先断开电视/);
     await act(p,'disconnect').click(); await settled(p);
     await act(p,'download-adb').click();
-    assert.match(await p.locator('dialog').innerText(),/优先验证并使用已下载工具/);
-    assert.match(await p.locator('dialog').innerText(),/校验失败时会重新下载并修复/);
-    assert.match(await p.locator('dialog').innerText(),/0 MiB/);
+    assert.match(await p.locator('dialog.modal').innerText(),/优先验证并使用已下载工具/);
+    assert.match(await p.locator('dialog.modal').innerText(),/校验失败时会重新下载并修复/);
+    assert.match(await p.locator('dialog.modal').innerText(),/0 MiB/);
     await acceptTools(p); await settled(p);
     assert.equal(await act(p,'connect').isEnabled(),true);
     assert.equal(await p.evaluate(()=>window.__toolsInstalls),1);
@@ -308,8 +316,8 @@ try {
   await check('cancel confirmation sends no mutation; confirmed disable sends exact target', async p => {
     await nav(p,'apps'); await box(p,'com.vendor.recommendations').check();
     await act(p,'disable').click();
-    assert.match(await p.locator('dialog').innerText(),/192\.168\.1\.50:5555/);
-    assert.match(await p.locator('dialog').innerText(),/com\.vendor\.recommendations/);
+    assert.match(await p.locator('dialog.modal').innerText(),/192\.168\.1\.50:5555/);
+    assert.match(await p.locator('dialog.modal').innerText(),/com\.vendor\.recommendations/);
     await p.getByRole('button',{name:'取消',exact:true}).click();
     assert.deepEqual(await requests(p),[]);
     await act(p,'disable').click(); await confirmOperation(p);
@@ -329,8 +337,8 @@ try {
     await p.getByRole('checkbox',{name:'选择 custom music.apk',exact:true}).check();
     await shot(p,'import-apks');
     await act(p,'install-apks').click();
-    assert.match(await p.locator('dialog').innerText(),/C:\\我的安装包\\custom music\.apk/);
-    assert.doesNotMatch(await p.locator('dialog').innerText(),/second\.apk/);
+    assert.match(await p.locator('dialog.modal').innerText(),/C:\\我的安装包\\custom music\.apk/);
+    assert.doesNotMatch(await p.locator('dialog.modal').innerText(),/second\.apk/);
     assert.deepEqual(await requests(p),[]);
     await confirmOperation(p);
     assert.deepEqual(await requests(p),[{action:'install',paths:['C:\\我的安装包\\custom music.apk']}]);
@@ -363,15 +371,10 @@ try {
     assert.equal(await p.locator('.notice.success').count(),0);
     assert.match(await p.locator('.notice').innerText(),/失败 1 项/);
   },snapshot(),{partialFailure:true});
-  await check('host validation, pairing code cleanup and no browser persistence', async p => {
+  await check('host validation and no browser persistence', async p => {
     await p.locator('[name="host"]').fill('192.168.1.50;reboot'); await act(p,'connect').click();
     assert.deepEqual(await requests(p),[]);
     assert.match(await p.locator('.notice.error').innerText(),/有效/);
-    await p.locator('[name="pairHost"]').fill('192.168.1.50');
-    await p.locator('[name="pairPort"]').fill('37001'); await p.locator('[name="pairCode"]').fill('123456');
-    await act(p,'pair').click(); await settled(p);
-    assert.deepEqual((await requests(p))[0],{action:'pair',host:'192.168.1.50',port:37001,code:'123456'});
-    assert.equal(await p.locator('[name="pairCode"]').inputValue(),'');
     assert.equal(await p.evaluate(() => localStorage.length + sessionStorage.length),0);
   });
   await check('scan disables competing actions and exposes cancellation', async p => {

@@ -23,25 +23,28 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 
-/** Data-only apps.json override. It never accepts shell commands, intents or remote executable code. */
+/** Data-only layout.json override. It never accepts shell commands, intents or remote executable code. */
 final class LauncherLayout {
     static final int LIMIT = 48 * 1024;
     final JSONObject json;
-    final int columns;
+    int columns(String section) { return json.optJSONObject(section).optInt("columns",4); }
     LauncherLayout(JSONObject source) throws Exception {
-        keys(source, "version", "columns", "home", "apps");
-        if (!(source.opt("version") instanceof Integer) || source.getInt("version") != 1
-                || !(source.opt("columns") instanceof Integer) || source.getInt("columns") < 1 || source.getInt("columns") > 6)
-            throw new IllegalArgumentException("Unsupported apps.json version or columns");
-        validateEntries(source.getJSONArray("home"), 1, 24);
-        validateEntries(source.getJSONArray("apps"), 0, 100);
-        if (source.toString().getBytes(StandardCharsets.UTF_8).length > LIMIT) throw new IllegalArgumentException("apps.json is too large");
-        json = new JSONObject(source.toString()); columns = json.getInt("columns");
+        keys(source, "version", "home", "apps");
+        if (!(source.opt("version") instanceof Integer) || source.getInt("version") != 2)
+            throw new IllegalArgumentException("Unsupported layout.json version");
+        for (String section : Arrays.asList("home","apps")) {
+            JSONObject page=source.getJSONObject(section); keys(page,"columns","items");
+            if (!(page.opt("columns") instanceof Integer) || page.getInt("columns")<1 || page.getInt("columns")>6)
+                throw new IllegalArgumentException("Invalid page columns");
+            validateEntries(page.getJSONArray("items"),0,section.equals("home")?24:100);
+        }
+        if (source.toString().getBytes(StandardCharsets.UTF_8).length > LIMIT) throw new IllegalArgumentException("layout.json is too large");
+        json = new JSONObject(source.toString());
     }
     private static void keys(JSONObject value, String... allowed) {
         Set<String> names = new HashSet<>(Arrays.asList(allowed));
         java.util.Iterator<String> iterator = value.keys();
-        while (iterator.hasNext()) if (!names.contains(iterator.next())) throw new IllegalArgumentException("Unknown apps.json field");
+        while (iterator.hasNext()) if (!names.contains(iterator.next())) throw new IllegalArgumentException("Unknown layout.json field");
     }
     static boolean validPackage(String value) { return value.length() <= 255 && value.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"); }
     private static void validateEntries(JSONArray list, int min, int max) throws Exception {
@@ -63,27 +66,34 @@ final class LauncherLayout {
     private static byte[] read(InputStream input) throws Exception {
         try (InputStream stream = input; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] bytes = new byte[4096]; int count;
-            while ((count = stream.read(bytes)) != -1) { if (out.size() + count > LIMIT) throw new IllegalArgumentException("apps.json is too large"); out.write(bytes,0,count); }
+            while ((count = stream.read(bytes)) != -1) { if (out.size() + count > LIMIT) throw new IllegalArgumentException("layout.json is too large"); out.write(bytes,0,count); }
             return out.toByteArray();
         }
     }
-    private static File file(Context ctx) { return new File(ctx.getFilesDir(), "apps.json"); }
+    private static File file(Context ctx) { return new File(ctx.getFilesDir(), "layout.json"); }
     static LauncherLayout override(Context ctx) {
         try {
             File privateFile = file(ctx);
             if (privateFile.exists() || new File(privateFile + ".bak").exists())
                 return new LauncherLayout(new JSONObject(new String(read(new AtomicFile(privateFile).openRead()), StandardCharsets.UTF_8)));
-            File external = ctx.getExternalFilesDir(null);
-            File imported = external == null ? null : new File(external,"apps.json");
-            if (imported != null && imported.isFile()) return new LauncherLayout(new JSONObject(new String(read(new java.io.FileInputStream(imported)),StandardCharsets.UTF_8)));
+            File external=ctx.getExternalFilesDir(null);File imported=external==null?null:new File(external,"layout.json");
+            if(imported!=null && imported.isFile())return new LauncherLayout(new JSONObject(new String(read(new java.io.FileInputStream(imported)),StandardCharsets.UTF_8)));
         } catch (Exception ignored) { /* An invalid override never breaks Home. */ }
         return null;
     }
     static LauncherLayout defaults(Context ctx) throws Exception {
-        return new LauncherLayout(new JSONObject(new String(read(ctx.getAssets().open("apps.json")), StandardCharsets.UTF_8)));
+        return new LauncherLayout(new JSONObject(new String(read(ctx.getAssets().open("layout.json")), StandardCharsets.UTF_8)));
     }
     static void apply(Context ctx, JSONObject json) throws Exception {
         LauncherLayout layout = new LauncherLayout(json);
+        for(String section:Arrays.asList("home","apps")) {
+            JSONArray items=layout.json.getJSONObject(section).getJSONArray("items");
+            for(int i=0;i<items.length();i++) {
+                JSONObject item=items.getJSONObject(i);
+                if(item.has("packageName") && !isUserApp(ctx,item.getString("packageName")))
+                    throw new IllegalArgumentException("Only installed user applications may be added");
+            }
+        }
         AtomicFile target = new AtomicFile(file(ctx)); FileOutputStream output = target.startWrite();
         try { output.write(layout.json.toString().getBytes(StandardCharsets.UTF_8)); target.finishWrite(output); }
         catch (Exception error) { target.failWrite(output); throw error; }
@@ -91,13 +101,15 @@ final class LauncherLayout {
     }
     static void reset(Context ctx) {
         new AtomicFile(file(ctx)).delete();
-        // Reset the explicit external apps.json override too; leave config.json and wallpaper intact.
-        File directory = ctx.getExternalFilesDir(null); File external = directory == null ? null : new File(directory,"apps.json");
-        if (external != null && external.exists() && !external.delete()) throw new IllegalStateException("Cannot remove external apps.json");
+        File directory=ctx.getExternalFilesDir(null);
+        if(directory!=null) for(String name:Arrays.asList("layout.json")) {
+            File external=new File(directory,name);
+            if(external.exists() && !external.delete()) throw new IllegalStateException("Cannot remove external layout");
+        }
         MainActivity.reloadLayoutFromManager();
     }
     List<AppAdapter.Entry> entries(Context ctx, String section) {
-        List<AppAdapter.Entry> result = new ArrayList<>(); JSONArray list = json.optJSONArray(section);
+        List<AppAdapter.Entry> result = new ArrayList<>(); JSONArray list = json.optJSONObject(section).optJSONArray("items");
         for (int i=0; i<list.length(); i++) {
             JSONObject item = list.optJSONObject(i); String action = item.optString("action","app");
             AppAdapter.Entry base = null;
@@ -119,11 +131,18 @@ final class LauncherLayout {
         }
         return result;
     }
+    static boolean isUserApp(Context ctx,String packageName) {
+        try {
+            android.content.pm.ApplicationInfo app=ctx.getPackageManager().getApplicationInfo(packageName,0);
+            if((app.flags & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP))!=0 || (app.flags & android.content.pm.ApplicationInfo.FLAG_INSTALLED)==0 || !app.enabled) return false;
+            return ctx.getPackageManager().getLeanbackLaunchIntentForPackage(packageName)!=null || ctx.getPackageManager().getLaunchIntentForPackage(packageName)!=null;
+        } catch(Exception ignored) {return false;}
+    }
     static JSONArray installedApps(Context ctx) throws Exception {
         TreeMap<String,ResolveInfo> found = new TreeMap<>();
         for (String category : Arrays.asList(Intent.CATEGORY_LEANBACK_LAUNCHER,Intent.CATEGORY_LAUNCHER)) {
             for (ResolveInfo info : ctx.getPackageManager().queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category),0)) {
-                if (info.activityInfo != null) found.put(info.activityInfo.packageName,info);
+                if (info.activityInfo != null && isUserApp(ctx,info.activityInfo.packageName)) found.put(info.activityInfo.packageName,info);
             }
         }
         JSONArray result = new JSONArray();

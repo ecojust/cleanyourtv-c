@@ -85,10 +85,10 @@ impl Runner for FakeRunner {
                             if !tv.layout_provider {return Ok(Output{code:1,text:"No content provider".into()})}
                             use base64::Engine;
                             let method=&a[a.iter().position(|arg|arg=="--method").unwrap()+1];
-                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/apps.json")).unwrap();
+                            let defaults:serde_json::Value=serde_json::from_str(include_str!("../../../../launcher/app/src/main/assets/layout.json")).unwrap();
                             if method=="apply" {let arg=&a[a.iter().position(|arg|arg=="--arg").unwrap()+1];tv.launcher_layout=Some(serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(arg).unwrap()).unwrap());}
                             else if method=="reset" {tv.launcher_layout=None;}
-                            let value=serde_json::json!({"supported":true,"version":1,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
+                            let value=serde_json::json!({"supported":true,"version":2,"custom":tv.launcher_layout.is_some(),"layout":tv.launcher_layout.clone().unwrap_or(defaults),"apps":[]});
                             format!("Bundle[{{result={}}}]",base64::engine::general_purpose::STANDARD.encode(value.to_string()))
                         },
                         "cat" => if a[1]=="/proc/meminfo" {"MemTotal: 4096 kB\nMemAvailable: 1024 kB".into()}else{"3600.25 20.0".into()},
@@ -941,7 +941,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         false
     );
     let layout: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../launcher/app/src/main/assets/apps.json"
+        "../../../../launcher/app/src/main/assets/layout.json"
     ))
     .unwrap();
     assert!(manager
@@ -962,7 +962,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
         .unwrap();
     assert_eq!(status["supported"], true);
     let mut draft = layout;
-    draft["columns"] = serde_json::json!(3);
+    draft["home"]["columns"] = serde_json::json!(3);
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::ApplyLayout {
@@ -974,7 +974,7 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     assert_eq!(
         manager
             .execute_launcher(LauncherRequest::GetLayout)
-            .unwrap()["layout"]["columns"],
+            .unwrap()["layout"]["home"]["columns"],
         3
     );
     assert_eq!(
@@ -985,32 +985,6 @@ fn launcher_customization_requires_a_verified_current_adapter_and_reads_back_cha
     );
     assert_eq!(manager.snapshot().history[0].action, "启动器布局");
 }
-#[test]
-fn launcher_preview_returns_png_and_removes_temporary_files() {
-    let (mut manager, tv) = fixture();
-    connect(&mut manager);
-    let preview = manager
-        .execute_launcher(crate::LauncherRequest::CapturePreview)
-        .unwrap();
-    assert!(preview["image"]
-        .as_str()
-        .unwrap()
-        .starts_with("data:image/png;base64,"));
-    assert_eq!(preview["width"], 1);
-    assert_eq!(
-        fs::read_dir(manager.data_dir.join("previews"))
-            .unwrap()
-            .count(),
-        0
-    );
-    assert!(tv
-        .lock()
-        .unwrap()
-        .calls
-        .iter()
-        .any(|args| args.iter().any(|a| a == "rm")));
-}
-
 #[test]
 fn connected_device_system_info_is_available_and_cleared_on_disconnect() {
     let (mut manager, _) = fixture();

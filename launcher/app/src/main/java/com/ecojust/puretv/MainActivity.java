@@ -245,7 +245,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         LauncherLayout layout=LauncherLayout.override(this);
         String signature=layout==null?"":layout.json.toString();
         if (!signature.equals(layoutSignature)) {
-            layoutSignature=signature;layoutColumns=layout==null?COLUMNS:layout.columns;
+            layoutSignature=signature;layoutColumns=layout==null?COLUMNS:layout.columns("home");
             adapter.clear();
             adapter=new AppAdapter(this,this,layoutColumns,layout==null?AppAdapter.homeEntries():layout.entries(this,"home"));
             grid.setLayoutManager(new GridLayoutManager(this,layoutColumns));grid.setAdapter(adapter);

@@ -20,7 +20,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
         setContentView(R.layout.activity_apps);
         LauncherLayout layout=LauncherLayout.override(this);
         layoutSignature=layout==null?"":layout.json.toString();
-        columns = layout==null?(getResources().getConfiguration().screenWidthDp >= 800 ? 4 : 3):layout.columns;
+        columns = layout==null?(getResources().getConfiguration().screenWidthDp >= 800 ? 4 : 3):layout.columns("apps");
         grid = findViewById(R.id.appsGrid);
         grid.setLayoutManager(new GridLayoutManager(this, columns));
         grid.setHasFixedSize(true);
@@ -46,7 +46,7 @@ public class AppsActivity extends Activity implements AppAdapter.TileListener {
         super.onResume();
         LauncherLayout layout=LauncherLayout.override(this);String signature=layout==null?"":layout.json.toString();
         if(!signature.equals(layoutSignature)) {
-            layoutSignature=signature;columns=layout==null?(getResources().getConfiguration().screenWidthDp>=800?4:3):layout.columns;
+            layoutSignature=signature;columns=layout==null?(getResources().getConfiguration().screenWidthDp>=800?4:3):layout.columns("apps");
             adapter.clear();adapter=new AppAdapter(this,this,columns,layout==null?AppAdapter.applicationEntries():layout.entries(this,"apps"));
             grid.setLayoutManager(new GridLayoutManager(this,columns));grid.setAdapter(adapter);CardFocus.request(grid,focusedPosition);
         }
